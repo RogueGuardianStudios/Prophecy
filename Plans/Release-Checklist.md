@@ -88,6 +88,22 @@ Already covered by `MovementTests.Movement_IsIdenticalAt30_60_And144Fps` for mov
 guarantee has to hold for combat once `AttackTimeline` exists, and the check belongs in the test
 suite rather than in someone's memory.
 
+### `ImmediatePhysics` on every target platform
+
+Combat hit geometry uses `UnityEngine.LowLevelPhysics.ImmediatePhysics` (chosen 2026-07-29 over
+hand-rolled AABBs, for rotation). It is a built-in engine module backed by per-platform native
+PhysX, so it should ship everywhere Unity does — but this was validated **only on Windows**, and
+no console playback engines are installed on the dev machine.
+
+**Done looks like:** `ImmediatePhysicsProbeTests` run green on each shipping target, not just the
+editor.
+
+**Separately:** `RepeatedCallsAreIdentical` proves same-binary repeatability, **not** cross-platform
+determinism — Switch 2 is ARM, the others x86-64, and PhysX contact generation is floating point.
+Harmless for single-player. If replays, ghost data or deterministic netcode ever become a goal,
+hit resolution must move back to arithmetic we control. Movement is unaffected either way: it
+never touches PhysX.
+
 ### The sim must still run headless
 
 `SimArchitectureGateTests` enforces it structurally, but confirm a real headless run before

@@ -84,6 +84,18 @@ HopeFell learned this the expensive way — its `ClipEventChannel` carries a **V
 - Hit windows, parry windows, i-frames, cancel windows → **authored tick counts** on a timeline.
 - Animation event channels → VFX, SFX, footsteps, visual sync **only**.
 
+### Hitboxes are sim-side AABBs, not trigger colliders
+
+Design bible §6.1 and §7 both say "trigger-collider hitboxes". **They are superseded**, agreed
+2026-07-29. Trigger colliders put hit resolution outside the fixed tick and need a live
+`PhysicsScene`, which would break the headless contract and make combat timing untestable — the
+same reasoning that gave the sim its own `CollisionWorld`, and the same mistake HopeFell already
+paid for once with animation events.
+
+Hits resolve as plain AABB overlaps inside the tick. Presentation may mirror them as gizmos for
+debugging; it must never own the decision. The acceptance test is unchanged: **identical combat
+results at 30, 60 and 144 fps.**
+
 ### Ability modules never reference each other
 
 Modules talk only through the controller, which arbitrates via **action locks** (`LockFlags { Move, Turn, Jump, Attack, Defend }` + priority + cancel window). Adding a new module must not require editing an existing one — that's the architecture test. Cancel windows read sim elapsed ticks, never frame time.

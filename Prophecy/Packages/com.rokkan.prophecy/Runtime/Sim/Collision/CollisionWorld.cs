@@ -289,6 +289,81 @@ namespace Rokkan.Prophecy.Sim.Collision
             return true;
         }
 
+        /// <summary>
+        /// True if level geometry blocks the straight line from <paramref name="from"/> to
+        /// <paramref name="to"/> — "is there a wall between me and you".
+        ///
+        /// <para><b>Why this lives here rather than in the hit system.</b> Combat hit volumes are
+        /// resolved with <c>ImmediatePhysics</c>, which knows nothing about the level; the baked
+        /// solids in this class are the project's single answer to "what is solid". Rather than
+        /// keep a second copy of the geometry for cover checks, the hit system asks this class a
+        /// different question about the same data. One source of truth, two queries.</para>
+        ///
+        /// <para>Only <see cref="SolidKind.Solid"/> occludes. One-way and pass-through platforms
+        /// are floors — a thin slab underfoot should not shield anyone from a sword swung across
+        /// it, and treating them as cover would make every platform a bizarre safe spot.</para>
+        ///
+        /// <para>Whether a given attack respects cover at all is per-attack data, not a property
+        /// of the world: a spear thrust through a grate should stop, an expanding shockwave should
+        /// not. This only answers the geometric question.</para>
+        /// </summary>
+        public bool IsOccluded(Vector2 from, Vector2 to)
+        {
+            var delta = to - from;
+
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+                if (s.Kind != SolidKind.Solid) continue;
+
+                if (SegmentHitsBox(from, delta, s.Box)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Slab test: clip the segment against each axis' span in turn and see whether any overlap
+        /// survives. Parametrised on [0,1] so <paramref name="delta"/> carries the length — the
+        /// segment stops at the target rather than running to infinity, which is the difference
+        /// between "a wall is in the way" and "a wall exists somewhere along that bearing".
+        /// </summary>
+        private static bool SegmentHitsBox(Vector2 origin, Vector2 delta, in Aabb box)
+        {
+            float enter = 0f;
+            float exit = 1f;
+
+            if (!ClipAxis(origin.x, delta.x, box.Min.x, box.Max.x, ref enter, ref exit)) return false;
+            if (!ClipAxis(origin.y, delta.y, box.Min.y, box.Max.y, ref enter, ref exit)) return false;
+
+            return true;
+        }
+
+        private static bool ClipAxis(float origin, float delta, float min, float max,
+                                     ref float enter, ref float exit)
+        {
+            // Parallel to this axis: it can only ever hit if it already lies inside the span.
+            // Strict comparison, matching Aabb.Overlaps — grazing a face is not being blocked by it.
+            if (Mathf.Abs(delta) < 1e-8f)
+                return origin > min && origin < max;
+
+            float inverse = 1f / delta;
+            float t1 = (min - origin) * inverse;
+            float t2 = (max - origin) * inverse;
+
+            if (t1 > t2)
+            {
+                float swap = t1;
+                t1 = t2;
+                t2 = swap;
+            }
+
+            if (t1 > enter) enter = t1;
+            if (t2 < exit) exit = t2;
+
+            return enter < exit;
+        }
+
         /// <summary>The first climbable volume overlapping <paramref name="box"/>.</summary>
         public bool TryGetClimbable(in Aabb box, out Climbable climbable)
         {
