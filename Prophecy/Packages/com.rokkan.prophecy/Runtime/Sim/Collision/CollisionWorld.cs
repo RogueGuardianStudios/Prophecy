@@ -1,0 +1,173 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Rokkan.Prophecy.Sim.Collision
+{
+    /// <summary>What a solid does when something tries to move through it.</summary>
+    public enum SolidKind
+    {
+        /// <summary>Blocks from every direction.</summary>
+        Solid,
+
+        /// <summary>Blocks only downward motion, and only for a mover whose feet started at or
+        /// above the platform's top surface — so you jump up through it and land on it.</summary>
+        OneWay,
+    }
+
+    public readonly struct Solid
+    {
+        public readonly Aabb Box;
+        public readonly SolidKind Kind;
+
+        public Solid(in Aabb box, SolidKind kind)
+        {
+            Box = box;
+            Kind = kind;
+        }
+    }
+
+    /// <summary>
+    /// The sim's own collision representation, and the reason movement can obey the headless
+    /// contract at all.
+    ///
+    /// <para><b>Why not Unity physics.</b> <c>ISimSystem</c> forbids scene coupling, and
+    /// <c>Physics.CapsuleCast</c> needs a live <c>PhysicsScene</c> — so a mover built on Unity
+    /// queries could never run in a headless test. Instead the sim owns a plain list of boxes,
+    /// filled once at scene load by a presentation-side baker that reads the scene's colliders.
+    /// The bake touches Transforms, but it happens outside the tick, so the split holds.</para>
+    ///
+    /// <para>The payoff is that jump arcs, coyote windows and landing ticks become assertable in
+    /// a unit test with no scene at all — which is exactly what "lock the movement numbers"
+    /// requires. Gray box geometry is axis-aligned boxes anyway, so AABB-only costs nothing
+    /// today; slopes and rotated geometry would need this extended.</para>
+    ///
+    /// <para>Deliberately a linear scan. The gray box has tens of solids, not thousands, and a
+    /// broadphase would be unverifiable complexity at this stage. If profiling ever says
+    /// otherwise, a uniform grid slots in behind this same API.</para>
+    /// </summary>
+    public sealed class CollisionWorld
+    {
+        /// <summary>
+        /// Leaves a sliver between the mover and what it hits. Without it, a sweep lands exactly
+        /// flush and the next frame's strict-overlap test sits on the knife edge of float
+        /// equality — which shows up as intermittent stuck-in-wall or lost-grounding frames.
+        /// </summary>
+        public const float SkinWidth = 0.0001f;
+
+        private readonly List<Solid> _solids = new List<Solid>();
+
+        public int Count => _solids.Count;
+        public IReadOnlyList<Solid> Solids => _solids;
+
+        public void Add(in Aabb box, SolidKind kind = SolidKind.Solid) => _solids.Add(new Solid(box, kind));
+
+        public void Clear() => _solids.Clear();
+
+        /// <summary>True if <paramref name="box"/> strictly overlaps any Solid. One-way platforms
+        /// are ignored — you are never "inside" one.</summary>
+        public bool OverlapsAnySolid(in Aabb box)
+        {
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+                if (s.Kind != SolidKind.Solid) continue;
+                if (box.Overlaps(s.Box)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// How far <paramref name="box"/> may move horizontally before something stops it.
+        /// Returns the permitted delta (same sign as <paramref name="dx"/>, magnitude &lt;= |dx|).
+        /// One-way platforms never block horizontal motion.
+        /// </summary>
+        public float SweepHorizontal(in Aabb box, float dx, out bool hit)
+        {
+            hit = false;
+            if (Mathf.Approximately(dx, 0f)) return 0f;
+
+            float allowed = dx;
+
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+                if (s.Kind != SolidKind.Solid) continue;
+
+                // Only solids sharing vertical span can be in the way.
+                if (!box.OverlapsY(s.Box)) continue;
+
+                if (dx > 0f)
+                {
+                    // Moving right: care about solids starting at or beyond our right edge.
+                    if (s.Box.Min.x < box.Max.x) continue;
+                    float gap = s.Box.Min.x - box.Max.x - SkinWidth;
+                    if (gap < allowed) { allowed = Mathf.Max(0f, gap); hit = true; }
+                }
+                else
+                {
+                    if (s.Box.Max.x > box.Min.x) continue;
+                    float gap = s.Box.Max.x - box.Min.x + SkinWidth;
+                    if (gap > allowed) { allowed = Mathf.Min(0f, gap); hit = true; }
+                }
+            }
+
+            return allowed;
+        }
+
+        /// <summary>
+        /// How far <paramref name="box"/> may move vertically before something stops it.
+        /// Returns the permitted delta (same sign as <paramref name="dy"/>).
+        ///
+        /// <para>One-way platforms block only downward motion, and only when the mover's feet
+        /// began at or above the platform's top — that single rule gives both "jump up through
+        /// it" and "land on it". <paramref name="dropThrough"/> disables them entirely so a
+        /// deliberate drop-through can pass.</para>
+        /// </summary>
+        public float SweepVertical(in Aabb box, float dy, out bool hit, bool dropThrough = false)
+        {
+            hit = false;
+            if (Mathf.Approximately(dy, 0f)) return 0f;
+
+            float allowed = dy;
+
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+
+                if (!box.OverlapsX(s.Box)) continue;
+
+                if (s.Kind == SolidKind.OneWay)
+                {
+                    if (dropThrough || dy >= 0f) continue;          // only ever blocks a fall
+                    if (box.Min.y < s.Box.Max.y - SkinWidth) continue; // started below the surface
+                }
+
+                if (dy > 0f)
+                {
+                    if (s.Box.Min.y < box.Max.y) continue;
+                    float gap = s.Box.Min.y - box.Max.y - SkinWidth;
+                    if (gap < allowed) { allowed = Mathf.Max(0f, gap); hit = true; }
+                }
+                else
+                {
+                    if (s.Box.Max.y > box.Min.y) continue;
+                    float gap = s.Box.Max.y - box.Min.y + SkinWidth;
+                    if (gap > allowed) { allowed = Mathf.Min(0f, gap); hit = true; }
+                }
+            }
+
+            return allowed;
+        }
+
+        /// <summary>
+        /// True if something supports <paramref name="box"/> from directly below. Probes by
+        /// <paramref name="probeDistance"/> rather than testing for contact, so a mover resting
+        /// flush on ground (where strict overlap is deliberately false) still reads as grounded.
+        /// </summary>
+        public bool IsGrounded(in Aabb box, float probeDistance = 0.02f)
+        {
+            SweepVertical(box, -probeDistance, out bool hit);
+            return hit;
+        }
+    }
+}

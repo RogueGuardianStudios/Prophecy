@@ -4,7 +4,9 @@
     "references": [
         "Rokkan.Prophecy",
         "RGS.Core",
-        "Rokkan.Core"
+        "Rokkan.Core",
+        "UnityEditor.TestRunner",
+        "UnityEngine.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
