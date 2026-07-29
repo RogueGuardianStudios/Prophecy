@@ -4,6 +4,7 @@
 
 - **Design bible:** `Plans/Design-Bible.md` (the canonical spec — read before making design calls)
 - **Gray box plan:** `Plans/Gray-Box-Build-Plan.md` (proxy & gray box phase, lock-order)
+- **Release checklist:** `Plans/Release-Checklist.md` — dev-only settings that must be reverted before shipping. **Add an entry whenever you set something for convenience rather than for the player** (e.g. `runInBackground` is currently ON so play mode survives losing focus; it must ship OFF).
 
 ## ⚠️ The repo is nested one level deeper than it looks
 
