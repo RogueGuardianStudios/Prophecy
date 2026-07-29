@@ -57,12 +57,40 @@ namespace Rokkan.Prophecy.Presentation
         [Range(10f, 70f)]
         private float _fieldOfView = 28f;
 
-        [Header("Feel")]
-        [SerializeField, Tooltip("Metres the camera leads the facing direction.")]
-        private float _lookAhead = 1.8f;
+        [Header("Look-ahead")]
+        [SerializeField, Tooltip("Lanes the camera leads by at full running speed. Scales down with " +
+                                 "actual speed, so standing still leads by nothing.")]
+        private float _lookAheadLanesAtRun = 1f;
 
         [SerializeField, Tooltip("Seconds for look-ahead to swing across after a turn.")]
         private float _lookAheadSmoothTime = 0.45f;
+
+        [Header("Falling")]
+        [SerializeField, Tooltip("Lanes the camera pans down by during a long fall, so you can see " +
+                                 "what you are landing on.")]
+        private float _fallLookLanes = 1f;
+
+        [SerializeField, Tooltip("Seconds of falling before the pan begins. Long enough that ordinary " +
+                                 "hops and drops do not twitch the frame.")]
+        private float _fallLookDelay = 0.33f;
+
+        [SerializeField, Tooltip("Seconds from the pan starting to reaching full extent.")]
+        private float _fallLookRamp = 0.4f;
+
+        [Header("Dead zone & damping")]
+        [SerializeField, Tooltip("Lanes the player may move vertically before the camera follows. " +
+                                 "Above jump apex (0.70 lane) means a jump moves the frame not at all, " +
+                                 "while a sustained climb still pushes past it.")]
+        private float _verticalDeadZoneLanes = 0.8f;
+
+        [SerializeField, Tooltip("Horizontal dead zone as a fraction of screen WIDTH. In screen units " +
+                                 "rather than lanes because the visible width changes with aspect ratio, " +
+                                 "so a lane-based value would mean something different on every monitor.")]
+        [Range(0f, 0.5f)]
+        private float _horizontalDeadZone = 0.06f;
+
+        [SerializeField] private float _dampingHorizontal = 0.35f;
+        [SerializeField] private float _dampingVertical = 0.6f;
 
         [SerializeField, Tooltip("Quantise vertical framing to whole lanes, so the frame steps " +
                                  "floor by floor instead of drifting. A distinct look — try both.")]
@@ -73,6 +101,10 @@ namespace Rokkan.Prophecy.Presentation
 
         private float _lookAheadValue;
         private float _lookAheadVelocity;
+
+        private float _fallingSeconds;
+        private float _fallLookValue;
+        private float _fallLookVelocity;
 
         private bool _hasBounds;
         private float _boundsFloorY;
@@ -158,6 +190,7 @@ namespace Rokkan.Prophecy.Presentation
         {
             if (_followTarget == null) return;
 
+            TrackFalling();
             ApplyFraming();
             _followTarget.position = ResolveTargetPosition();
         }
@@ -176,10 +209,20 @@ namespace Rokkan.Prophecy.Presentation
 
             _composer.CameraDistance = CameraDistance;
 
-            // Centred on purpose — the vertical framing is carried by FocusOffsetY instead.
             var composition = _composer.Composition;
+
+            // Centred on purpose — the vertical framing is carried by FocusOffsetY instead.
             composition.ScreenPosition = new Vector2(composition.ScreenPosition.x, 0f);
+
+            // The dead zone is what makes a jump not move the camera. Cinemachine's Size is the
+            // FULL height of the band, so a half-extent above the jump apex is twice that in Size.
+            composition.DeadZone.Enabled = true;
+            composition.DeadZone.Size = new Vector2(
+                _horizontalDeadZone,
+                VisibleHeight <= 0f ? 0.2f : Mathf.Clamp01(2f * _verticalDeadZoneLanes * LaneHeight / VisibleHeight));
+
             _composer.Composition = composition;
+            _composer.Damping = new Vector3(_dampingHorizontal, _dampingVertical, _dampingHorizontal);
         }
 
         private Vector3 ResolveTargetPosition()
@@ -189,10 +232,11 @@ namespace Rokkan.Prophecy.Presentation
                 ? SpaceMapping.ToWorld(_host.CurrentPosition, space, _host.RailDepth)
                 : _followTarget.position;
 
-            int facing = _host != null && _host.Sim != null ? _host.Sim.State.Facing : 1;
-
             _lookAheadValue = Mathf.SmoothDamp(
-                _lookAheadValue, facing * _lookAhead, ref _lookAheadVelocity, _lookAheadSmoothTime);
+                _lookAheadValue, ResolveLookAhead(), ref _lookAheadVelocity, _lookAheadSmoothTime);
+
+            _fallLookValue = Mathf.SmoothDamp(
+                _fallLookValue, ResolveFallLook(), ref _fallLookVelocity, _fallLookRamp * 0.5f);
 
             float y = feet.y;
 
@@ -201,7 +245,72 @@ namespace Rokkan.Prophecy.Presentation
             if (_snapToLanes && LaneHeight > 0f)
                 y = Mathf.Floor(y / LaneHeight + 0.001f) * LaneHeight;
 
-            return new Vector3(feet.x + _lookAheadValue, ClampToBounds(y + FocusOffsetY), feet.z);
+            return new Vector3(
+                feet.x + _lookAheadValue,
+                ClampToBounds(y + FocusOffsetY + _fallLookValue),
+                feet.z);
+        }
+
+        /// <summary>
+        /// How far ahead to lead, scaled by how fast the character is actually travelling.
+        ///
+        /// <para>A fixed lead is wrong at both ends. Sized for running it wanders off ahead of a
+        /// player who is standing still; sized for walking it leaves a sprint effectively blind,
+        /// since at full speed the character crosses the whole frame in under three seconds.
+        /// Scaling by speed also means turning on the spot does not swing the frame — there is
+        /// nothing to lead when you are not going anywhere.</para>
+        /// </summary>
+        private float ResolveLookAhead()
+        {
+            if (_host == null || _host.Sim == null) return 0f;
+
+            var state = _host.Sim.State;
+            float runSpeed = _tuning != null ? _tuning.Data.RunSpeed : 7.5f;
+            if (runSpeed <= 0f) return 0f;
+
+            float speedFraction = Mathf.Clamp01(Mathf.Abs(state.Velocity.x) / runSpeed);
+
+            return state.Facing * _lookAheadLanesAtRun * LaneHeight * speedFraction;
+        }
+
+        /// <summary>
+        /// Downward offset during a sustained fall, so a long drop shows what is at the bottom.
+        ///
+        /// <para>Delayed rather than immediate: every hop and kerb-step is a brief descent, and
+        /// panning on all of them would leave the frame twitching constantly. Waiting a third of a
+        /// second means only real falls — the ones where you genuinely cannot see the landing —
+        /// move the camera.</para>
+        ///
+        /// <para>Timed in seconds rather than ticks on purpose. This is presentation, deliberately
+        /// outside the fixed-tick determinism contract; nothing about where the camera looks may
+        /// affect the simulation.</para>
+        /// </summary>
+        private float ResolveFallLook()
+        {
+            if (_fallLookLanes <= 0f) return 0f;
+
+            float ramp = Mathf.Max(0.01f, _fallLookRamp);
+            float progress = Mathf.Clamp01((_fallingSeconds - _fallLookDelay) / ramp);
+
+            return -_fallLookLanes * LaneHeight * progress;
+        }
+
+        /// <summary>Accumulate how long the character has been genuinely falling.</summary>
+        private void TrackFalling()
+        {
+            if (_host == null || _host.Sim == null)
+            {
+                _fallingSeconds = 0f;
+                return;
+            }
+
+            var state = _host.Sim.State;
+
+            bool falling = !state.Grounded
+                           && state.Velocity.y < 0f
+                           && state.Attachment == AttachmentKind.None;
+
+            _fallingSeconds = falling ? _fallingSeconds + Time.deltaTime : 0f;
         }
 
         /// <summary>
@@ -232,6 +341,9 @@ namespace Rokkan.Prophecy.Presentation
 
             _lookAheadValue = 0f;
             _lookAheadVelocity = 0f;
+            _fallingSeconds = 0f;
+            _fallLookValue = 0f;
+            _fallLookVelocity = 0f;
 
             ApplyFraming();
             _followTarget.position = ResolveTargetPosition();
