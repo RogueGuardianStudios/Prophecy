@@ -1,7 +1,7 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-29, at the end of the session that built M3.
-**Resume at:** M4 — combat. The `AttackTimeline`, stance attacks, and the down-thrust's damage half.
+**Written:** 2026-07-29, end of the session that built M3 and started M4's foundations.
+**Resume at:** M4 — `HitWindow` + `AttackTimeline`, then stance attacks. The collision half is done.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -15,9 +15,9 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| HEAD | `3583238` |
+| HEAD | `ec725d5` |
 | Working tree | clean except untracked `ProjectSettings/ProjectAuditorSettings.asset` |
-| Tests | **177 passing, 0 failed, 0 skipped** (~2.2 s) |
+| Tests | **195 passing, 0 failed, 0 skipped** (~2.8 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, **Cinemachine 3.1.7** |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -25,6 +25,8 @@ To put the work on `main`: `git checkout main && git merge --ff-only baseline/un
 ### Commits this session
 
 ```
+ec725d5  M4 foundations: validate ImmediatePhysics, add cover queries
+e2a0ade  Refresh the handoff for the end of M3
 3583238  Context-sensitive camera offsets, and restore the dead zone
 bf4ec8f  Adopt Cinemachine; frame the camera in level lanes
 3df4d0b  Drop-through platforms, anchored ladders and ropes, level camera
@@ -131,6 +133,22 @@ Added this session:
    reading as flat.
 10. **Camera framing is settled; the feel numbers inside it are not.** See §6.
 
+Added while starting M4:
+
+11. **Hitboxes are sim-side, not trigger colliders.** Design bible §6.1 and §7 both say
+    "trigger-collider hitboxes"; **superseded**, and recorded as such in `CLAUDE.md`. Trigger
+    callbacks fire on the physics timestep rather than the 60 Hz tick, which is the determinism
+    killer — and it is independent of shape.
+12. **Hit geometry uses `UnityEngine.LowLevelPhysics.ImmediatePhysics`, not hand-rolled AABBs.**
+    The deciding factor is rotation: an axis-aligned box cannot express a sword arc or a sweeping
+    tail. It was validated first (see §5a) rather than assumed.
+13. **Some hits are stopped by level geometry, decided per attack.** A spear thrust through a grate
+    stops; a shockwave does not. The world only answers the geometric question
+    (`CollisionWorld.IsOccluded`); whether an attack cares is attack data.
+14. **One definition of solid, two questions.** `ImmediatePhysics` resolves hitbox against
+    hurtbox; `CollisionWorld` resolves cover against the same baked geometry movement uses. There
+    is deliberately no second copy of the level in the combat system.
+
 ---
 
 ## 4. Traps already hit — do not rediscover
@@ -164,6 +182,12 @@ New this session:
     previous setup.
 13. **Camera bounds and camera offsets write the same number.** Measuring one requires neutralising
     the other, or the clamp silently dominates the reading.
+14. **`ImmediatePhysics.GenerateContacts` rejects `contactDistance` of zero** — "must be positive
+    and not equal to zero". "No inflation" has to be an epsilon (`0.0001f`). Read the other way it
+    is a free forgiveness knob: a generous hitbox without resizing geometry.
+15. **Rotation makes intuition about box overlap unreliable.** A 0.5 half-extent box projects 0.5
+    along X unrotated but 0.707 turned 45°. Two boxes 1.32 m apart therefore *miss* axis-aligned
+    and *connect* rotated. Worth deriving rather than eyeballing when authoring hit volumes.
 
 ---
 
@@ -209,29 +233,75 @@ generator does.
    the hitbox that would trigger it is M4's job.
 4. **`Interact` produces a request and a probe box that nothing consumes.**
 5. **F1 overlay ships visible**, gray-box loadout has everything on — both in the release checklist.
+6. **`ImmediatePhysics` is validated on Windows only.** No console playback engines are installed,
+   so the project cannot build for Switch 2 / Xbox / PS5 at all today. It is a built-in engine
+   module over per-platform native PhysX, so it should ship everywhere — but that is reasoning, not
+   evidence. In the release checklist.
+7. **Cross-platform determinism of hit resolution is unproven and probably false.** PhysX contact
+   generation is floating point and Switch 2 is ARM against x86-64 elsewhere. Harmless for
+   single-player; fatal for replays, ghost data or lockstep netcode. Movement never touches PhysX,
+   so the 30/60/144 guarantee is unaffected.
 
 ---
 
-## 8. Next up — M4, combat
+## 8. M4, combat — done so far, and what is next
 
 Goal: **stance combat that feels like Zelda II, timed in ticks, testable headless.**
 
-1. **`AttackTimeline`** — authored tick counts for startup / active / recovery, hit windows, parry
-   windows, i-frames, cancel windows. Ported from HopeFell's pattern. Log the port in
-   `RGS\Packages\MIGRATION-HopeFell.md` if it lands in a shared package.
-2. **Stance attacks** — high standing, low crouching, and the down-thrust's damage half wired to
-   the existing `DownThrust.Bounce()`. Attack modules go on the same registry and must not require
+### Already built (commit `ec725d5`)
+
+- **Hit geometry backend chosen and validated.** `ImmediatePhysics` runs with no scene, no
+  collider and no `PhysicsScene`. `ImmediatePhysicsProbeTests` (7) pins overlap, separation,
+  rotation, the contact-distance skin, `Normal`/`Separation` payload, batched pairs and
+  repeatability. **Compiles with no asmdef changes**; the geometry types are structs so the gate is
+  unaffected.
+- **Cover queries.** `CollisionWorld.IsOccluded(from, to)`, length-bounded slab test, 11 tests.
+
+### What HopeFell actually has — read it before assuming
+
+An earlier draft of this section promised porting "startup/active/recovery, hit, parry, i-frame and
+cancel windows" from HopeFell. **That was invention.** The real state of
+`HopeFell/Packages/com.rokkan.gameplay/Runtime/Combat/Sim/`:
+
+- `AttackTimeline : ISimSystem` + `HitWindow` — **one window only**: hit open/close, two ints in
+  absolute ticks, `-1/-1` meaning "no hit". Startup is implicit (ticks before open), recovery is
+  implicit (keeps counting until `Disarm`). No decomposition.
+- **Hitbox *geometry* is still Unity trigger colliders** riding the animated weapon. Only *timing*
+  moved to the sim. Their own slice report is candid this was scoped. So HopeFell is a template for
+  the timing half only — we are going further.
+- **Parry and i-frames never reached the tick.** `BlockProfileSO.ParryWindow` is `0.2f` *seconds*;
+  `DodgeTuningSO.invulnStart/End` are seconds accumulated in `Update()` with `Time.deltaTime`.
+  Porting as-is would import a frame-rate-dependent parry window.
+- **Cancel windows are normalized clip time**, deliberately and with an argument — which
+  contradicts our `CLAUDE.md` rule. Keep ours; we have no clips anyway.
+- **No action lock or arbiter at all** — a `Phase` enum plus `IsBusy` on a 1,324-line
+  `SkillExecutor`. **Our `ActionLock` (priority + cancel window) is the better design.** Keep it.
+
+Worth taking: `HitWindow`'s two-int tick model and its rationale; the `IHitResolver` indirection
+that keeps the timeline headless; `IDamageGate`/`DamageGateResult`/`DamageContext` as a first-wins
+gate chain; and their "relocate, don't re-feel" discipline.
+
+### Next
+
+1. **`HitWindow` + `AttackTimeline`** — two ints in absolute ticks, arm/tick/resolve, behind a
+   resolver seam so the geometry backend stays swappable. If it lands in `RGS\Packages`, log it in
+   `MIGRATION-HopeFell.md`.
+2. **Attack definition data** — per-attack hit volume (offset, half-extents, rotation, facing
+   flip), tick windows, and a `StoppedByGeometry` flag feeding `IsOccluded`. Lock-order #4 says
+   these live in **one data asset** so they are numbers, not tribal knowledge.
+3. **Stance attacks** — high standing, low crouching, and the down-thrust's damage half wired to
+   the existing, currently-uncalled `DownThrust.Bounce()`. New attack modules must not require
    editing an existing module.
-3. **Hitboxes and hurtboxes** — sim-side AABBs, resolved in the tick, not Unity trigger colliders,
-   or the headless contract breaks.
-4. **Defence** — block by stance, parry with a tick window, i-frames, knockback, hit-react at
-   `LockPriority.HitReact`.
-5. **One enemy** with high/low guard, to force the stance choice §6.1 is built around.
-6. **Tests** — identical combat outcomes at 30/60/144 fps, parry windows asserted in ticks, and the
+4. **Defence, all in ticks** — block by stance, parry window, i-frames, knockback, hit-react at
+   `LockPriority.HitReact`. This is where HopeFell stopped; do not inherit its seconds.
+5. **One telegraph dummy** demanding the four Ashmoor answers: **jump the overhead slam, block the
+   lesser hits, crouch the low gore, parry the ember-burst.** Then `GrayBox_Arena`.
+6. **Tests** — identical combat outcomes at 30/60/144, parry windows asserted in ticks, and the
    architecture test that a new attack needs no edit to an existing module.
 
 `com.rokkan.animation` (clip injection) is pencilled in for M4. Remember the rule: **clip events
-drive VFX/SFX/footsteps only** — gameplay decisions live on the timeline.
+drive VFX/SFX/footsteps only** — gameplay decisions live on the timeline. HopeFell's
+`ClipEventChannel` carries the tombstone: *"Do not re-attach gameplay decisions to these."*
 
 ---
 
