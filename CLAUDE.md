@@ -101,15 +101,21 @@ Modules talk only through the controller, which arbitrates via **action locks** 
 - 4-space indent, `_camelCase` private fields, `[SerializeField]` over `public`.
 - Tuning numbers live in ScriptableObjects (`MovementTuning`, `CombatTuning`), never as literals in code — SO edits persist through play mode, so they are the live tuning surface.
 
-## Unity assets are built by committed Editor scripts, never hand-authored
+## Unity assets: use `unity-mcp`, never hand-author YAML
 
-Scenes, prefabs, materials, `.asset` files and `.inputactions` are fragile generated formats with GUID cross-references. **Never create or edit them with `Write`/`Edit`.** There is no Unity MCP bridge in this project (Coplay was removed), so the standing pattern is:
+Scenes, prefabs, materials, `.asset` files and `.inputactions` are fragile generated formats with GUID cross-references. **Never create or edit them with `Write`/`Edit`.** C# source is the exception — write that directly.
 
-> Write a C# Editor script under `Assets/_Prophecy/Scripts/Editor/Build/` with a `[MenuItem("Prophecy/Build/…")]` entry point that constructs the asset via `AssetDatabase` / `EditorSceneManager` / `PrefabUtility`. The user runs the menu item; the generated asset is committed alongside the script that made it.
+**Unity's own MCP server is available** (`mcp__unity-mcp__*`). It ships inside `com.unity.ai.assistant` and is registered for this project as a stdio relay (`~/.unity/relay/relay_win.exe --mcp`). Use it for scene and prefab work, for running play mode, and for reading the console — it removes the need to ask the user to click things.
 
-This is better than hand-placement for this project specifically: the gray box scenes are supposed to be *derived from* `MovementTuning` (jump gaps sized off run speed, ledges at hang height). A generator script makes that literal — retune the numbers, regenerate the scene, and the level geometry stays honest. Generators must be idempotent: running twice produces the same result.
+*(Coplay was removed entirely — package and MCP registration. Ignore any lingering references to it.)*
 
-C# source is the exception — write that directly.
+**One exception, on purpose: the gray box level geometry is generated from code.** `GrayBox_Traversal` is meant to be the living dictionary of level dimensions, with jump gaps sized off run speed and ledges at hang height — all *derived from* `MovementTuning`. So it is built by an idempotent `[MenuItem("Prophecy/Build/…")]` generator under `Editor/Build/`, not hand-placed. Retune a number, regenerate, and the geometry stays honest; hand-placed boxes silently rot the moment a value changes.
+
+Everything else — Bootstrap, the player prefab, the camera rig — is one-off imperative setup where a generator would be pure ceremony. Build those directly.
+
+### Running tests
+
+`Unity.exe -batchmode -runTests` **refuses to open a project an Editor already has open**. While Unity is running, use `Prophecy → Tests → Run EditMode Tests` (`Editor/TestRunnerMenu.cs`), which runs the suite in-process and writes `Logs/test-results.txt`. Use batchmode only when the Editor is closed.
 
 ## Verification
 
