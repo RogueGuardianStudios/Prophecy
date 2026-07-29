@@ -257,11 +257,21 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   unaffected.
 - **Cover queries.** `CollisionWorld.IsOccluded(from, to)`, length-bounded slab test, 11 tests.
 
-### What HopeFell actually has — read it before assuming
+### The target: a full window decomposition, all in ticks
 
-An earlier draft of this section promised porting "startup/active/recovery, hit, parry, i-frame and
-cancel windows" from HopeFell. **That was invention.** The real state of
-`HopeFell/Packages/com.rokkan.gameplay/Runtime/Combat/Sim/`:
+**Prophecy's combat goal is startup / active / recovery phases plus hit, parry, i-frame and cancel
+windows — every one of them authored in ticks.** That is the requirement, confirmed 2026-07-29.
+Fighting-game frame data, not a single on/off hit flag.
+
+This matters because it is *more* than HopeFell has, and the difference is the whole reason M4 is
+real work rather than a port. It is also what the Ashmoor fight needs: reading a telegraph means
+the startup phase is authored, visible and long enough to answer, and the four answers (jump,
+block, crouch, parry) each depend on a different window being open at the right tick.
+
+### What HopeFell actually has — do not plan against more than this
+
+`HopeFell/Packages/com.rokkan.gameplay/Runtime/Combat/Sim/` contains far less than the target
+above. Read this before assuming anything is inheritable:
 
 - `AttackTimeline : ISimSystem` + `HitWindow` — **one window only**: hit open/close, two ints in
   absolute ticks, `-1/-1` meaning "no hit". Startup is implicit (ticks before open), recovery is
@@ -283,12 +293,20 @@ gate chain; and their "relocate, don't re-feel" discipline.
 
 ### Next
 
-1. **`HitWindow` + `AttackTimeline`** — two ints in absolute ticks, arm/tick/resolve, behind a
-   resolver seam so the geometry backend stays swappable. If it lands in `RGS\Packages`, log it in
-   `MIGRATION-HopeFell.md`.
+1. **`AttackTimeline` with the full decomposition** — `StartupTicks` / `ActiveTicks` /
+   `RecoveryTicks` as a partition (so phases cannot overlap or leave gaps), plus absolute-tick
+   ranges for hit windows (plural — multi-hit), i-frames, parry and cancel. Arm/tick/resolve behind
+   a resolver seam so the geometry backend stays swappable. If it lands in `RGS\Packages`, log it
+   in `MIGRATION-HopeFell.md`.
+   - The **cancel window plugs straight into the existing arbiter**: `ActionLock` already models
+     "higher priority may take over only while the cancel window is open", so the timeline drives
+     `sim.SetCancelWindow(...)` and parry-cancels-recovery falls out for free.
+   - **I-frames** become a damage gate; **parry** a defence-resolution window. Both in ticks —
+     this is exactly where HopeFell stopped, so there is nothing to copy and every reason not to
+     reach for seconds.
 2. **Attack definition data** — per-attack hit volume (offset, half-extents, rotation, facing
-   flip), tick windows, and a `StoppedByGeometry` flag feeding `IsOccluded`. Lock-order #4 says
-   these live in **one data asset** so they are numbers, not tribal knowledge.
+   flip), all the tick windows above, and a `StoppedByGeometry` flag feeding `IsOccluded`.
+   Lock-order #4 says these live in **one data asset** so they are numbers, not tribal knowledge.
 3. **Stance attacks** — high standing, low crouching, and the down-thrust's damage half wired to
    the existing, currently-uncalled `DownThrust.Bounce()`. New attack modules must not require
    editing an existing module.
