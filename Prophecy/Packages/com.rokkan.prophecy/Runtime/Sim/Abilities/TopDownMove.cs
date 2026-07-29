@@ -29,6 +29,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.TopDownMove;
         public override int Order => ModuleOrder.TopDownMove;
         public override MovementSpace ValidIn => MovementSpace.TopDown;
 

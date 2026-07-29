@@ -258,6 +258,8 @@ namespace Rokkan.Prophecy.Sim
             State.Velocity = Vector2.zero;
             State.LastGroundedTick = long.MinValue;
             State.DropThrough = false;
+            State.Attachment = AttachmentKind.None;
+            State.AttachmentAnchor = Vector2.zero;
             if (facing != 0) State.Facing = facing < 0 ? -1 : 1;
 
             _lock = ActionLock.None;

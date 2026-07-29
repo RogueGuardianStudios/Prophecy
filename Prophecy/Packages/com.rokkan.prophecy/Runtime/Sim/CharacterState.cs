@@ -44,6 +44,19 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>True while the player is deliberately dropping through a one-way platform.</summary>
         public bool DropThrough;
 
+        /// <summary>
+        /// What the character is currently holding onto, if anything.
+        ///
+        /// <para>Shared state rather than a flag owned by one module, for the same reason
+        /// <see cref="Grounded"/> is: several abilities need the answer and none of them may ask
+        /// each other. Ledge pull-up reads <c>Ledge</c> without knowing a hang module exists, and
+        /// the hang releases its lock when it sees the attachment end — whoever ended it.</para>
+        /// </summary>
+        public AttachmentKind Attachment;
+
+        /// <summary>Where the attachment holds the character — the hang or climb anchor.</summary>
+        public Vector2 AttachmentAnchor;
+
         /// <summary>Set by the sim when the last resolve was stopped by geometry.</summary>
         public bool HitWallThisTick;
         public bool HitCeilingThisTick;

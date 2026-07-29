@@ -31,6 +31,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.Interact;
         public override int Order => ModuleOrder.Interact;
         public override MovementSpace ValidIn => MovementSpace.Both;
 

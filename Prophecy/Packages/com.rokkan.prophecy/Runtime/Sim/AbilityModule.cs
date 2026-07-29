@@ -18,10 +18,17 @@ namespace Rokkan.Prophecy.Sim
     public abstract class AbilityModule
     {
         /// <summary>
-        /// Whether this module ticks. All abilities ship enabled during the gray box; the real
-        /// progression schedule is a list of flag flips applied later.
+        /// Whether this module ticks. Progression is a schedule of flips to this flag, authored in
+        /// an <see cref="AbilityLoadoutData"/> rather than set here by hand.
         /// </summary>
         public bool Enabled = true;
+
+        /// <summary>
+        /// Stable identity, for anything outside the sim that needs to name this ability — a
+        /// loadout asset, a save file, a debug toggle. Overridden by every shipped module;
+        /// <see cref="AbilityId.Custom"/> is the default only so test doubles need not care.
+        /// </summary>
+        public virtual AbilityId Id => AbilityId.Custom;
 
         /// <summary>
         /// Tick order within a character, low to high. Stable ordering is part of determinism —

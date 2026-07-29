@@ -312,7 +312,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = Tuning();
             var sim = Player(tuning);
-            Assert.IsTrue(tuning.RunIsToggle, "open knob #1 ships as a toggle");
+            Assert.AreEqual(RunMode.Toggle, tuning.RunMode, "open knob #1 ships as a toggle");
 
             Step(sim, new InputFrame(new Vector2(1f, 0f), runToggle: ButtonState.Press));
             Step(sim, Hold(1f), 40);   // toggle released — running must persist
@@ -329,7 +329,7 @@ namespace Rokkan.Prophecy.Tests
         public void AnalogBlend_ReplacesTheToggleRatherThanStackingWithIt()
         {
             var tuning = Tuning();
-            tuning.AnalogSpeedBlend = true;
+            tuning.RunMode = RunMode.AnalogBlend;
             var sim = Player(tuning);
 
             // Full deflection reaches run speed with no toggle pressed at all.
@@ -642,7 +642,8 @@ namespace Rokkan.Prophecy.Tests
                     Assert.IsTrue(module.Enabled, $"{module.Name} is built and should be on");
             }
 
-            Assert.AreEqual(7, CountPlanned(sim), "the full final moveset is reserved from day one");
+            Assert.AreEqual(3, CountPlanned(sim),
+                "Crawl, DodgeStep and FlameArt are all that remain unbuilt");
         }
 
         private static int CountPlanned(CharacterSim sim)

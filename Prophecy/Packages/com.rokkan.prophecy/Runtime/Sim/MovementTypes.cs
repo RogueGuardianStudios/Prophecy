@@ -34,6 +34,43 @@ namespace Rokkan.Prophecy.Sim
         Air,
     }
 
+    /// <summary>What a character is holding onto. See <see cref="CharacterState.Attachment"/>.</summary>
+    public enum AttachmentKind
+    {
+        None,
+
+        /// <summary>Hanging from a ledge by the hands.</summary>
+        Ledge,
+
+        /// <summary>On a ladder or rope.</summary>
+        Ladder,
+    }
+
+    /// <summary>
+    /// How the run button decides top speed.
+    ///
+    /// <para>Three genuinely different feels, and the argument for each is real, so this is a
+    /// setting rather than a decision baked into code. <see cref="Toggle"/> is the Zelda II
+    /// answer — no analog stick existed, and committing to a speed is itself a choice.
+    /// <see cref="Hold"/> is what most players' hands now expect, and it self-cancels when they
+    /// let go in a panic. <see cref="AnalogBlend"/> ignores the button entirely and reads stick
+    /// deflection, which is the modern default and the one that makes a keyboard feel worst.</para>
+    ///
+    /// <para>They were previously two overlapping booleans, which left a nonsense state (toggle
+    /// and blend both on) and no way to express hold at all.</para>
+    /// </summary>
+    public enum RunMode
+    {
+        /// <summary>Press to switch between walking and running; it stays where you left it.</summary>
+        Toggle,
+
+        /// <summary>Run while the button is held, walk when released.</summary>
+        Hold,
+
+        /// <summary>Stick deflection blends walk to run. The run button is ignored.</summary>
+        AnalogBlend,
+    }
+
     /// <summary>
     /// Capabilities an <see cref="ActionLock"/> can suppress.
     ///

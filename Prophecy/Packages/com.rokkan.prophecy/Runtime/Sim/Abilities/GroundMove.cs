@@ -31,6 +31,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.GroundMove;
         public override int Order => ModuleOrder.GroundMove;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
 
@@ -67,20 +68,20 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         private void UpdateRunLatch(in InputFrame input)
         {
-            if (_tuning.AnalogSpeedBlend)
+            switch (_tuning.RunMode)
             {
-                // Stick magnitude decides speed; a toggle on top would be two controls for one axis.
-                _running = false;
-                return;
-            }
+                case RunMode.Toggle:
+                    if (input.RunToggle.Pressed) _running = !_running;
+                    break;
 
-            if (_tuning.RunIsToggle)
-            {
-                if (input.RunToggle.Pressed) _running = !_running;
-            }
-            else
-            {
-                _running = input.RunToggle.Held;
+                case RunMode.Hold:
+                    _running = input.RunToggle.Held;
+                    break;
+
+                case RunMode.AnalogBlend:
+                    // Stick magnitude decides speed; a button on top would be two controls for one axis.
+                    _running = false;
+                    break;
             }
         }
 
@@ -88,7 +89,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         {
             float speed;
 
-            if (_tuning.AnalogSpeedBlend)
+            if (_tuning.RunMode == RunMode.AnalogBlend)
             {
                 // Remap past the deadzone so the slowest usable input is a walk, not a crawl.
                 float t = Mathf.InverseLerp(_tuning.MoveDeadzone, 1f, axisMagnitude);
@@ -96,6 +97,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             }
             else
             {
+                // Toggle and Hold differ only in how _running is latched, not in what it means.
                 speed = _running ? _tuning.RunSpeed : _tuning.WalkSpeed;
             }
 

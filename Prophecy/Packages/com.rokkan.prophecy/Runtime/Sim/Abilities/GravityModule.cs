@@ -28,6 +28,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.Gravity;
         public override int Order => ModuleOrder.Gravity;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
 

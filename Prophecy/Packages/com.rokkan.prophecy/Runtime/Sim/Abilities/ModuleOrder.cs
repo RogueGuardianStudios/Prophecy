@@ -28,7 +28,15 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int Crawl = 25;
 
         public const int Jump = 30;
+
+        /// <summary>Ahead of <see cref="DoubleJump"/> deliberately: one press next to a wall
+        /// should spend the wall, not an air jump.</summary>
+        public const int WallJump = 32;
+
         public const int DoubleJump = 35;
+
+        /// <summary>After the jumps, so a launch this tick is not immediately clamped by the slide.</summary>
+        public const int WallSlide = 36;
 
         public const int DodgeStep = 40;
         public const int DownThrust = 50;

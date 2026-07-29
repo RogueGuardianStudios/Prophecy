@@ -55,13 +55,25 @@ namespace Rokkan.Prophecy.Sim.Collision
         public const float SkinWidth = 0.0001f;
 
         private readonly List<Solid> _solids = new List<Solid>();
+        private readonly List<Aabb> _climbables = new List<Aabb>();
 
         public int Count => _solids.Count;
         public IReadOnlyList<Solid> Solids => _solids;
 
+        /// <summary>Ladders and ropes. Kept apart from solids because they are the opposite of
+        /// solid — you pass through them and they only matter to the ability that reads them.</summary>
+        public int ClimbableCount => _climbables.Count;
+        public IReadOnlyList<Aabb> Climbables => _climbables;
+
         public void Add(in Aabb box, SolidKind kind = SolidKind.Solid) => _solids.Add(new Solid(box, kind));
 
-        public void Clear() => _solids.Clear();
+        public void AddClimbable(in Aabb box) => _climbables.Add(box);
+
+        public void Clear()
+        {
+            _solids.Clear();
+            _climbables.Clear();
+        }
 
         /// <summary>True if <paramref name="box"/> strictly overlaps any Solid. One-way platforms
         /// are ignored — you are never "inside" one.</summary>
@@ -168,6 +180,90 @@ namespace Rokkan.Prophecy.Sim.Collision
         {
             SweepVertical(box, -probeDistance, out bool hit);
             return hit;
+        }
+
+        /// <summary>
+        /// True if a wall is within <paramref name="probeDistance"/> to the character's
+        /// <paramref name="direction"/> (-1 left, +1 right). Reuses the horizontal sweep so a wall
+        /// is by definition the same thing that would stop horizontal movement — wall slide can
+        /// never disagree with the mover about whether something is there.
+        /// </summary>
+        public bool HasWall(in Aabb box, int direction, float probeDistance = 0.08f)
+        {
+            if (direction == 0 || probeDistance <= 0f) return false;
+
+            SweepHorizontal(box, direction * probeDistance, out bool hit);
+            return hit;
+        }
+
+        /// <summary>The solid strictly containing <paramref name="point"/>, if any.</summary>
+        public bool TryGetSolidAt(Vector2 point, out Aabb solid)
+        {
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+                if (s.Kind != SolidKind.Solid) continue;
+
+                if (point.x > s.Box.Min.x && point.x < s.Box.Max.x &&
+                    point.y > s.Box.Min.y && point.y < s.Box.Max.y)
+                {
+                    solid = s.Box;
+                    return true;
+                }
+            }
+
+            solid = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Look for a ledge the character could catch, ahead of them in <paramref name="facing"/>.
+        ///
+        /// <para>Two probes, and the pair is the whole trick: it must be <b>clear</b> where the
+        /// head would end up and <b>solid</b> where the hands would grip. Testing only for solid
+        /// would grab the middle of a tall wall; testing only for clear would grab thin air. The
+        /// gap between them is exactly the definition of an edge.</para>
+        ///
+        /// <para>Returns the surface height and the wall face, which together are everything the
+        /// hang pose needs to place itself.</para>
+        /// </summary>
+        public bool TryFindLedge(in Aabb body, int facing, float minHeight, float maxHeight,
+                                 float probeDistance, out float ledgeTopY, out float ledgeFaceX)
+        {
+            ledgeTopY = 0f;
+            ledgeFaceX = 0f;
+
+            if (facing == 0 || maxHeight <= minHeight) return false;
+
+            float feetY = body.Min.y;
+            float edgeX = facing > 0 ? body.Max.x : body.Min.x;
+            float probeX = edgeX + facing * probeDistance;
+
+            if (TryGetSolidAt(new Vector2(probeX, feetY + maxHeight), out _)) return false;
+            if (!TryGetSolidAt(new Vector2(probeX, feetY + minHeight), out var solid)) return false;
+
+            // The surface has to sit inside the grab band, or this is a wall that happens to end
+            // somewhere unhelpful rather than a ledge at hand height.
+            float top = solid.Max.y;
+            if (top < feetY + minHeight || top > feetY + maxHeight) return false;
+
+            ledgeTopY = top;
+            ledgeFaceX = facing > 0 ? solid.Min.x : solid.Max.x;
+            return true;
+        }
+
+        /// <summary>The first climbable volume overlapping <paramref name="box"/>.</summary>
+        public bool TryGetClimbable(in Aabb box, out Aabb climbable)
+        {
+            for (int i = 0; i < _climbables.Count; i++)
+            {
+                if (!box.Overlaps(_climbables[i])) continue;
+                climbable = _climbables[i];
+                return true;
+            }
+
+            climbable = default;
+            return false;
         }
     }
 }

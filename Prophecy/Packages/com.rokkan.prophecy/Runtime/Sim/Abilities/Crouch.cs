@@ -27,6 +27,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.Crouch;
         public override int Order => ModuleOrder.Crouch;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
 

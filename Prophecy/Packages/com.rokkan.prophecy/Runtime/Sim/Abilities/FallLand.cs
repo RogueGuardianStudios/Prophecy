@@ -33,6 +33,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _tuning = tuning;
         }
 
+        public override AbilityId Id => AbilityId.FallLand;
         public override int Order => ModuleOrder.FallLand;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
 

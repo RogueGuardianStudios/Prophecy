@@ -5,6 +5,7 @@
         "Rokkan.Prophecy",
         "RGS.Core",
         "Rokkan.Core",
+        "Unity.InputSystem",
         "UnityEditor.TestRunner",
         "UnityEngine.TestRunner"
     ],

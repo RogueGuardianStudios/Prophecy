@@ -58,15 +58,12 @@ namespace Rokkan.Prophecy.Sim
         public float MoveDeadzone = 0.2f;
 
         /// <summary>
-        /// Open knob #1 from the plan: run is a <b>toggle</b> first (Zelda II had no analog stick,
-        /// and a toggle keeps top speed a decision rather than a thumb position). Turning
-        /// <see cref="AnalogSpeedBlend"/> on A/Bs the modern alternative without a code change.
+        /// Open knob #1 from the plan. Ships as <see cref="RunMode.Toggle"/> — Zelda II had no
+        /// analog stick, and a toggle keeps top speed a decision rather than a thumb position —
+        /// but all three models are one dropdown apart so they can be A/B'd on the same build.
         /// </summary>
-        [Header("Run model — A/B these, do not ship both")]
-        public bool RunIsToggle = true;
-
-        [Tooltip("When on, stick magnitude blends walk..run and the run toggle is ignored.")]
-        public bool AnalogSpeedBlend = false;
+        [Header("Run model")]
+        public RunMode RunMode = RunMode.Toggle;
 
         // ------------------------------------------------------------------ air
 
@@ -108,6 +105,82 @@ namespace Rokkan.Prophecy.Sim
 
         [Tooltip("Ticks a jump press is remembered while airborne. 8 ticks = 0.133 s at 60 Hz.")]
         public int JumpBufferTicks = 8;
+
+        // ------------------------------------------------------------------ air jumps
+
+        [Header("Double jump")]
+        [Tooltip("Extra jumps available before touching ground again. 0 disables the ability.")]
+        public int AirJumps = 1;
+
+        [Tooltip("Height of an air jump, in metres. Usually below the ground jump so it reads as a recovery.")]
+        public float AirJumpHeight = 1.9f;
+
+        [Tooltip("Ticks airborne before an air jump arms. Stops one press spending both jumps, and " +
+                 "keeps the coyote window from being cashed in as a free double jump.")]
+        public int AirJumpArmTicks = 8;
+
+        // ------------------------------------------------------------------ walls
+
+        [Header("Wall slide & wall jump")]
+        [Tooltip("Terminal velocity while sliding down a wall. Well below MaxFallSpeed, or the slide reads as a fall.")]
+        public float WallSlideSpeed = 4.5f;
+
+        [Tooltip("How far ahead to probe for a wall, in metres.")]
+        public float WallProbeDistance = 0.08f;
+
+        [Tooltip("Vertical launch of a wall jump, in metres of height.")]
+        public float WallJumpHeight = 2.2f;
+
+        [Tooltip("Horizontal launch away from the wall, in m/s.")]
+        public float WallJumpPushSpeed = 6.5f;
+
+        [Tooltip("Ticks during which steering back toward the wall is ignored, so the jump actually " +
+                 "leaves. Without it, holding toward the wall re-sticks instantly and the player " +
+                 "climbs the same wall forever.")]
+        public int WallJumpControlLockTicks = 10;
+
+        [Tooltip("Require holding toward the wall to slide. Off means any wall contact slides.")]
+        public bool WallSlideNeedsInput = true;
+
+        // ------------------------------------------------------------------ ledges
+
+        [Header("Ledge hang & pull-up")]
+        [Tooltip("Lowest grab height above the feet. Below this the character would just step up.")]
+        public float LedgeGrabMinHeight = 1f;
+
+        [Tooltip("Highest grab height above the feet — roughly where the hands are when standing.")]
+        public float LedgeGrabMaxHeight = 1.7f;
+
+        [Tooltip("How far ahead to look for a ledge, in metres.")]
+        public float LedgeProbeDistance = 0.35f;
+
+        [Tooltip("Where the feet hang relative to the grabbed surface, in metres below it.")]
+        public float LedgeHangDrop = 1.55f;
+
+        [Tooltip("Only grab while falling. Grabbing on the way up feels like being caught by the level.")]
+        public bool LedgeGrabRequiresFalling = true;
+
+        [Tooltip("Ticks the pull-up takes. Movement is locked throughout.")]
+        public int LedgePullUpTicks = 12;
+
+        [Tooltip("Ticks after releasing a ledge before it can be grabbed again, so dropping works.")]
+        public int LedgeRegrabCooldownTicks = 12;
+
+        // ------------------------------------------------------------------ ladders
+
+        [Header("Ladders & ropes")]
+        [Tooltip("Climb speed in m/s, up and down.")]
+        public float ClimbSpeed = 3.2f;
+
+        [Tooltip("Horizontal shuffle speed while on a rope or wide ladder.")]
+        public float ClimbLateralSpeed = 1.6f;
+
+        [Tooltip("Stick deflection needed to mount a ladder you are standing in front of.")]
+        [Range(0.1f, 0.9f)]
+        public float ClimbMountThreshold = 0.5f;
+
+        [Tooltip("Height of a jump pushed off a ladder, in metres.")]
+        public float ClimbDismountJumpHeight = 1.6f;
 
         // ------------------------------------------------------------------ crouch
 
@@ -158,6 +231,15 @@ namespace Rokkan.Prophecy.Sim
         /// geometry, instead of a velocity you can only discover by trial.
         /// </summary>
         public float JumpVelocity => Mathf.Sqrt(2f * RiseGravity * JumpHeight);
+
+        /// <summary>Every launch is authored as a height and converted the same way, so the
+        /// numbers stay comparable — an air jump at 1.9 m is visibly shorter than a 2.4 m one,
+        /// and you can read that off the asset instead of deriving it.</summary>
+        public float AirJumpVelocity => Mathf.Sqrt(2f * RiseGravity * AirJumpHeight);
+
+        public float WallJumpVelocity => Mathf.Sqrt(2f * RiseGravity * WallJumpHeight);
+
+        public float ClimbDismountJumpVelocity => Mathf.Sqrt(2f * RiseGravity * ClimbDismountJumpHeight);
 
         public Vector2 StandSize => new Vector2(BodyWidth, StandHeight);
         public Vector2 CrouchSize => new Vector2(BodyWidth, CrouchHeight);
