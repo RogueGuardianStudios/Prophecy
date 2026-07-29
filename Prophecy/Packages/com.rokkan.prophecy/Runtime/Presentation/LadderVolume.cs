@@ -55,14 +55,24 @@ namespace Rokkan.Prophecy.Presentation
 
             if (_kind == ClimbableKind.Rope)
             {
-                // Look for a pass-through platform overlapping the top of the rope.
-                var above = new Vector3(bounds.center.x, bounds.max.y + _anchorSearchDistance * 0.5f, bounds.center.z);
-                var extents = new Vector3(bounds.extents.x, _anchorSearchDistance * 0.5f, bounds.extents.z);
+                // A band around the rope's upper end, not strictly above it. A rope is authored to
+                // run a little PAST the platform it is tied to, so that climbing off the top leaves
+                // the feet on the surface rather than just beneath it — which means the platform
+                // sits inside the rope's span, not above its highest point.
+                var centre = new Vector3(
+                    bounds.center.x,
+                    bounds.max.y - _anchorSearchDistance * 0.5f,
+                    bounds.center.z);
 
-                foreach (var hit in Physics.OverlapBox(above, extents, Quaternion.identity))
+                var extents = new Vector3(
+                    bounds.extents.x,
+                    _anchorSearchDistance * 1.5f,
+                    bounds.extents.z);
+
+                foreach (var hit in Physics.OverlapBox(centre, extents, Quaternion.identity))
                     if (hit.GetComponentInParent<OneWayPlatform>() != null) return true;
 
-                problem = "a rope must hang from a pass-through platform, and there is none above it";
+                problem = "a rope must hang from a pass-through platform, and there is none at its top";
                 return false;
             }
 

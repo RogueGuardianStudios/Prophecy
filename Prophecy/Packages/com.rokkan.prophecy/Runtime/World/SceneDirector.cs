@@ -34,7 +34,7 @@ namespace Rokkan.Prophecy.World
         private PlayerCharacterHost _player;
 
         [SerializeField]
-        private FollowCamera _camera;
+        private LaneCameraRig _camera;
 
         [SerializeField, Tooltip("Loaded on start-up, unless a world scene is already open.")]
         private string _firstWorldScene = "GrayBox_Traversal";
@@ -159,7 +159,15 @@ namespace Rokkan.Prophecy.World
                 if (_activeSpawn != null) _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
             }
 
-            if (_camera != null) _camera.SnapToTarget();
+            if (_camera != null)
+            {
+                if (descriptor.UseCameraBounds)
+                    _camera.SetVerticalBounds(descriptor.CameraFloorY, descriptor.CameraCeilingY);
+                else
+                    _camera.ClearVerticalBounds();
+
+                _camera.SnapToTarget();
+            }
         }
 
         /// <summary>

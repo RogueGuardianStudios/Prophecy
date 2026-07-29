@@ -142,7 +142,7 @@ namespace Rokkan.Prophecy.Editor.Build
             var markers = new GameObject("Markers").transform;
 
             CreateLighting();
-            CreateDescriptorAndSpawn(markers);
+            CreateDescriptorAndSpawn(markers, tuning);
 
             float cursor = -10f;
 
@@ -189,7 +189,7 @@ namespace Rokkan.Prophecy.Editor.Build
             component.shadows = LightShadows.Soft;
         }
 
-        private static void CreateDescriptorAndSpawn(Transform markers)
+        private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning)
         {
             var spawnObject = new GameObject("Spawn_default");
             spawnObject.transform.SetParent(markers, false);
@@ -212,6 +212,13 @@ namespace Rokkan.Prophecy.Editor.Build
             // reason this course exists.
             SetPrivate(descriptor, "_killPlaneEnabled", true);
             SetPrivate(descriptor, "_killPlaneY", -25f);
+
+            // One lane below the ground floor. The camera wants the player in the centre lane, but
+            // it will not show past this — so standing on the ground floor leaves exactly one lane
+            // of space underfoot instead of a lane of void.
+            SetPrivate(descriptor, "_useCameraBounds", true);
+            SetPrivate(descriptor, "_cameraFloorY", -tuning.Data.LaneHeight);
+            SetPrivate(descriptor, "_cameraCeilingY", 40f);
         }
 
         /// <summary>Flat ground from <paramref name="startX"/>, returning the X it ends at.</summary>

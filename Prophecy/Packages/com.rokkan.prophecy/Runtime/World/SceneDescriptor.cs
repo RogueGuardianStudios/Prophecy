@@ -29,6 +29,23 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("For the debug overlay and save slots.")]
         private string _displayName;
 
+        [Header("Camera bounds")]
+        [SerializeField, Tooltip("Clamp the camera to this scene's vertical extent.")]
+        private bool _useCameraBounds = true;
+
+        [SerializeField, Tooltip("The camera's lower edge never goes below this. Put it about a lane " +
+                                 "beneath the lowest floor, so standing on the ground floor still " +
+                                 "leaves a lane of space underfoot.")]
+        private float _cameraFloorY = -3.6f;
+
+        [SerializeField, Tooltip("The camera's upper edge never goes above this. Leave far above " +
+                                 "the level for scenes with no ceiling.")]
+        private float _cameraCeilingY = 1000f;
+
+        public bool UseCameraBounds => _useCameraBounds;
+        public float CameraFloorY => _cameraFloorY;
+        public float CameraCeilingY => _cameraCeilingY;
+
         [Header("Bounds")]
         [SerializeField, Tooltip("Falling below this height respawns the player. Set it under the " +
                                  "lowest floor, not under the lowest pit you meant to be lethal.")]

@@ -38,6 +38,28 @@ namespace Rokkan.Prophecy.Sim
         [Tooltip("Crouching collision height. Crawl spaces are sized from it.")]
         public float CrouchHeight = 0.95f;
 
+        // ------------------------------------------------------------------ level grid
+
+        /// <summary>
+        /// The height of one <b>lane</b> — the floor-to-floor module levels are composed from.
+        ///
+        /// <para>Expressed as a multiple of the hero rather than an absolute, because that is what
+        /// makes it a unit at all: every doorway, ceiling and drop is legible in relation to the
+        /// character standing next to it. Roughly twice the hero's height gives a corridor with a
+        /// clear head of headroom — tall enough to feel like architecture, tight enough that a
+        /// full jump meets the ceiling, which is what stops every room being a shaft.</para>
+        ///
+        /// <para>Deriving it means the grid follows if the hero is ever resized, instead of a
+        /// hundred hand-placed floors quietly becoming the wrong proportion.</para>
+        /// </summary>
+        [Header("Level grid")]
+        [Tooltip("Lane height as a multiple of the standing hero. 2 = a lane is twice the hero's height.")]
+        [Range(1.5f, 3f)]
+        public float LaneHeightMultiplier = 2f;
+
+        /// <summary>Floor-to-floor height of one level lane, in metres.</summary>
+        public float LaneHeight => StandHeight * LaneHeightMultiplier;
+
         // ------------------------------------------------------------------ ground
 
         [Header("Ground movement")]

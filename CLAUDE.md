@@ -34,8 +34,8 @@ A clean baseline is ~109 files (Assets + Packages + ProjectSettings). Thousands 
 | Pipeline | URP 17.5.0, active (`Assets/Settings/PC_RPAsset.asset`) |
 | Input | Input System 1.19.0, `activeInputHandler: 1` — **new system only**, old Input Manager is off |
 | TextMeshPro | via `com.unity.ugui` 2.5.0 (no standalone TMP package in Unity 6) |
-| Cinemachine | **not installed** — gray box uses a hand-rolled damped follow camera |
-| Scale | 1 unit = 1 metre |
+| Cinemachine | **3.1.7** — 3.1.4 and earlier do **not compile** on Unity 6000.5 (they call `Object.GetInstanceID()`, now an error-level obsolete, CS0619). The hand-rolled `FollowCamera` it replaced is gone; `LaneCameraRig` drives it. |
+| Scale | 1 unit = 1 metre. Levels are composed in **lanes** — a floor-to-floor module of `StandHeight × LaneHeightMultiplier` (1.8 × 2 = **3.6 m**). The camera frames 4 lanes with the ground floor half a lane above the bottom edge. |
 
 Vendor folders to leave alone: `Assets/ai.meshy/` (Meshy Bridge plugin, GPL-3.0), `Assets/MeshyImports/` (throwaway test generations), `Assets/TutorialInfo/` (URP template).
 
