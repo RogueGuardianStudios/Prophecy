@@ -94,11 +94,15 @@ Modules talk only through the controller, which arbitrates via **action locks** 
 - 4-space indent, `_camelCase` private fields, `[SerializeField]` over `public`.
 - Tuning numbers live in ScriptableObjects (`MovementTuning`, `CombatTuning`), never as literals in code — SO edits persist through play mode, so they are the live tuning surface.
 
-## Never hand-author Unity YAML
+## Unity assets are built by committed Editor scripts, never hand-authored
 
-Scenes, prefabs, materials, `.asset` files and `.inputactions` are fragile generated formats with GUID cross-references. Create and modify them through the Unity Editor or the Coplay MCP tools (`create_scene`, `create_prefab`, `add_component`, `set_property`, …), never with `Write`/`Edit`. C# source is the exception — write that directly.
+Scenes, prefabs, materials, `.asset` files and `.inputactions` are fragile generated formats with GUID cross-references. **Never create or edit them with `Write`/`Edit`.** There is no Unity MCP bridge in this project (Coplay was removed), so the standing pattern is:
 
-Coplay MCP requires the Unity Editor open, and `set_unity_project_root` must point at the **nested** path (`...\Prophecy\Prophecy\Prophecy`).
+> Write a C# Editor script under `Assets/_Prophecy/Scripts/Editor/Build/` with a `[MenuItem("Prophecy/Build/…")]` entry point that constructs the asset via `AssetDatabase` / `EditorSceneManager` / `PrefabUtility`. The user runs the menu item; the generated asset is committed alongside the script that made it.
+
+This is better than hand-placement for this project specifically: the gray box scenes are supposed to be *derived from* `MovementTuning` (jump gaps sized off run speed, ledges at hang height). A generator script makes that literal — retune the numbers, regenerate the scene, and the level geometry stays honest. Generators must be idempotent: running twice produces the same result.
+
+C# source is the exception — write that directly.
 
 ## Verification
 
