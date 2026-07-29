@@ -1,9 +1,12 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-29, at the end of the session that set the project up.
-**Resume at:** M3 — movement, tuning, presentation. The Mario test.
+**Written:** 2026-07-29, at the end of the session that built M3.
+**Resume at:** M4 — combat. The `AttackTimeline`, stance attacks, and the down-thrust's damage half.
 
-This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`; the phase plan is `Plans/Gray-Box-Build-Plan.md`.
+This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
+(loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
+the phase plan is `Plans/Gray-Box-Build-Plan.md`; dev-only settings that must be reverted before
+shipping are in `Plans/Release-Checklist.md`.
 
 ---
 
@@ -11,25 +14,24 @@ This is the "where we are and why" document. Standing rules live in `CLAUDE.md` 
 
 | | |
 |---|---|
-| Branch | `baseline/unity-project-and-design-docs` (**not merged to `main`**) |
-| HEAD | `67c806c` |
-| Working tree | clean |
-| Tests | **109 passing, 0 failed, 0 skipped** (~0.15 s) |
-| Unity | 6000.5.0f1, URP active, Input System only |
+| Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
+| HEAD | `3583238` |
+| Working tree | clean except untracked `ProjectSettings/ProjectAuditorSettings.asset` |
+| Tests | **177 passing, 0 failed, 0 skipped** (~2.2 s) |
+| Unity | 6000.5.0f1, URP active, Input System only, **Cinemachine 3.1.7** |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
 
-### Commits
+### Commits this session
 
 ```
-67c806c  Switch to Unity's own MCP; drop Coplay entirely
-25f96a4  M2: sim foundation -- CollisionWorld, CharacterSim, action locks, gate
-d5bd5df  Add in-editor test runner menu; M1 verified green
-998461e  Add testables array so shared-package tests actually run
-561cab1  M1: consume shared packages, add com.rokkan.prophecy
-8afcb18  Remove orphaned Coplay package residue
-f626562  Baseline: Unity 6.5 URP project, design bible, and repo hygiene
-baf63c0  Initial commit (pre-existing)
+3583238  Context-sensitive camera offsets, and restore the dead zone
+bf4ec8f  Adopt Cinemachine; frame the camera in level lanes
+3df4d0b  Drop-through platforms, anchored ladders and ropes, level camera
+e8e47ca  Enable runInBackground for editor-driven play testing
+0053c4b  Add pre-release checklist for dev-only settings
+0e3b461  M3: presentation layer, scenes, and the traversal moveset
+67ec3ad  M3 (sim half): movement tuning, ability modules, headless tests
 ```
 
 ### Three repos are in play
@@ -37,118 +39,211 @@ baf63c0  Initial commit (pre-existing)
 | Repo | Path | State |
 |---|---|---|
 | **Prophecy** | `RGS\Prophecy\Prophecy` (Unity project nested one deeper) | active, above |
-| **Shared packages** | `RGS\Packages` | own git repo, HEAD `413862e` |
-| **HopeFell** | `RGS\HopeFell` | ⚠️ **untouched, and must stay that way for now** |
+| **Shared packages** | `RGS\Packages` | own git repo, HEAD `413862e`, clean — **untouched this session** |
+| **HopeFell** | `RGS\HopeFell` | ⚠️ **still untouched, and must stay that way for now** |
 
-HopeFell is mid-work: branch `foundry/docs-tdd`, 15 uncommitted changes (deleted Stalberg ScriptableObjects, an untracked `Assets/Stalberg/`, a `_Recovery` scene, four work-order docs). That is why the shared packages were **copied, not moved**. Do not modify HopeFell until that work is committed and its owner is ready. `RGS\Packages\MIGRATION-HopeFell.md` is its adoption checklist.
+Nothing in `RGS\Packages` changed during M3, so `MIGRATION-HopeFell.md` needs no new entries. M4
+may change that — the `AttackTimeline` pattern comes from HopeFell.
 
 ---
 
 ## 2. What exists
 
-### Shared — `RGS\Packages\`
-- **`com.rgs.core` 0.2.0** — foundation (`SerializableGuid`, `TagMask128`, RNG streams, `ISerializer`/`JsonSerializer`, `PersistentSingleton`, `VectorMath`, `DeterministicMath`) **plus `RGS.Core.Sim`**: `SimClock`, `ISimSystem`, `SimTickInfo`, `SimConstants` (60 Hz), `SimClockDriver`.
-- **`com.rokkan.core`** — `SavePrimitives.cs` (`ISaveable`, `IBind<T>`).
-
-Consumed by Prophecy via `file:../../../../Packages/<name>` — four levels up, relative to the **Packages folder**.
-
 ### Prophecy — `Packages/com.rokkan.prophecy/`
+
 ```
 Runtime/Sim/
-  MovementTypes.cs     MovementSpace, Stance, LockFlags
-  InputFrame.cs        ButtonState (Held/Pressed/Released), InputFrame
-  CharacterState.cs    position(FEET)/velocity/grounded/stance/facing, LastGroundedTick
-  ActionLock.cs        ActionLock struct + LockPriority constants
-  AbilityModule.cs     abstract base: Enabled, Order, ValidIn, Tick, Reset
-  CharacterSim.cs      ISimSystem: registry + lock arbiter + movement resolution
+  MovementTypes.cs        MovementSpace, Stance, LockFlags, RunMode, ClimbableKind, AttachmentKind
+  InputFrame.cs           ButtonState (Held/Pressed/Released), InputFrame — whole final moveset
+  CharacterState.cs       position(FEET)/velocity/grounded/stance/facing, Attachment, DropThrough
+  ActionLock.cs           ActionLock struct + LockPriority constants
+  AbilityModule.cs        abstract base: Enabled, Id, Order, ValidIn, Tick, Reset
+  AbilityId.cs            stable per-ability identity — what a save file stores
+  AbilityLoadoutData.cs   which abilities are on; absent entry means "leave alone", never "off"
+  MovementTuningData.cs   every number, incl. LaneHeight (= StandHeight x 2)
+  CharacterSim.cs         ISimSystem: registry + lock arbiter + movement resolution
+  PlayerCharacterFactory  builds the character tests and the game both use
   Collision/Aabb.cs           value type, strict overlap
-  Collision/CollisionWorld.cs AABBs + one-way platforms, axis sweeps, IsGrounded
-Editor/
-  TestRunnerMenu.cs    Prophecy > Tests > Run EditMode Tests
-Tests/Editor/
-  CharacterSimTests.cs         23
-  CollisionWorldTests.cs       22
-  SimArchitectureGateTests.cs   6
-  PackageWiringTests.cs         4
+  Collision/CollisionWorld.cs solids + one-way/pass-through + climbables, sweeps, wall & ledge probes
+
+Runtime/Sim/Abilities/   Gravity, GroundMove, TopDownMove, Crouch, DropThroughPlatform, FallLand,
+                         Jump, DoubleJump, WallJump, WallSlide, LedgeHang, LedgePullUp,
+                         LadderClimb, DownThrust, Interact  (built)
+                         Crawl, DodgeStep, FlameArt         (declared, ship disabled)
+Runtime/Core/            MovementTuning, AbilityLoadout  (ScriptableObject shells)
+Runtime/Presentation/    ButtonLatch, PlayerInputCapture, PlayerCharacterHost, CharacterView,
+                         CollisionBaker, SpaceMapping, LaneCameraRig, MovementDebugOverlay,
+                         OneWayPlatform, LadderVolume
+Runtime/World/           SceneDescriptor, SpawnPoint, SceneDirector, BootstrapLoader
+Editor/Build/            ProphecyAssetBootstrap, InputAssetGenerator, GrayBoxTraversalBuilder,
+                         BuildSettings
+Tests/Editor/            CharacterSimTests 23, CollisionWorldTests 22, SimArchitectureGateTests 6,
+                         PackageWiringTests 4, MovementTests 32, InputLatchTests 7,
+                         TraversalAbilityTests 30+   → 177 total
 ```
 
-**Not yet built:** `Assets/_Prophecy/` does not exist. No scenes beyond the stock `SampleScene`. No prefabs, no `MovementTuning`, no movement modules, no presentation layer. `Rokkan.Prophecy.dll` compiles but nothing instantiates a `CharacterSim` at runtime yet.
+### Prophecy — `Assets/_Prophecy/`
+
+```
+Data/MovementTuning.asset          the live tuning surface
+Data/AbilityLoadout_GrayBox.asset  17 rows, everything on except the 3 unbuilt
+Input/Prophecy.inputactions        generated; Gameplay + Debug maps, 10 actions, 30 bindings
+Prefabs/Player.prefab              host + capture + view + capsule body
+Scenes/Bootstrap.unity             persistent: SimClock, Player, Main Camera (+Brain),
+                                   CM_Gameplay (+LaneCameraRig), CameraTarget, UI, SceneDirector
+Scenes/GrayBox_Traversal.unity     generated; 26 solids, 2 climbables
+```
+
+**Not yet built:** no combat of any kind. No enemies, no hitboxes, no health, no `AttackTimeline`.
+No overworld scene (`TopDownMove` exists but top-down motion is not swept against the world — see
+gaps). No animation system. `Assets/MeshyImports/` is still throwaway test generations.
 
 ---
 
 ## 3. Decisions already made — do not re-litigate
 
-Agreed with the user during planning:
+Carried from the previous handoff and still true:
 
-1. **Feel first.** M3 is the "is moving around fun for its own sake" test. Binding/region-darkening comes after the numbers are locked.
-2. **Capsule proxy now.** Code track does not wait on the Meshy art track. Humanoid avatars make the later swap free.
-3. **Placeholder overworld is in scope** — a gray top-down scene entered from side-scroll exits and left via portals, both directions, real scenes.
-4. **Full sim/presentation contract**, same as HopeFell — plain C# on a fixed tick, headless, gate-tested.
-5. **Shared packages, one source of truth**, in a neutral home neither project owns.
-6. **Also taking from HopeFell:** `com.rgs.core`, the `AttackTimeline` pattern, GOAP (M6, only if it beats a plain state machine), the persistence layer.
+1. **Feel first**, capsule proxy now, placeholder overworld in scope, full sim/presentation
+   contract, shared packages in a neutral home, and taking `com.rgs.core` / `AttackTimeline` /
+   GOAP-if-it-earns-it / persistence from HopeFell.
+2. **Sim owns its own `CollisionWorld`.** Unity physics can't run headless.
+3. **Combat timing in ticks, never animation events.** HopeFell already paid for this.
+4. **One action lock, not a stack.** Takeover needs higher priority *and* an open cancel window.
+5. **Position is the feet.** **Overlap is strict.** **Coyote counts ticks, not seconds.**
 
-Design rationale worth preserving:
+Added this session:
 
-- **Sim owns its own `CollisionWorld`.** `ISimSystem` forbids scene coupling and `Physics.CapsuleCast` needs a live `PhysicsScene`, so a Unity-physics mover could never run headless. A presentation-side baker fills the box list once at load — it touches Transforms, but outside the tick, so the split holds. This is what makes "assert the jump apex in a unit test" possible.
-- **Combat timing is authored in ticks, never animation events.** HopeFell already paid for this: its `ClipEventChannel` carries a VESTIGIAL annotation saying hit/parry/i-frame windows were demoted off clip events onto a fixed-tick `AttackTimeline`, with an explicit *"do not re-attach gameplay decisions to these."* Clip events are for VFX/SFX/footsteps only.
-- **One action lock, not a stack.** Takeover needs **both** strictly-higher priority **and** an open cancel window — that is what lets an attack keep its committed frames while a parry still interrupts its recovery. A stack raises questions with no good answers.
-- **Position is the feet.** Ledge heights and jump clearances are authored against the ground, and a crouch shrinks the body without sliding the character downward.
-- **Overlap is strict.** A body resting flush on ground must not read as intersecting it, or every grounded frame triggers depenetration and the character jitters.
-- **Coyote time counts from the last grounded *tick***, not an accumulated float — reproducible rather than frame-rate dependent.
+6. **Three scenes, not four.** Bootstrap persists; world scenes swap under it; UI splits out when
+   it earns it. The player is a **prefab in Bootstrap, not its own scene** — Unity does not
+   serialise cross-scene references, so a Player scene would turn every host/view/camera link into
+   runtime resolution. `SceneDescriptor` carries per-scene config so the player can persist while
+   the *configuration* varies.
+7. **Progression is an `AbilityLoadout` asset.** Every ability is always registered; which ones
+   tick is data. An absent row means "leave alone", never "off" — otherwise every ability added
+   after an asset was authored would silently vanish.
+8. **Levels are composed in lanes.** A lane is the floor-to-floor module, `StandHeight x 2` =
+   3.6 m, derived so the grid follows if the hero is resized. The camera frames 4 lanes, puts the
+   player in the centre lane when free, and clamps to level bounds — at which point the player
+   rides up the frame, which also signals there is nothing below.
+9. **Cinemachine, Follow only, no Aim.** Rotation Composer and Hard Look At tilt the camera to
+   track the target, which makes vertical surfaces converge and the axis-constrained plane stop
+   reading as flat.
+10. **Camera framing is settled; the feel numbers inside it are not.** See §6.
 
 ---
 
 ## 4. Traps already hit — do not rediscover
 
-1. **`.gitignore` was anchored at the wrong level.** Repo root is one above the Unity project, and root-anchored patterns (`/[Ll]ibrary/`…) matched nothing — `git add .` would have committed all of `Library/`. Fixed by a second correctly-anchored copy inside `Prophecy/`. **Both files are required.** Verify with `git check-ignore -q Prophecy/Library/`.
+Carried forward, still true: **both `.gitignore` files are required**; **tests in `file:` packages
+need `testables`**; **`-batchmode -runTests` refuses a project an Editor has open**; **two
+`SimClock` bugs were fixed during the port**; **`[MovedFrom]` does not protect scene references, so
+do not regenerate the shared `Sim` `.meta` files**; **two red `[RandomSource]` lines during test
+runs are HopeFell's own fallback test, not a failure.**
 
-2. **Tests in `file:` packages silently do not run.** Unity auto-includes tests from *embedded* packages but ignores test assemblies in local/registry packages unless the package is listed in `"testables"` in `manifest.json`. It is **not an error** — the tests just never run and the suite still reports green. This was caught only because `RGS.Core.Tests.dll` was missing from `Library/ScriptAssemblies/` while `Rokkan.Prophecy.Tests.dll` was present. **Add every new shared package to `testables`, then confirm its `*.Tests.dll` appears.**
+New this session:
 
-3. **`-batchmode -runTests` refuses a project an Editor has open.** Symptom: "Multiple Unity instances cannot open the same project." While Unity is running, use `Prophecy → Tests → Run EditMode Tests`, which writes `Logs/test-results.txt`. Batchmode only works with the Editor closed.
-
-4. **Two `SimClock` bugs were fixed during the port** (logged in `MIGRATION-HopeFell.md`): `FixedDeltaSeconds` and every `SimTickInfo` returned the 1/60 *constant* regardless of the clock's actual rate, so `new SimClock(30)` told systems each tick was 1/60 s; and `new SimClock(0)` produced an infinite delta and a silently dead sim. Neither affected the 60 Hz path in use.
-
-5. **`[MovedFrom]` does not protect MonoBehaviour scene references** — those bind by script `.meta` GUID. The shared `Sim` files deliberately reuse HopeFell's original GUIDs so its `SimClockDriver` placements survive migration. **Do not regenerate those `.meta` files.**
-
-6. **Expected console noise:** two red `[RandomSource] GetStream called with null/empty name` lines during test runs. That is HopeFell's own `GetStream_NullOrEmptyName_FallsBackToDefault` exercising the fallback path by design. Not a failure.
+7. **Play mode freezes when the Editor loses focus.** `runInBackground` was off, so any
+   tooling-driven play test stalled at `frameCount = 1` — which looks exactly like broken gameplay.
+   Now on (commit `e8e47ca`), and listed in `Plans/Release-Checklist.md` to be reverted before
+   shipping.
+8. **A failed `Unity_RunCommand` exits play mode.** The compile error triggers an assembly reload.
+   Diagnostics taken afterwards are edit-mode readings where `Update` never ran — this cost real
+   time and nearly produced a wrong conclusion. **Always check `Application.isPlaying` before
+   trusting a play-mode measurement.**
+9. **Cinemachine ≤ 3.1.4 does not compile on Unity 6000.5** — it calls `Object.GetInstanceID()`,
+   now an error-level obsolete (CS0619). 3.1.4 is what sits in the local package cache, so an
+   offline install picks the broken one. Use **3.1.7**.
+10. **Asset references can silently fail to persist** when set on a prefab moments after the assets
+    were imported. They come back null with no error. Verify by re-reading through a *fresh*
+    `SerializedObject`, and prefer `PrefabUtility.LoadPrefabContents` / `SaveAsPrefabAsset`.
+11. **A prefab cannot reference a scene object** — `PlayerCharacterHost._clockDriver` is null in
+    the prefab by design. `SimClockDriver.RegisterWithScene` has a scene-search fallback for this.
+12. **`EditorSceneManager.NewScene(..., Additive)` throws while an untitled scene is open**, which
+    is the state a freshly launched Editor is always in. Generators use `Single` and restore the
+    previous setup.
+13. **Camera bounds and camera offsets write the same number.** Measuring one requires neutralising
+    the other, or the clamp silently dominates the reading.
 
 ---
 
 ## 5. Tooling
 
-**Unity's own MCP (`mcp__unity-mcp__*`)** is registered for this project and connected — a stdio relay (`~/.unity/relay/relay_win.exe --mcp`) shipping inside `com.unity.ai.assistant`. Use it for scenes, prefabs, play mode and console reads.
+**Unity's own MCP (`mcp__unity-mcp__*`)** is registered and connected. Use it for scenes, prefabs,
+play mode and console reads. `Unity_RunCommand` compiles C# in a dynamic assembly that **cannot
+reference project assemblies** — resolve project types by reflection over `AppDomain`, and note it
+rejects `System.Reflection` as a namespace import (call `.GetType().GetProperty(...)` via `var`
+instead). Its logger does **not** honour format specifiers — pre-format with `string.Format`.
 
-**Coplay is fully removed** — package residue and MCP registration both. Ignore any lingering references.
+**Generators** (`Prophecy > Build > …`): `Create Missing Data Assets`, `Generate Input Actions`,
+`Generate GrayBox_Traversal`. All idempotent, all also exposed as `-executeMethod` targets.
+**Tests**: `Prophecy > Tests > Run EditMode Tests` writes `Logs/test-results.txt`.
 
-Registered against `C:\Users\MattS\Documents\RGS\Prophecy\Prophecy` (git root / session cwd). Opening Claude Code directly in the nested Unity folder would need its own registration.
-
-**The one code-generated asset:** `GrayBox_Traversal` geometry, built by an idempotent `[MenuItem("Prophecy/Build/…")]` generator, because it must be *derived from* `MovementTuning` — retune a number, regenerate, and jump gaps stay honest. Everything else (Bootstrap, player prefab, camera rig) is one-off setup: build it directly through MCP.
-
----
-
-## 6. Next up — M3
-
-Goal: **traversing gray blocks is fun with no art, no enemies, no goal.** Then stop, tune, and lock the numbers — everything downstream is sized from them.
-
-1. **`MovementTuning`** ScriptableObject in `Assets/_Prophecy/Data/` — every number: walk/run speed, accel/friction, gravity up vs down, apex gravity scale, jump height, coyote ticks, buffer ticks, crouch height, down-thrust speed. Authored in **ticks** where it is timing, not seconds. SO edits persist through play mode, so this is the live tuning surface.
-2. **Movement modules** on the existing registry — `GroundMove` (build run as a *toggle* first per open knob #1, with an analog-blend switch to A/B it), `Crouch`, `Jump` (coyote, buffering, variable height, apex hang), `FallLand`, `DownThrust`, `TopDownMove`, `Interact`. Register `DoubleJump`, `Crawl`, `DodgeStep`, `LedgeHang`, `LedgePullUp`, `LadderClimb`, `FlameArt` as stubs — **adding each later must not touch an existing module. That is the architecture test.**
-3. **Presentation** — `PlayerInputCapture` (Input System → `InputFrame`, latching button edges between ticks so a press+release inside one tick is not lost), `CharacterView` (reads sim state, interpolates by `SimClock.InterpolationAlpha`), `CollisionBaker`, damped follow camera with side-scroll and top-down modes, F1 debug overlay (stance, grounded, velocity, active lock, coyote/buffer timers).
-4. **Scenes** — `Bootstrap` (persistent: `SimClockDriver`, player, camera), `GrayBox_Traversal`, `GrayBox_Arena`, `Overworld_GrayBox`; `SceneDirector`, `SceneDescriptor`, `SpawnPoint`, `Portal`.
-5. **Input asset** — replace stock `InputSystem_Actions.inputactions` with `Prophecy.inputactions`, one `Gameplay` map carrying the **whole final moveset now**, including abilities that ship disabled.
-6. **Tests** — jump apex height, coyote window and landing tick asserted against `MovementTuning` with no scene. Verify identical results at 30/60/144 fps, or the fixed tick is not doing its job.
-
-Cinemachine is **not** installed; a ~50-line damped follow is the plan for the gray box.
+The **CLI is `Unity.exe` itself** (no `unity` on PATH) and refuses a project the Editor has open.
 
 ---
 
-## 7. Open design questions (raised, not answered)
+## 6. Movement and camera numbers are provisional
 
-Flagged to the user during planning; none are blocking M3, all cost money if discovered late.
+The user played the gray box, judged it **"good enough to move on"**, and said explicitly it will
+need better tuning **once models and combat exist**. Every value was derived or reasoned to, none
+were felt against real art.
 
-1. **§5.7 contradicts §7.** §7 promises six bosses on one skeleton "differing by a single signature behavior, not bespoke tech" — but §5.7 specs Mirefen as a **water temple with sluice puzzles** and Cordwell as an **endless-horde arena with a swelling boss**. Two whole subsystems in boss costumes. Either downgrade them or knowingly name them the two expensive fights.
-2. **The "lose" ending is a fail state players will reload past.** §4.7's defusing of win=good/lose=bad depends on the loss reading as *an ending* — credits, consumed save, epilogue. A "Retry" prompt means nobody ever sees the cleaner-handed fate.
-3. **Power-gating on total power is farmable.** Resolve also comes from ordinary enemies, so a player who spares every Protector can grind to the gate and "your power *is* your complicity" quietly breaks. Either bindings are the only meaningful power source, or the gate reads essences directly.
-4. **The dawning arrives too late to be a choice.** §4.6 calls bind-or-spare "the game", but §5.6 puts the dawning at Mirefen, by which point 4–5 of 6 kingdoms are resolved. Suggested fix: make binding **revisitable**, so sparing becomes a standing temptation rather than a one-time choice.
-5. **Delay vs. witnessing pull opposite ways.** §5.2 wants the cost distant *and* witnessed. At least one forced return must be authored — Zelda II's death rule (return to start with stats intact) is the free mechanism.
-6. **Aldhearth has no Protector** (§5.5) yet §4.7's win is "complete the binding". What is the final essence? The most devastating answer is HopeFell's own populace — the distributed thing, centralised. Unresolved, and it is the climax.
-7. **The Seven Tenets may dilute the prophecy** — two reveals of identical shape (holy text meaning its opposite) can blunt each other. Consider the Tenets being *recognised* as a lens rather than *decoded* as a second found-fragment puzzle.
+Most suspect: `_lookAheadLanesAtRun` (1 lane), `_verticalDeadZoneLanes` (0.8), `_fallLookDelay`
+(0.33 s), `LedgeGrabMinHeight`/`MaxHeight` (1.0/1.7 m, pure apex maths), `AirJumpArmTicks` (8).
+
+Camera *structure* — 4 lanes visible, centre-lane framing, half-lane offsets, bounds clamping — is
+settled. It is the feel numbers inside that structure that are open. Do not build level geometry or
+combat timing that depends on an exact current value surviving; derive from tuning as the gray box
+generator does.
+
+---
+
+## 7. Known gaps carried into M4
+
+1. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`,
+   so an overworld player walks through walls. Must be fixed before the overworld scene means anything.
+2. **No overworld scene exists yet** — `Overworld_GrayBox`, portals and `SceneDirector.GoTo` are
+   written but only exercised by a single world scene.
+3. **`DownThrust.Bounce()` is never called.** The dive, the commitment lock and the bounce exist;
+   the hitbox that would trigger it is M4's job.
+4. **`Interact` produces a request and a probe box that nothing consumes.**
+5. **F1 overlay ships visible**, gray-box loadout has everything on — both in the release checklist.
+
+---
+
+## 8. Next up — M4, combat
+
+Goal: **stance combat that feels like Zelda II, timed in ticks, testable headless.**
+
+1. **`AttackTimeline`** — authored tick counts for startup / active / recovery, hit windows, parry
+   windows, i-frames, cancel windows. Ported from HopeFell's pattern. Log the port in
+   `RGS\Packages\MIGRATION-HopeFell.md` if it lands in a shared package.
+2. **Stance attacks** — high standing, low crouching, and the down-thrust's damage half wired to
+   the existing `DownThrust.Bounce()`. Attack modules go on the same registry and must not require
+   editing an existing module.
+3. **Hitboxes and hurtboxes** — sim-side AABBs, resolved in the tick, not Unity trigger colliders,
+   or the headless contract breaks.
+4. **Defence** — block by stance, parry with a tick window, i-frames, knockback, hit-react at
+   `LockPriority.HitReact`.
+5. **One enemy** with high/low guard, to force the stance choice §6.1 is built around.
+6. **Tests** — identical combat outcomes at 30/60/144 fps, parry windows asserted in ticks, and the
+   architecture test that a new attack needs no edit to an existing module.
+
+`com.rokkan.animation` (clip injection) is pencilled in for M4. Remember the rule: **clip events
+drive VFX/SFX/footsteps only** — gameplay decisions live on the timeline.
+
+---
+
+## 9. Open design questions (raised, still unanswered)
+
+Unchanged from the previous handoff; none block M4, all cost money if discovered late.
+
+1. **§5.7 contradicts §7** — Mirefen's water-temple sluices and Cordwell's endless-horde arena are
+   two whole subsystems in boss costumes.
+2. **The "lose" ending is a fail state players will reload past.**
+3. **Power-gating on total power is farmable**, so "your power *is* your complicity" quietly breaks.
+4. **The dawning arrives too late to be a choice** — suggested fix: make binding revisitable.
+5. **Delay vs. witnessing pull opposite ways** — at least one forced return must be authored.
+6. **Aldhearth has no Protector** yet the win is "complete the binding". What is the final essence?
+7. **The Seven Tenets may dilute the prophecy** — two reveals of identical shape blunt each other.
