@@ -57,6 +57,8 @@ Reusable material lives in HopeFell's `Packages/`, **not** its `Assets/`.
 
 Consumed via `file:../../../../Packages/<name>` in `Prophecy/Packages/manifest.json`. The path is relative to the **Packages folder** and is four levels up because of the nested layout — if Unity reports a package cannot be resolved, that depth is the thing to check.
 
+> ⚠️ **Tests in `file:` packages only run if the package is in `testables`.** Unity compiles tests from *embedded* packages (physically inside `Packages/`, like `com.rokkan.prophecy`) automatically, but silently ignores test assemblies in local/registry packages unless the package name appears in the `"testables"` array of `manifest.json`. A missing entry does not error — the tests just never run and the suite reports green. **Add every new shared package to `testables`**, then confirm its `*.Tests.dll` appears in `Library/ScriptAssemblies/`.
+
 **These were copied, not moved.** HopeFell was mid-work (branch `foundry/docs-tdd`, 15 uncommitted changes) and is byte-for-byte untouched; it keeps its own embedded copies until its turn comes. **Log every shared-package change in `RGS/Packages/MIGRATION-HopeFell.md`** — that file is HopeFell's adoption checklist and the only thing preventing its catch-up becoming archaeology.
 
 The shared `Sim` files deliberately reuse HopeFell's original `.meta` GUIDs so its existing `SimClockDriver` scene references resolve after migration. **Do not regenerate those `.meta` files.**
