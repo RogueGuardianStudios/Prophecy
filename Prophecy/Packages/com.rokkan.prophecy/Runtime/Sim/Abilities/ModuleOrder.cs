@@ -25,6 +25,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int TopDownMove = 15;
 
         public const int Crouch = 20;
+
+        /// <summary>Straight after Crouch: dropping through a platform is what holding down
+        /// escalates to, so it needs to see the stance that holding down just produced.</summary>
+        public const int DropThrough = 22;
+
         public const int Crawl = 25;
 
         public const int Jump = 30;

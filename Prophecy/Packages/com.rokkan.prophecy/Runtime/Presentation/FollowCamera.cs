@@ -34,12 +34,25 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Optional. Supplies facing and grounded state for look-ahead and re-centring.")]
         private PlayerCharacterHost _host;
 
-        [Header("Framing")]
-        [SerializeField]
-        private Vector3 _sideScrollOffset = new Vector3(0f, 1.6f, -12f);
+        [Header("Framing — side-scroll")]
+        [SerializeField, Tooltip("Y lifts the frame so the player sits below centre; Z is the lens distance.")]
+        private Vector3 _sideScrollOffset = new Vector3(0f, 1.9f, -24f);
 
+        [SerializeField, Tooltip("Long lens. Narrow FOV far back keeps vertical surfaces near-parallel " +
+                                 "so the gameplay plane reads flat, while still parallaxing.")]
+        [Range(10f, 70f)]
+        private float _sideScrollFov = 28f;
+
+        [SerializeField, Tooltip("Degrees below level. Should be 0 for a side-scroller — see ApplyOrientation.")]
+        [Range(-20f, 20f)]
+        private float _sideScrollTilt;
+
+        [Header("Framing — top-down")]
         [SerializeField]
         private Vector3 _topDownOffset = new Vector3(0f, 13f, -9f);
+
+        [SerializeField, Range(10f, 70f)]
+        private float _topDownFov = 45f;
 
         [SerializeField, Tooltip("Seconds to close most of the distance. Higher is looser.")]
         private float _smoothTime = 0.18f;
@@ -82,8 +95,41 @@ namespace Rokkan.Prophecy.Presentation
             transform.position = Vector3.SmoothDamp(
                 transform.position, focus + offset, ref _followVelocity, _smoothTime);
 
-            if (offset.sqrMagnitude > 0.0001f)
-                transform.rotation = Quaternion.LookRotation(-offset.normalized, Vector3.up);
+            ApplyOrientation(space, offset);
+        }
+
+        /// <summary>
+        /// Point the camera, and set the lens.
+        ///
+        /// <para><b>Side-scroll is held dead level, not aimed at the target.</b> Deriving the
+        /// pitch from the offset — which is what this used to do — meant any vertical offset at all
+        /// tilted the camera, and a tilted camera makes every vertical surface converge: walls lean
+        /// inward, the tops of boxes come into view, and the axis-constrained plane stops reading
+        /// as flat. It is subtle enough that the result just looks wrong without being nameable.
+        /// The frame is raised by moving the camera up, never by pitching it down.</para>
+        ///
+        /// <para>Top-down genuinely wants the tilt, so there the look direction still comes from
+        /// the offset.</para>
+        ///
+        /// <para>Field of view lives here rather than on the Camera because framing is the pair of
+        /// FOV and distance, not either alone. Split them and someone moves the camera back for
+        /// breathing room and silently halves how big the character reads.</para>
+        /// </summary>
+        private void ApplyOrientation(MovementSpace space, Vector3 offset)
+        {
+            var camera = GetComponent<Camera>();
+
+            if (space == MovementSpace.TopDown)
+            {
+                if (offset.sqrMagnitude > 0.0001f)
+                    transform.rotation = Quaternion.LookRotation(-offset.normalized, Vector3.up);
+
+                if (camera != null) camera.fieldOfView = _topDownFov;
+                return;
+            }
+
+            transform.rotation = Quaternion.Euler(_sideScrollTilt, 0f, 0f);
+            if (camera != null) camera.fieldOfView = _sideScrollFov;
         }
 
         /// <summary>Dead-banded vertical tracking, re-centring while the character is on the ground.</summary>
@@ -138,8 +184,7 @@ namespace Rokkan.Prophecy.Presentation
 
             transform.position = focus + offset;
 
-            if (offset.sqrMagnitude > 0.0001f)
-                transform.rotation = Quaternion.LookRotation(-offset.normalized, Vector3.up);
+            ApplyOrientation(space, offset);
         }
     }
 }

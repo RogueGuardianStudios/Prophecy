@@ -376,6 +376,155 @@ namespace Rokkan.Prophecy.Tests
             Assert.AreEqual(AttachmentKind.None, sim.State.Attachment);
         }
 
+        // ---------------------------------------------------------------- platforms
+
+        /// <summary>Ground far below, with a platform overhead at <paramref name="platformY"/>.</summary>
+        private static CollisionWorld PlatformOver(float platformY, bool droppable)
+        {
+            var world = Ground(-10f);
+            world.Add(new Aabb(new Vector2(-8f, platformY), new Vector2(8f, platformY + 0.3f)),
+                      SolidKind.OneWay, droppable);
+            return world;
+        }
+
+        private static CharacterSim StandingOnPlatform(MovementTuningData tuning, bool droppable)
+        {
+            const float platformY = 4f;
+            var world = PlatformOver(platformY, droppable);
+
+            var sim = Player(tuning, world, new Vector2(0f, platformY + 0.3f));
+            Step(sim, 5);
+            return sim;
+        }
+
+        [Test]
+        public void HoldingDown_DropsThroughAPassThroughPlatform()
+        {
+            var tuning = Tuning();
+            var sim = StandingOnPlatform(tuning, droppable: true);
+
+            Assert.IsTrue(sim.State.Grounded, "should start on the platform");
+            float startY = sim.State.Position.y;
+
+            Step(sim, Hold(0f, -1f), tuning.DropThroughHoldTicks + 20);
+
+            Assert.Less(sim.State.Position.y, startY - 1f, "should have fallen through it");
+        }
+
+        [Test]
+        public void ATapOfDown_CrouchesRatherThanDropping()
+        {
+            // Down is also crouch, and crouching on a platform is much the more common intent.
+            // A drop on the press would make crouching near an edge feel random.
+            var tuning = Tuning();
+            var sim = StandingOnPlatform(tuning, droppable: true);
+            float startY = sim.State.Position.y;
+
+            Step(sim, Hold(0f, -1f), tuning.DropThroughHoldTicks - 2);
+
+            Assert.AreEqual(Stance.Crouch, sim.State.Stance);
+            Assert.AreEqual(startY, sim.State.Position.y, 0.01f, "still standing on it");
+        }
+
+        [Test]
+        public void AStrictOneWayPlatform_CannotBeDroppedThrough()
+        {
+            var tuning = Tuning();
+            var sim = StandingOnPlatform(tuning, droppable: false);
+            float startY = sim.State.Position.y;
+
+            Step(sim, Hold(0f, -1f), tuning.DropThroughHoldTicks + 30);
+
+            Assert.AreEqual(startY, sim.State.Position.y, 0.01f,
+                "the sealed floor of an area must not be escapable by crouching");
+            Assert.IsTrue(sim.State.Grounded);
+        }
+
+        [Test]
+        public void APassThroughPlatform_IsStillEnteredFromBelow()
+        {
+            var tuning = Tuning();
+
+            // Platform within jump reach of the floor, or this tests nothing but gravity.
+            var world = Ground();
+            world.Add(new Aabb(new Vector2(-8f, 2f), new Vector2(8f, 2.3f)), SolidKind.OneWay, true);
+
+            var sim = Player(tuning, world);
+
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Holding), 120);
+
+            Assert.IsTrue(sim.State.Grounded);
+            Assert.GreaterOrEqual(sim.State.Position.y, 2.3f - 0.01f,
+                "jumped up through it and landed on top");
+        }
+
+        // ---------------------------------------------------------------- ropes
+
+        [Test]
+        public void ARope_CanBeMountedDownwardFromThePlatformItHangsFrom()
+        {
+            // The rope's defining behaviour: it hangs *through* its platform, so holding down on
+            // the platform puts you on the rope rather than dropping you off it.
+            var tuning = Tuning();
+            const float platformY = 6f;
+
+            var world = Ground(-20f);
+            world.Add(new Aabb(new Vector2(-8f, platformY), new Vector2(8f, platformY + 0.3f)),
+                      SolidKind.OneWay, true);
+            world.AddClimbable(new Aabb(new Vector2(-0.6f, 1f), new Vector2(0.6f, platformY + 0.3f)),
+                               ClimbableKind.Rope);
+
+            var sim = Player(tuning, world, new Vector2(0f, platformY + 0.3f));
+            Step(sim, 5);
+            Assert.IsTrue(sim.State.Grounded, "starts on the platform");
+
+            Step(sim, Hold(0f, -1f), 3);
+
+            Assert.AreEqual(AttachmentKind.Ladder, sim.State.Attachment, "should be on the rope");
+
+            float mountY = sim.State.Position.y;
+            Step(sim, Hold(0f, -1f), 30);
+            Assert.Less(sim.State.Position.y, mountY - 0.5f, "and descending through the platform");
+        }
+
+        [Test]
+        public void AWallLadder_IsNotMountedByCrouchingAtItsFoot()
+        {
+            // The mirror case: at the base of a ladder there is nothing below to descend onto, so
+            // holding down must just crouch.
+            var tuning = Tuning();
+            var world = Ground();
+            world.AddClimbable(new Aabb(new Vector2(-0.6f, 0f), new Vector2(0.6f, 10f)),
+                               ClimbableKind.Ladder);
+
+            var sim = Player(tuning, world);
+            Step(sim, Hold(0f, -1f), 20);
+
+            Assert.AreEqual(AttachmentKind.None, sim.State.Attachment);
+            Assert.AreEqual(Stance.Crouch, sim.State.Stance);
+        }
+
+        [Test]
+        public void SteppingOffTheTopOfARope_DoesNotFallBackThroughThePlatform()
+        {
+            var tuning = Tuning();
+            const float platformY = 6f;
+
+            var world = Ground(-20f);
+            world.Add(new Aabb(new Vector2(-8f, platformY), new Vector2(8f, platformY + 0.3f)),
+                      SolidKind.OneWay, true);
+            world.AddClimbable(new Aabb(new Vector2(-0.6f, 1f), new Vector2(0.6f, platformY + 0.9f)),
+                               ClimbableKind.Rope);
+
+            var sim = Player(tuning, world, new Vector2(0f, 1.5f));
+            Step(sim, Hold(0f, 1f), 200);
+
+            Assert.AreEqual(AttachmentKind.None, sim.State.Attachment, "climbed off the top");
+            Assert.IsFalse(sim.State.DropThrough, "and the pass-through permission was handed back");
+            Assert.Greater(sim.State.Position.y, platformY, "standing on the platform, not under it");
+        }
+
         // ---------------------------------------------------------------- loadout
 
         [Test]

@@ -209,9 +209,18 @@ namespace Rokkan.Prophecy.Sim
             }
         }
 
+        /// <summary>
+        /// Recompute support from geometry.
+        ///
+        /// <para>Deliberately passes <see cref="CharacterState.DropThrough"/> along. Grounding is
+        /// the thing that stops a fall starting, so a character dropping through a platform must
+        /// stop counting as standing on it the moment the drop is permitted — otherwise gravity
+        /// keeps being zeroed and the input looks ignored.</para>
+        /// </summary>
         private void RefreshGrounded()
         {
-            State.Grounded = State.Space == MovementSpace.TopDown || World.IsGrounded(State.Body);
+            State.Grounded = State.Space == MovementSpace.TopDown ||
+                             World.IsGrounded(State.Body, dropThrough: State.DropThrough);
         }
 
         /// <summary>

@@ -35,5 +35,6 @@ namespace Rokkan.Prophecy.Sim
         FlameArt = 15,
         Interact = 16,
         FallLand = 17,
+        DropThrough = 18,
     }
 }

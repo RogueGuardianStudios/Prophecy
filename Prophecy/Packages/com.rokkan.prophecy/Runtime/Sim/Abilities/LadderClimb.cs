@@ -25,6 +25,24 @@ namespace Rokkan.Prophecy.Sim.Abilities
     {
         private const LockFlags ClimbLock = LockFlags.Move | LockFlags.Jump;
 
+        /// <summary>How far below the feet the climbable probe reaches.</summary>
+        private const float ReachDown = 0.4f;
+
+        /// <summary>
+        /// The volume used to ask "is there something to climb here".
+        ///
+        /// <para>Reaches below the feet as well as covering the body, because a climbable ends
+        /// level with the surface it serves. A rope tied to the platform you are standing on, or a
+        /// ladder topping out at its walkway, does not overlap a body that extends purely upward
+        /// from the feet — so the one spot where you most obviously want to step onto it is the
+        /// one spot a body-sized test says there is nothing there. It matters twice: for mounting,
+        /// and for staying attached at the very top.</para>
+        /// </summary>
+        private static Collision.Aabb ClimbProbe(CharacterState state) =>
+            Collision.Aabb.FromFootSize(
+                state.Position - new Vector2(0f, ReachDown),
+                state.BodySize + new Vector2(0f, ReachDown));
+
         private readonly MovementTuningData _tuning;
 
         public LadderClimb(MovementTuningData tuning)
@@ -60,25 +78,36 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (state.Attachment != AttachmentKind.None) return;
             if (!sim.Can(LockFlags.Move)) return;
             if (Mathf.Abs(input.Move.y) < _tuning.ClimbMountThreshold) return;
-            if (!sim.World.TryGetClimbable(state.Body, out var ladder)) return;
 
-            // Pressing down at the foot of a ladder should walk, not mount — otherwise standing at
-            // the bottom and crouching sticks you to it.
-            if (input.Move.y < 0f && state.Grounded && state.Position.y <= ladder.Min.y + 0.05f) return;
+            if (!sim.World.TryGetClimbable(ClimbProbe(state), out var climbable)) return;
+
+            // Mounting downward is only meaningful if there is climbable below the feet to descend
+            // onto. At the foot of a wall ladder there is not, so crouching there walks and
+            // crouches as usual; on a rope hanging through the platform you are standing on, there
+            // is, so holding down takes you onto it. One rule, and it reads correctly at both ends.
+            if (input.Move.y < 0f && climbable.Box.Min.y >= state.Position.y - 0.05f) return;
 
             if (!sim.TryLock(this, ClimbLock, LockPriority.Movement)) return;
 
             state.Attachment = AttachmentKind.Ladder;
-            state.AttachmentAnchor = new Vector2(ladder.Center.x, state.Position.y);
+            state.AttachmentAnchor = new Vector2(climbable.Box.Center.x, state.Position.y);
             state.Velocity = Vector2.zero;
             state.Stance = Stance.Stand;
+
+            // Descending onto a rope means leaving the platform overhead behind.
+            if (input.Move.y < 0f) state.DropThrough = true;
         }
 
         private void Climb(CharacterSim sim, in InputFrame input)
         {
             var state = sim.State;
 
-            if (!sim.World.TryGetClimbable(state.Body, out var ladder))
+            // Held for as long as the climb lasts. A rope hangs through the platform it is tied
+            // to, so descending one means passing down through that platform every tick — not
+            // once at the moment of mounting.
+            state.DropThrough = true;
+
+            if (!sim.World.TryGetClimbable(ClimbProbe(state), out var climbable))
             {
                 Dismount(sim);
                 return;
@@ -111,13 +140,16 @@ namespace Rokkan.Prophecy.Sim.Abilities
             state.Velocity = new Vector2(lateral * _tuning.ClimbLateralSpeed,
                                          vertical * _tuning.ClimbSpeed);
 
-            // Climbing off the top is a dismount, not a stop — the ladder has run out.
-            if (vertical > 0f && state.Body.Min.y >= ladder.Max.y - 0.05f)
+            // Climbing off the top is a dismount, not a stop — the climbable has run out.
+            if (vertical > 0f && state.Body.Min.y >= climbable.Box.Max.y - 0.05f)
                 Dismount(sim);
         }
 
         private void Dismount(CharacterSim sim)
         {
+            // Must be cleared here, or stepping off the top of a rope drops the player straight
+            // back through the platform they just climbed onto.
+            sim.State.DropThrough = false;
             sim.State.Attachment = AttachmentKind.None;
             sim.ReleaseLock(this);
         }

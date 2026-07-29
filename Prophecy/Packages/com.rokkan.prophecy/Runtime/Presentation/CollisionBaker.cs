@@ -62,19 +62,26 @@ namespace Rokkan.Prophecy.Presentation
                 if (max.x - min.x <= 0f || max.y - min.y <= 0f) continue;
 
                 // Climbables are read from triggers, because a ladder must not block walking past.
-                if (collider.GetComponentInParent<LadderVolume>() != null)
+                var climbable = collider.GetComponentInParent<LadderVolume>();
+                if (climbable != null)
                 {
-                    world.AddClimbable(new Aabb(min, max));
+                    if (!climbable.IsProperlyAnchored(out string problem))
+                        Debug.LogWarning($"{climbable.name}: {problem}. It will still be climbable, " +
+                                         "which is why this is worth saying out loud.", climbable);
+
+                    world.AddClimbable(new Aabb(min, max), climbable.Kind);
                     continue;
                 }
 
                 if (collider.isTrigger) continue;
 
-                var kind = collider.GetComponentInParent<OneWayPlatform>() != null
-                    ? SolidKind.OneWay
-                    : SolidKind.Solid;
+                var platform = collider.GetComponentInParent<OneWayPlatform>();
 
-                world.Add(new Aabb(min, max), kind);
+                if (platform != null)
+                    world.Add(new Aabb(min, max), SolidKind.OneWay, platform.AllowDropThrough);
+                else
+                    world.Add(new Aabb(min, max), SolidKind.Solid);
+
                 added++;
             }
 

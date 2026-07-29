@@ -19,7 +19,33 @@ namespace Rokkan.Prophecy.Sim.Collision
         public readonly Aabb Box;
         public readonly SolidKind Kind;
 
-        public Solid(in Aabb box, SolidKind kind)
+        /// <summary>
+        /// Whether a deliberate drop can pass down through this. Only meaningful for
+        /// <see cref="SolidKind.OneWay"/>.
+        ///
+        /// <para>Both behaviours are wanted, and the difference is a level design decision rather
+        /// than a physics one. A platform in the middle of a room should let the player drop back
+        /// down — being stranded on top of scenery is miserable. A platform sealing the floor of
+        /// an area you climbed up into should not, or the player falls out of the level by
+        /// crouching.</para>
+        /// </summary>
+        public readonly bool AllowsDropThrough;
+
+        public Solid(in Aabb box, SolidKind kind, bool allowsDropThrough = true)
+        {
+            Box = box;
+            Kind = kind;
+            AllowsDropThrough = allowsDropThrough;
+        }
+    }
+
+    /// <summary>A ladder or rope: a volume you can hold position in, that never blocks movement.</summary>
+    public readonly struct Climbable
+    {
+        public readonly Aabb Box;
+        public readonly ClimbableKind Kind;
+
+        public Climbable(in Aabb box, ClimbableKind kind)
         {
             Box = box;
             Kind = kind;
@@ -55,7 +81,7 @@ namespace Rokkan.Prophecy.Sim.Collision
         public const float SkinWidth = 0.0001f;
 
         private readonly List<Solid> _solids = new List<Solid>();
-        private readonly List<Aabb> _climbables = new List<Aabb>();
+        private readonly List<Climbable> _climbables = new List<Climbable>();
 
         public int Count => _solids.Count;
         public IReadOnlyList<Solid> Solids => _solids;
@@ -63,11 +89,13 @@ namespace Rokkan.Prophecy.Sim.Collision
         /// <summary>Ladders and ropes. Kept apart from solids because they are the opposite of
         /// solid — you pass through them and they only matter to the ability that reads them.</summary>
         public int ClimbableCount => _climbables.Count;
-        public IReadOnlyList<Aabb> Climbables => _climbables;
+        public IReadOnlyList<Climbable> Climbables => _climbables;
 
-        public void Add(in Aabb box, SolidKind kind = SolidKind.Solid) => _solids.Add(new Solid(box, kind));
+        public void Add(in Aabb box, SolidKind kind = SolidKind.Solid, bool allowsDropThrough = true) =>
+            _solids.Add(new Solid(box, kind, allowsDropThrough));
 
-        public void AddClimbable(in Aabb box) => _climbables.Add(box);
+        public void AddClimbable(in Aabb box, ClimbableKind kind = ClimbableKind.Ladder) =>
+            _climbables.Add(new Climbable(box, kind));
 
         public void Clear()
         {
@@ -150,8 +178,9 @@ namespace Rokkan.Prophecy.Sim.Collision
 
                 if (s.Kind == SolidKind.OneWay)
                 {
-                    if (dropThrough || dy >= 0f) continue;          // only ever blocks a fall
-                    if (box.Min.y < s.Box.Max.y - SkinWidth) continue; // started below the surface
+                    if (dy >= 0f) continue;                            // only ever blocks a fall
+                    if (dropThrough && s.AllowsDropThrough) continue;   // a deliberate drop, permitted
+                    if (box.Min.y < s.Box.Max.y - SkinWidth) continue;  // started below the surface
                 }
 
                 if (dy > 0f)
@@ -176,9 +205,17 @@ namespace Rokkan.Prophecy.Sim.Collision
         /// <paramref name="probeDistance"/> rather than testing for contact, so a mover resting
         /// flush on ground (where strict overlap is deliberately false) still reads as grounded.
         /// </summary>
-        public bool IsGrounded(in Aabb box, float probeDistance = 0.02f)
+        /// <summary>
+        /// True if something supports <paramref name="box"/> from directly below.
+        ///
+        /// <para><paramref name="dropThrough"/> must be honoured here, not only in the sweep. A
+        /// character dropping through a platform stays <i>grounded</i> on it otherwise — gravity
+        /// keeps zeroing their velocity and the drop never starts, which reads as the input being
+        /// ignored rather than as a collision rule.</para>
+        /// </summary>
+        public bool IsGrounded(in Aabb box, float probeDistance = 0.02f, bool dropThrough = false)
         {
-            SweepVertical(box, -probeDistance, out bool hit);
+            SweepVertical(box, -probeDistance, out bool hit, dropThrough);
             return hit;
         }
 
@@ -253,16 +290,38 @@ namespace Rokkan.Prophecy.Sim.Collision
         }
 
         /// <summary>The first climbable volume overlapping <paramref name="box"/>.</summary>
-        public bool TryGetClimbable(in Aabb box, out Aabb climbable)
+        public bool TryGetClimbable(in Aabb box, out Climbable climbable)
         {
             for (int i = 0; i < _climbables.Count; i++)
             {
-                if (!box.Overlaps(_climbables[i])) continue;
+                if (!box.Overlaps(_climbables[i].Box)) continue;
                 climbable = _climbables[i];
                 return true;
             }
 
             climbable = default;
+            return false;
+        }
+
+        /// <summary>
+        /// True if a droppable pass-through platform is directly underfoot — the question "can I
+        /// drop from here?" Strict one-way platforms answer no, which is what makes them the
+        /// sealed floor of an area rather than a trapdoor.
+        /// </summary>
+        public bool StandingOnDroppablePlatform(in Aabb box, float probeDistance = 0.05f)
+        {
+            for (int i = 0; i < _solids.Count; i++)
+            {
+                var s = _solids[i];
+
+                if (s.Kind != SolidKind.OneWay || !s.AllowsDropThrough) continue;
+                if (!box.OverlapsX(s.Box)) continue;
+
+                // Feet resting on its top surface, within the probe.
+                float gap = box.Min.y - s.Box.Max.y;
+                if (gap >= -SkinWidth && gap <= probeDistance) return true;
+            }
+
             return false;
         }
     }

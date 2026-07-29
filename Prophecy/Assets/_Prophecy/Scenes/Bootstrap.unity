@@ -248,8 +248,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.FollowCamera
   _target: {fileID: 6710946903416866676}
   _host: {fileID: 6710946903416866677}
-  _sideScrollOffset: {x: 0, y: 1.6, z: -12}
+  _sideScrollOffset: {x: 0, y: 1.9, z: -24}
+  _sideScrollFov: 28
+  _sideScrollTilt: 0
   _topDownOffset: {x: 0, y: 13, z: -9}
+  _topDownFov: 45
   _smoothTime: 0.18
   _verticalDeadZone: 1.4
   _groundedRecentreSpeed: 6

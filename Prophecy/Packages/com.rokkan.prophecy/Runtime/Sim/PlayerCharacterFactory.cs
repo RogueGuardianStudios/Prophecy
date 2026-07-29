@@ -38,6 +38,7 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new GroundMove(tuning));
             sim.Add(new TopDownMove(tuning));
             sim.Add(new Crouch(tuning));
+            sim.Add(new DropThroughPlatform(tuning));
             sim.Add(new FallLand(tuning));
 
             // Jumps.

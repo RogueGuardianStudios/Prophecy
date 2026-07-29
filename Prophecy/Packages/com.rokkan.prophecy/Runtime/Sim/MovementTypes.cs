@@ -34,6 +34,25 @@ namespace Rokkan.Prophecy.Sim
         Air,
     }
 
+    /// <summary>
+    /// What kind of climbable something is, and therefore what it must be attached to.
+    ///
+    /// <para>The sim treats them almost identically — both are volumes you hold position in and
+    /// move vertically through. The distinction earns its place in how they are <i>anchored</i>:
+    /// a ladder is fixed against a wall, a rope hangs from a platform you can pass through. Those
+    /// are placement rules a generator can follow and a validator can check, and getting them
+    /// wrong produces a ladder floating in space that still works, which is worse than one that
+    /// visibly does not.</para>
+    /// </summary>
+    public enum ClimbableKind
+    {
+        /// <summary>Fixed against a wall. Climbed facing the surface.</summary>
+        Ladder,
+
+        /// <summary>Hangs from a pass-through platform, free on both sides.</summary>
+        Rope,
+    }
+
     /// <summary>What a character is holding onto. See <see cref="CharacterState.Attachment"/>.</summary>
     public enum AttachmentKind
     {

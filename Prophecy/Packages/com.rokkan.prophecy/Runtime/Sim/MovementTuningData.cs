@@ -189,6 +189,17 @@ namespace Rokkan.Prophecy.Sim
         [Range(0.1f, 0.9f)]
         public float CrouchInputThreshold = 0.5f;
 
+        // ------------------------------------------------------------------ drop-through
+
+        [Header("Drop through platforms")]
+        [Tooltip("Ticks down must be held before dropping. Long enough that a tap still crouches — " +
+                 "the two share a button, and crouching is the far more common intent.")]
+        public int DropThroughHoldTicks = 10;
+
+        [Tooltip("Ticks the pass-through permission lasts. Must outlast the fall clear of the " +
+                 "platform, or the character snaps back on top of it.")]
+        public int DropThroughTicks = 16;
+
         // ------------------------------------------------------------------ down-thrust
 
         [Header("Down-thrust")]

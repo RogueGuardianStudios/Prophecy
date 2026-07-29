@@ -168,8 +168,11 @@ namespace Rokkan.Prophecy.Editor.Build
             // --- a ledge too high to land on, low enough to catch
             cursor = LedgeChallenge(geometry, m, cursor);
 
-            // --- a ladder to a platform nothing else reaches
+            // --- a ladder bolted to the wall it exists to get you over
             cursor = LadderShaft(geometry, cursor);
+
+            // --- a rope hanging through the platform it is tied to
+            cursor = RopeSection(geometry, cursor);
 
             // --- a wall to run into, so wall-stop is visible rather than inferred
             Wall(geometry, cursor);
@@ -282,18 +285,75 @@ namespace Rokkan.Prophecy.Editor.Build
             return startX + length;
         }
 
+        /// <summary>
+        /// The two kinds of platform, side by side, so the difference is something you can feel
+        /// rather than read.
+        ///
+        /// <para>The first is pass-through: jump up onto it, hold down, drop back off. The second
+        /// is strictly one-way — you can still get up onto it, but holding down does nothing, the
+        /// way the sealed floor of an area you climbed into should behave.</para>
+        /// </summary>
         private static float OneWay(Transform parent, Metrics m, float startX)
         {
-            const float length = 8f;
+            const float length = 14f;
             float x = Ground(parent, "OneWay_Floor", startX, length);
 
             float platformY = m.JumpHeight * 0.6f;
 
-            var platform = Box(parent, "OneWay_Platform",
+            var droppable = Box(parent, "Platform_PassThrough",
                 new Vector2(startX + 2f, platformY),
                 new Vector2(startX + 6f, platformY + 0.3f));
+            var droppableComponent = droppable.gameObject.AddComponent<OneWayPlatform>();
+            SetPrivate(droppableComponent, "_allowDropThrough", true);
 
-            platform.gameObject.AddComponent<OneWayPlatform>();
+            var sealedPlatform = Box(parent, "Platform_OneWayOnly",
+                new Vector2(startX + 8f, platformY),
+                new Vector2(startX + 12f, platformY + 0.3f));
+            var sealedComponent = sealedPlatform.gameObject.AddComponent<OneWayPlatform>();
+            SetPrivate(sealedComponent, "_allowDropThrough", false);
+
+            return x;
+        }
+
+        /// <summary>
+        /// A rope hanging from a pass-through platform.
+        ///
+        /// <para>Anchoring is the point. The rope is tied to a platform that can be passed
+        /// through, so climbing it leads somewhere — up through the platform and onto it — and
+        /// coming back down is a matter of dropping through or mounting the rope downward. A rope
+        /// hanging from solid ceiling would be a ride to nowhere.</para>
+        ///
+        /// <para>It reaches down to within standing height, so it can be grabbed from the floor
+        /// rather than only from above.</para>
+        /// </summary>
+        private static float RopeSection(Transform parent, float startX)
+        {
+            const float length = 14f;
+            const float platformY = 6f;
+
+            float x = Ground(parent, "Rope_Floor", startX, length);
+
+            var platform = Box(parent, "Rope_Platform",
+                new Vector2(startX + 2f, platformY),
+                new Vector2(startX + 12f, platformY + 0.3f));
+
+            var platformComponent = platform.gameObject.AddComponent<OneWayPlatform>();
+            SetPrivate(platformComponent, "_allowDropThrough", true);
+
+            float ropeX = startX + 6f;
+
+            // Runs a little past the platform's surface on purpose: climbing off the top has to
+            // leave the feet ABOVE the platform, or the character dismounts just underneath it
+            // and falls straight back down.
+            var rope = Box(parent, "Rope",
+                new Vector2(ropeX, 1.2f),
+                new Vector2(ropeX + 1.2f, platformY + 0.9f));
+
+            var ropeCollider = rope.GetComponent<Collider>();
+            if (ropeCollider != null) ropeCollider.isTrigger = true;
+
+            var ropeVolume = rope.gameObject.AddComponent<LadderVolume>();
+            SetPrivate(ropeVolume, "_kind", ClimbableKind.Rope);
 
             return x;
         }
@@ -368,28 +428,44 @@ namespace Rokkan.Prophecy.Editor.Build
         /// past the platform's surface so climbing off the top leaves the feet above it rather
         /// than inside it.</para>
         /// </summary>
+        /// <summary>
+        /// A ladder fixed against a wall, which is the only way a ladder should ever exist.
+        ///
+        /// <para>The wall is what the ladder is <i>for</i>: it blocks the route at ground level,
+        /// and the ladder is the way over it. Building the pair together means the section cannot
+        /// end up with a ladder floating in open air — which still works mechanically and is
+        /// exactly the kind of thing that survives to a build because nothing about it errors.</para>
+        /// </summary>
         private static float LadderShaft(Transform parent, float startX)
         {
-            const float platformY = 8f;
+            const float wallHeight = 8f;
             const float ladderWidth = 1.2f;
 
-            float floorEnd = Ground(parent, "Ladder_Floor", startX, 16f);
+            float floorEnd = Ground(parent, "Ladder_Floor", startX, 18f);
 
-            float ladderX = startX + 2f;
-            float platformX = ladderX + ladderWidth + 0.4f;
+            float wallX = startX + 4f;
+            float ladderX = wallX - ladderWidth;
 
-            Box(parent, "Ladder_Platform",
-                new Vector2(platformX, platformY - 0.4f),
-                new Vector2(platformX + 10f, platformY));
+            // The wall the ladder is bolted to, and the reason it is there at all.
+            Box(parent, "Ladder_Wall",
+                new Vector2(wallX, 0f),
+                new Vector2(wallX + 1f, wallHeight));
 
+            // Walkway on top, reached by the climb.
+            Box(parent, "Ladder_Walkway",
+                new Vector2(wallX, wallHeight),
+                new Vector2(wallX + 11f, wallHeight + 0.4f));
+
+            // Past the walkway surface, so climbing off the top puts the feet on it.
             var ladder = Box(parent, "Ladder",
                 new Vector2(ladderX, 0f),
-                new Vector2(ladderX + ladderWidth, platformY + 0.3f));
+                new Vector2(ladderX + ladderWidth, wallHeight + 1f));
 
             var collider = ladder.GetComponent<Collider>();
             if (collider != null) collider.isTrigger = true;
 
-            ladder.gameObject.AddComponent<LadderVolume>();
+            var volume = ladder.gameObject.AddComponent<LadderVolume>();
+            SetPrivate(volume, "_kind", ClimbableKind.Ladder);
 
             return floorEnd;
         }
@@ -470,7 +546,9 @@ namespace Rokkan.Prophecy.Editor.Build
                 case int i: property.intValue = i; break;
                 case float f: property.floatValue = f; break;
                 case bool b: property.boolValue = b; break;
-                case MovementSpace space: property.enumValueFlag = (int)space; break;
+                // enumValueFlag rather than enumValueIndex: it carries the declared value, which
+                // is what a [Flags] enum like MovementSpace needs and what a plain one still gets right.
+                case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
                 case Object o: property.objectReferenceValue = o; break;
                 default:
                     Debug.LogError($"[Prophecy] Unsupported field type for '{fieldName}'.");
