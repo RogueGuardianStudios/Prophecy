@@ -1,0 +1,26 @@
+{
+    "name": "Rokkan.Prophecy.Tests",
+    "rootNamespace": "Rokkan.Prophecy.Tests",
+    "references": [
+        "Rokkan.Prophecy",
+        "RGS.Core",
+        "Rokkan.Core",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

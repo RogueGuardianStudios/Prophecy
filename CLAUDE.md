@@ -44,17 +44,22 @@ Vendor folders to leave alone: `Assets/ai.meshy/` (Meshy Bridge plugin, GPL-3.0)
 
 **HopeFell is the *next* game, not a live one.** Prophecy ships first and drives the shared packages; HopeFell catches up later. So: refine shared code freely for Prophecy's needs, but **log every shared-package change** in `MIGRATION-HopeFell.md` so the catch-up is a checklist, not archaeology.
 
-Reusable material lives in HopeFell's `Packages/`, **not** its `Assets/`:
+Reusable material lives in HopeFell's `Packages/`, **not** its `Assets/`.
 
-| Source | What |
-|---|---|
-| `Packages/com.rgs.core` | `SerializableGuid`, `TagMask128`, RNG streams, `ISerializer`/`JsonSerializer`, `PersistentSingleton`, `VectorMath`, `DeterministicMath` |
-| `Packages/com.rokkan.gameplay/Runtime/AnimationSystem/` | The clip-injection system (6 files) |
-| `Packages/com.rokkan.gameplay/Runtime/Sim/` | `SimClock`, `ISimSystem`, `SimTickInfo`, `SimConstants` (60 Hz) |
-| `Packages/com.rokkan.core` | `SavePrimitives.cs` |
-| `Assets/RogueGuardianStudios/GOAP` | GOAP — in Assets, not yet packaged |
+### Shared packages — `C:\Users\MattS\Documents\RGS\Packages\` (its own git repo)
 
-> **Status: not yet extracted.** Planned shared home is `C:\Users\MattS\Documents\RGS\Packages\`, consumed by Prophecy via `file:` relative paths in `manifest.json`. Until that lands, nothing here is referenced by Prophecy.
+| Package | Holds | Status |
+|---|---|---|
+| `com.rgs.core` **0.2.0** | `SerializableGuid`, `TagMask128`, RNG streams, `ISerializer`/`JsonSerializer`, `PersistentSingleton`, `VectorMath`, `DeterministicMath`, **`RGS.Core.Sim`** (the 60 Hz fixed-tick spine) | ✅ extracted, consumed |
+| `com.rokkan.core` | `SavePrimitives.cs` (`ISaveable`, `IBind<T>`) | ✅ extracted, consumed |
+| `com.rokkan.animation` | The clip-injection system | ⏳ planned M4 |
+| `com.rgs.goap` | GOAP (currently in HopeFell's `Assets/`) | ⏳ planned M6, only if it beats a plain state machine |
+
+Consumed via `file:../../../../Packages/<name>` in `Prophecy/Packages/manifest.json`. The path is relative to the **Packages folder** and is four levels up because of the nested layout — if Unity reports a package cannot be resolved, that depth is the thing to check.
+
+**These were copied, not moved.** HopeFell was mid-work (branch `foundry/docs-tdd`, 15 uncommitted changes) and is byte-for-byte untouched; it keeps its own embedded copies until its turn comes. **Log every shared-package change in `RGS/Packages/MIGRATION-HopeFell.md`** — that file is HopeFell's adoption checklist and the only thing preventing its catch-up becoming archaeology.
+
+The shared `Sim` files deliberately reuse HopeFell's original `.meta` GUIDs so its existing `SimClockDriver` scene references resolve after migration. **Do not regenerate those `.meta` files.**
 
 ## Architecture rules
 

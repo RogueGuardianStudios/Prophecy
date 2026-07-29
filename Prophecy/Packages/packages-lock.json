@@ -1,5 +1,23 @@
 {
   "dependencies": {
+    "com.rgs.core": {
+      "version": "file:../../../../Packages/com.rgs.core",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.rokkan.core": {
+      "version": "file:../../../../Packages/com.rokkan.core",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.rokkan.prophecy": {
+      "version": "file:com.rokkan.prophecy",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 1,
