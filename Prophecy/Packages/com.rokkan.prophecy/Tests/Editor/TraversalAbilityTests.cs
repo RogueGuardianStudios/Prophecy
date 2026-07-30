@@ -556,7 +556,8 @@ namespace Rokkan.Prophecy.Tests
 
             Assert.IsTrue(sim.Get<Jump>().Enabled);
             Assert.IsTrue(sim.Get<GroundMove>().Enabled);
-            Assert.IsFalse(sim.Get<DodgeStep>().Enabled, "and unbuilt ones stay off");
+            Assert.IsTrue(sim.Get<DodgeStep>().Enabled, "including ones added since it was authored");
+            Assert.IsFalse(sim.Get<Crawl>().Enabled, "and unbuilt ones stay off");
         }
 
         [Test]

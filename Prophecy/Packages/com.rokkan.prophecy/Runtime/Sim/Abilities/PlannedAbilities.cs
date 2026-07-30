@@ -12,11 +12,12 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// order and its button on the pad now.</para>
     ///
     /// <para>The claim has since been tested for real. Double jump, wall slide, wall jump, ledge
-    /// hang, ledge pull-up and ladder climbing all moved out of this file into working modules,
-    /// and not one of them required a line of change to <see cref="GroundMove"/>,
-    /// <see cref="Jump"/> or <see cref="GravityModule"/>. The two things they did need — new
-    /// collision queries and a shared attachment field on the character — are exactly the shared
-    /// vocabulary the design says coordination should go through.</para>
+    /// hang, ledge pull-up, ladder climbing and the dodge step have all moved out of this file into
+    /// working modules, and not one of them required a line of change to <see cref="GroundMove"/>,
+    /// <see cref="Jump"/> or <see cref="GravityModule"/>. The things they did need — new collision
+    /// queries, a shared attachment field on the character, a damage gate that answers before the
+    /// others — are exactly the shared vocabulary the design says coordination should go
+    /// through.</para>
     ///
     /// <para>What remains here is genuinely unbuilt. When one is implemented it moves to its own
     /// file, like the others did.</para>
@@ -41,14 +42,6 @@ namespace Rokkan.Prophecy.Sim.Abilities
     {
         public override AbilityId Id => AbilityId.Crawl;
         public override int Order => ModuleOrder.Crawl;
-    }
-
-    /// <summary>A short committed step with invulnerability frames. Takes a Reaction-priority
-    /// lock, so it can cancel an attack's recovery but not its active frames.</summary>
-    public sealed class DodgeStep : PlannedAbility
-    {
-        public override AbilityId Id => AbilityId.DodgeStep;
-        public override int Order => ModuleOrder.DodgeStep;
     }
 
     /// <summary>Casting a Flame-Art (design bible §6.4). Movement-side only: the commitment lock

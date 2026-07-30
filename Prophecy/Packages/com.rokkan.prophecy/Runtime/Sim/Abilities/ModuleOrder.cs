@@ -39,27 +39,40 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int HitReact = 3;
 
         /// <summary>
-        /// <b>Between stance and locomotion, and that placement is the whole point.</b> After
-        /// <see cref="Crouch"/> so a swing is chosen from this tick's stance rather than last
-        /// tick's; before <see cref="GroundMove"/> and the jumps so that the tick an attack
-        /// releases its lock is a tick the character can already move on. Running after them
-        /// instead would hand control back one tick late, which at 60 Hz is the difference between
-        /// a swing that ends and one that feels sticky.
+        /// <b>The reactions come first, and that is the whole reason for these numbers.</b> A
+        /// parry or a dodge taken out of a guard, or out of an attack's recovery, has to claim the
+        /// lock <i>before</i> the thing it is interrupting ticks — otherwise the guard is still up
+        /// and the swing still running for one more tick, and both notice a tick late.
+        ///
+        /// <para>The gate chain would resolve a stale shield correctly anyway, and one extra tick
+        /// of a dead swing does no damage. But a character who is briefly parrying and blocking at
+        /// once is exactly the sort of thing that stays harmless right up until something starts
+        /// reading it.</para>
         /// </summary>
-        public const int Attack = 5;
+        public const int Parry = 4;
 
         /// <summary>
-        /// <b>Before <see cref="Block"/>, which is the whole reason for the number.</b> A parry
-        /// raised out of a guard takes the lock first, so the guard sees it lost on the same tick
-        /// and lowers immediately. The other way round leaves both flags true for a tick — the
-        /// gate chain would still resolve it correctly, but a shield that is briefly up and
-        /// down at once is exactly the sort of thing that is true until it is load-bearing.
+        /// With the other reactions. The step also writes a velocity that <see cref="GroundMove"/>
+        /// would otherwise apply friction to, which is a second reason to be ahead of it.
         /// </summary>
-        public const int Parry = 6;
+        public const int DodgeStep = 5;
 
-        /// <summary>After <see cref="Crouch"/> for the same reason the attack is: stance decides
-        /// whether the guard answers high or low, so it has to be settled first.</summary>
-        public const int Block = 7;
+        /// <summary>After <see cref="Crouch"/> for the same reason the attack is — stance decides
+        /// whether the guard answers high or low, so it has to be settled first — and after the
+        /// reactions, so one raised out of the guard takes it down on the tick it is pressed.</summary>
+        public const int Block = 6;
+
+        /// <summary>
+        /// <b>After stance and after every defensive answer; before locomotion.</b> After
+        /// <see cref="Crouch"/> so a swing is chosen from this tick's stance rather than last
+        /// tick's, and after <see cref="Block"/> so raising the guard on the same tick as pressing
+        /// attack gives the guard — releasing the shield is what frees the swing. Before
+        /// <see cref="GroundMove"/> and the jumps so that the tick an attack releases its lock is a
+        /// tick the character can already move on; running after them would hand control back one
+        /// tick late, which at 60 Hz is the difference between a swing that ends and one that feels
+        /// sticky.
+        /// </summary>
+        public const int Attack = 7;
 
         public const int GroundMove = 10;
         public const int TopDownMove = 15;
@@ -81,7 +94,6 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <summary>After the jumps, so a launch this tick is not immediately clamped by the slide.</summary>
         public const int WallSlide = 36;
 
-        public const int DodgeStep = 40;
         public const int DownThrust = 50;
 
         public const int LedgeHang = 60;

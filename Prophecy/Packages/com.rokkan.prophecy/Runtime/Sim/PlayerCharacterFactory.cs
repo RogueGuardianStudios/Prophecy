@@ -69,6 +69,7 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new AttackModule(combat));
             sim.Add(new Block(combat));
             sim.Add(new Parry(combat));
+            sim.Add(new DodgeStep(combat));
             sim.Add(new HitReact(combat));
 
             sim.Vitals.MaxHealth = combat.MaxHealth;
@@ -82,7 +83,6 @@ namespace Rokkan.Prophecy.Sim
 
             // Declared, not yet built. See PlannedAbilities.
             sim.Add(new Crawl());
-            sim.Add(new DodgeStep());
             sim.Add(new FlameArt());
 
             loadout?.Apply(sim);

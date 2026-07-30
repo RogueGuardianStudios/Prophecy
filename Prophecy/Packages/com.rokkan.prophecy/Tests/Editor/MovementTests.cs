@@ -648,8 +648,8 @@ namespace Rokkan.Prophecy.Tests
                     Assert.IsTrue(module.Enabled, $"{module.Name} is built and should be on");
             }
 
-            Assert.AreEqual(3, CountPlanned(sim),
-                "Crawl, DodgeStep and FlameArt are all that remain unbuilt");
+            Assert.AreEqual(2, CountPlanned(sim),
+                "Crawl and FlameArt are all that remain unbuilt");
         }
 
         private static int CountPlanned(CharacterSim sim)

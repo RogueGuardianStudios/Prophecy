@@ -61,6 +61,7 @@ namespace Rokkan.Prophecy.Presentation
         private AttackModule _attack;
         private Block _block;
         private Parry _parry;
+        private DodgeStep _dodge;
         private HitReact _hitReact;
         private TrainingAttacker[] _attackers;
         private Material _lines;
@@ -100,6 +101,7 @@ namespace Rokkan.Prophecy.Presentation
             _attack = _host.Sim.Get<AttackModule>();
             _block = _host.Sim.Get<Block>();
             _parry = _host.Sim.Get<Parry>();
+            _dodge = _host.Sim.Get<DodgeStep>();
             _hitReact = _host.Sim.Get<HitReact>();
         }
 
@@ -249,6 +251,21 @@ namespace Rokkan.Prophecy.Presentation
                     _text.AppendLine($"parry    {timeline.CurrentPhase} {timeline.ElapsedTicks}/" +
                                      $"{_parry.Timeline.Definition.TotalTicks}" +
                                      $"{(_parry.WindowOpen ? "   <b>WINDOW OPEN</b>" : "")}");
+                }
+            }
+
+            if (_dodge != null)
+            {
+                if (!_dodge.IsDodging)
+                {
+                    _text.AppendLine("dodge    ready");
+                }
+                else
+                {
+                    var timeline = _dodge.Timeline;
+                    _text.AppendLine($"dodge    {timeline.CurrentPhase} {timeline.ElapsedTicks}/" +
+                                     $"{timeline.Definition.TotalTicks}  {(_dodge.Direction < 0 ? "<-" : "->")}" +
+                                     $"{(_dodge.WindowOpen ? "   <b>INTANGIBLE</b>" : "")}");
                 }
             }
 

@@ -187,6 +187,31 @@ namespace Rokkan.Prophecy.Sim.Combat
             CancelWindow = new ScalableWindow(22, 6),
         };
 
+        // ------------------------------------------------------------------ dodge
+
+        [Header("Dodge")]
+        [Tooltip("The step: a vulnerable wind-up, the intangible move itself, and a recovery that " +
+                 "punishes dodging early. Startup is what stops it being a panic button — a dodge " +
+                 "that is safe from tick zero can simply be mashed.")]
+        public AttackDefinition DodgeAction = new AttackDefinition
+        {
+            Id = "dodge",
+            RequiredStance = Stance.Stand,
+            StartupTicks = 3,
+            ActiveTicks = 10,
+            RecoveryTicks = 14,
+            HitBoxes = new AttackHitBox[0],
+
+            // Exactly the active phase: intangible for precisely as long as the step is moving.
+            IFrames = new ScalableWindow(3, 10, minTicks: 2, maxTicks: 30),
+
+            CancelWindow = new ScalableWindow(20, 7),
+        };
+
+        [Tooltip("How far the step carries, in metres. Speed is derived from this and the active " +
+                 "phase, so the number here is one you can measure against an enemy's reach.")]
+        public float DodgeDistance = 2.2f;
+
         [Tooltip("Ticks the ATTACKER is stunned by a successful parry. This number is the entire " +
                  "reward — too short and a correct read buys nothing, too long and one parry ends " +
                  "the fight.")]

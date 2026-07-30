@@ -33,7 +33,7 @@ MonoBehaviour:
     - Id: 8
       Enabled: 1
     - Id: 10
-      Enabled: 0
+      Enabled: 1
     - Id: 11
       Enabled: 1
     - Id: 12

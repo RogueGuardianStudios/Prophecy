@@ -1,8 +1,8 @@
 # Prophecy — session handoff
 
 **Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
-**Resume at:** M4 — a dodge, then death, then finishers. Combat is a two-way conversation and the
-down-thrust chains; what is missing is the reward for winning an exchange.
+**Resume at:** M4 — death, then finishers. All four answers exist; what is missing is what winning
+an exchange gets you.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **330 passing, 0 failed, 0 skipped** (~3.4 s) |
+| Tests | **353 passing, 0 failed, 0 skipped** (~3.6 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -29,7 +29,8 @@ c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 738818e  Wire attacks into CharacterSim: AttackModule, CombatTuning, the target seam
 1aa5586  Add the combat arena: a demo you can swing in, and the overlay to read it
 7c661a5  Answer the attack: block, parry, i-frames and hit-react, all in ticks
-(this)   Give the down-thrust its blade, and let it bounce itself
+70d362e  Give the down-thrust its blade, and let it bounce itself
+(this)   Build the dodge step, the one thing that is intangible on purpose
 ```
 
 ### Three repos are in play
@@ -72,6 +73,7 @@ HitSweep.cs           swing one volume, dedup per box/target/action, notice bein
 Runtime/Sim/Abilities/AttackModule.cs   the join: lock, timeline, resolve, publish cancel window
 Runtime/Sim/Abilities/Block.cs          held guard; stance picks the height; the block gate
 Runtime/Sim/Abilities/Parry.cs          a timed action on its own AttackTimeline; the parry gate
+Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored, speed derived
 Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; the i-frame gate
 Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
 Runtime/Presentation/CombatDirector.cs  scene combat world; rebuilds hurtboxes once per tick
@@ -85,12 +87,11 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
 `ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 13 → **330 total**.
+`DownThrustCombatTests` 13, `DodgeTests` 21 → **353 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
-and that is all. No dodge (`DodgeStep` is still a stub, so i-frames currently have no voluntary
-source). No animation system. No overworld scene. Death is a number reaching zero and nothing
-else.
+and that is all. No animation system. No overworld scene. Death is a number reaching zero and
+nothing else. `Crawl` and `FlameArt` are the last two stubs.
 
 ---
 
@@ -160,7 +161,17 @@ Added this session:
 30. **`ICombatWorld` lives on `CharacterSim`, not per module.** It is the same answer for every
     module that swings, and it changes when a scene loads — one place to re-point rather than one
     per module, and a new attacking module gets it for free.
-31. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
+31. **A dodge's startup is what stops it being a panic button.** Three vulnerable ticks before the
+    i-frames open mean the dodge has to be predicted rather than reacted with — the same argument
+    the parry's startup makes, and the reason both are readable answers instead of reflex tests.
+    The recovery is the other half: an action shorter than its own window would make holding the
+    button a permanent i-frame generator, and there is a test for exactly that.
+32. **Reactions tick before what they interrupt.** Parry 4, dodge 5, block 6, attack 7. A reaction
+    claiming the lock after the thing it is interrupting has already ticked leaves the guard up and
+    the swing running for one more tick. The gate chain resolves it correctly anyway and a dead
+    swing does no damage — but a character who is briefly parrying and blocking at once stays
+    harmless right up until something reads it.
+33. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
     struck, and whether the target was hurt is the target's business. Phasing through i-frames is
     not a connection, or the dive becomes a way to hover over anything recently hit.
 
@@ -267,7 +278,9 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 1. **No dodge.** `DodgeStep` is still a stub, so nothing the player does grants i-frames
    voluntarily — the only i-frames in the game are the ones that follow being hit. The gate and the
    `ScalableWindow` for it already exist; the module does not.
-2. **The down-thrust's hit box ignores its own window.** `AttackHitBox` carries `OpenTick`/
+2. **No air dodge.** Grounded only, because it changes what jumping commits you to and that is a
+   feel decision worth making deliberately rather than inheriting.
+3. **The down-thrust's hit box ignores its own window.** `AttackHitBox` carries `OpenTick`/
    `CloseTick` because every other volume needs them, but the dive lasts until it connects or
    lands, so no tick count could describe it. The fields sit unused and are documented as such —
    worth revisiting if a second unbounded volume ever appears.
@@ -325,11 +338,12 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   shared `HitSweep` and bounces itself, which is the answer to the cross-reference question that
   had kept `Bounce()` unreferenced since M2.
 
+- **The dodge step**, the only thing in the game that is intangible on purpose. Distance authored,
+  speed derived, i-frames covering exactly the active phase behind a vulnerable wind-up.
+
 ### Next
 
-1. **A dodge** — `DodgeStep` is the last stub with a gate already waiting for it, and it is the
-   only voluntary source of i-frames.
-2. **Death**, which is currently a number going to zero and nothing else (gap 12).
+1. **Death**, which is currently a number going to zero and nothing else.
 3. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
    executable/staggered state on enemies, and a parried attacker is now exactly that state waiting
@@ -347,8 +361,11 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothing else to set up.
 
 **Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` block (hold)**,
-**`L` parry**. Airborne, hold `S` and press `J` for the **down-thrust**. `F1` movement overlay,
-`F2` combat overlay.
+**`L` parry**, **`Ctrl` dodge**. Airborne, hold `S` and press `J` for the **down-thrust**.
+`F1` movement overlay, `F2` combat overlay.
+
+A neutral dodge steps backwards; holding a direction steers it. It does not turn you round, so a
+back-dodge keeps the enemy in front of you.
 
 The **F2 overlay** is the point of the demo. It draws the current attack's frame data one cell per
 tick — phases on the top row, hit/cancel/i-frame/parry windows on the bottom, playhead through
@@ -383,6 +400,12 @@ difference is the part that is hard to feel.
 four-tick window; the standing slash left the squat dummy untouched while a same-tick crouch-plus-
 attack landed `thrust_low` on it; and the cover dummy took nothing through the grate but took 10
 from the same attack at the same distance on the near side.
+
+The dodge was checked in the arena too, though less cleanly: it is enabled in the gray-box loadout,
+cycles correctly, and steps the authored distance — but two attempts to measure that distance were
+confounded by the character wedging against level geometry (station 6's ledge, then the east wall),
+which took a while to recognise as geometry rather than a bug. The exact 2.2 m claim rests on the
+headless test, which asserts it to 0.05 m.
 
 The down-thrust was verified the same way: dropped onto the first pogo target with down held and
 attack latched, it took **400 damage — twenty-five bounces at 16 each** — while the two targets
