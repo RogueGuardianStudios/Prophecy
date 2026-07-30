@@ -107,7 +107,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // knocked off their feet is not a shield.
             if (!IsGuarding || !sim.HoldsLock(this)) return HitResult.Continue;
 
-            if (hit.Unblockable) return HitResult.Continue;
+            if (!hit.CanBe(DefensiveAnswer.Block)) return HitResult.Continue;
             if (!FacesTheHit(sim.State.Facing, hit.Facing)) return HitResult.Continue;
             if (!Answers(hit.Height)) return HitResult.Continue;
 

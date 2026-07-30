@@ -168,7 +168,7 @@ namespace Rokkan.Prophecy.Editor.Build
 
             float cursor = -12f;
 
-            cursor = Ground(geometry, "Ground", cursor, 112f);
+            cursor = Ground(geometry, "Ground", cursor, 132f);
 
             // Station 1 — the basic hit. A full-body dummy both attacks reach, so the first swing
             // in the arena always connects and "is combat on at all" is never the question.
@@ -206,14 +206,24 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // Stations 7-9 — the things that swing back. Each demands exactly one answer, because a
             // telegraph you can survive two ways teaches nothing about either.
-            Telegraph(targets, "7_High", 52f, AttackHeight.High, unblockable: false, delay: 0,
+            Telegraph(targets, "7_High", 52f, AttackHeight.High, DefensiveAnswer.None, delay: 0,
                       damage: 12, tuning: tuning);
 
-            Telegraph(targets, "8_Low", 60f, AttackHeight.Low, unblockable: false, delay: 30,
+            Telegraph(targets, "8_Low", 60f, AttackHeight.Low, DefensiveAnswer.None, delay: 30,
                       damage: 10, tuning: tuning);
 
-            Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any, unblockable: true, delay: 60,
+            // No guard answers this one, but a parry and a dodge both do — which is the shape that
+            // makes a telegraph worth reading rather than just worth holding a button through.
+            Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any,
+                      DefensiveAnswer.Block, delay: 60,
                       damage: 18, tuning: tuning);
+
+            // Stations 11-12 — things that are not a sword. A bolt that travels, and a
+            // shockwave that stays where it lands and grows. Each authors a different set of
+            // answers, so "which of my four buttons is this one for" becomes a question the
+            // arena can actually ask.
+            Caster(targets, "11_Bolt", 90f, tuning, projectile: true);
+            Caster(targets, "12_Shockwave", 100f, tuning, projectile: false);
 
             // Station 10 — the down-thrust. A launch ledge and a row of targets under it, spaced so
             // one bounce carries into the next. Nothing else in the arena asks whether the dive is
@@ -222,6 +232,8 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // A wall to stop the run-out, so nobody walks into the void wondering where the arena went.
             Box(geometry, "Wall_East", new Vector2(cursor - 2f, 0f), new Vector2(cursor, 8f));
+
+            CreateStationIndex(markers);
         }
 
         /// <summary>
@@ -289,7 +301,8 @@ namespace Rokkan.Prophecy.Editor.Build
         /// fire in unison and turn a reading exercise into a scramble.</para>
         /// </summary>
         private static void Telegraph(Transform parent, string name, float x, AttackHeight height,
-                                      bool unblockable, int delay, int damage, MovementTuning tuning)
+                                      DefensiveAnswer defeats, int delay, int damage,
+                                      MovementTuning tuning)
         {
             var root = new GameObject($"Attacker_{name}");
             root.transform.SetParent(parent, false);
@@ -338,7 +351,7 @@ namespace Rokkan.Prophecy.Editor.Build
             box.FindPropertyRelative("RotationDegrees").floatValue = 0f;
             box.FindPropertyRelative("Damage").intValue = damage;
             box.FindPropertyRelative("Height").enumValueFlag = (int)height;
-            box.FindPropertyRelative("Unblockable").boolValue = unblockable;
+            box.FindPropertyRelative("Defeats").enumValueFlag = (int)defeats;
             box.FindPropertyRelative("StoppedByGeometry").boolValue = false;
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -350,7 +363,7 @@ namespace Rokkan.Prophecy.Editor.Build
         /// <para>Spacing is the question this station asks. The dive is vertical, so crossing the
         /// row means the bounce has to carry far enough sideways to reach the next target before
         /// gravity wins — which makes the gap a direct readout of whether
-        /// <c>DownThrustBounceSpeed</c> and air control are in proportion. A row you cannot chain
+        /// <c>DownThrustBounceHeight</c> and air control are in proportion. A row you cannot chain
         /// is not broken, it is a number that wants changing, and this is where that shows.</para>
         /// </summary>
         private static void PogoStation(Transform geometry, Transform targets, MovementTuning tuning,
@@ -367,6 +380,146 @@ namespace Rokkan.Prophecy.Editor.Build
                 Station(targets, $"10_Pogo_{i + 1}", x + 8f + i * 3.2f, reach,
                         size: new Vector2(0.9f, 1.2f), centreY: 0.6f, health: 400);
             }
+        }
+
+        /// <summary>
+        /// A dummy that throws something instead of swinging it.
+        ///
+        /// <para>The bolt travels and is stopped by geometry, so it can be walked out of and hidden
+        /// from. The shockwave stands still and grows, so it cannot be out-ranged once it has
+        /// landed, only answered. Between them they cover the two things a volume can be, and the
+        /// answers each accepts are deliberately different so neither is a re-skin of the sword
+        /// stations.</para>
+        /// </summary>
+        private static void Caster(Transform parent, string name, float x, MovementTuning tuning,
+                                   bool projectile)
+        {
+            var root = new GameObject($"Caster_{name}");
+            root.transform.SetParent(parent, false);
+            root.transform.position = new Vector3(x, 0f, 0f);
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(0.9f, 1.8f, 0.9f);
+            body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+            Object.DestroyImmediate(body.GetComponent<Collider>());
+
+            var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_team", 2);
+            SetPrivate(combatant, "_size", new Vector2(0.9f, 1.8f));
+            SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));
+            SetPrivate(combatant, "_maxHealth", 200);
+
+            var attacker = root.AddComponent<TrainingAttacker>();
+            SetPrivate(attacker, "_restTicks", 120);
+            SetPrivate(attacker, "_openingDelayTicks", projectile ? 0 : 45);
+            SetPrivate(attacker, "_faceNearestTarget", true);
+
+            var serialized = new SerializedObject(attacker);
+            var definition = serialized.FindProperty("_attack");
+
+            definition.FindPropertyRelative("Id").stringValue = $"cast_{name}";
+            definition.FindPropertyRelative("StartupTicks").intValue = 40;
+            definition.FindPropertyRelative("ActiveTicks").intValue = 4;
+            definition.FindPropertyRelative("RecoveryTicks").intValue = 24;
+
+            // The cast has no hit box of its own: everything it does, it does at range.
+            definition.FindPropertyRelative("HitBoxes").arraySize = 0;
+
+            var spawns = definition.FindPropertyRelative("Spawns");
+            spawns.arraySize = 1;
+
+            var spawn = spawns.GetArrayElementAtIndex(0);
+            spawn.FindPropertyRelative("Tick").intValue = 40;
+
+            var shot = spawn.FindPropertyRelative("Projectile");
+            float stand = tuning.Data.StandHeight;
+
+            if (projectile)
+            {
+                // Chest height, flat, and stopped by a wall, so the cover station's grate is an
+                // answer to this one too.
+                shot.FindPropertyRelative("Id").stringValue = "bolt";
+                shot.FindPropertyRelative("SpawnOffset").vector2Value = new Vector2(0.8f, stand * 0.55f);
+                shot.FindPropertyRelative("Speed").floatValue = 9f;
+                shot.FindPropertyRelative("Gravity").floatValue = 0f;
+                shot.FindPropertyRelative("HalfExtents").vector2Value = new Vector2(0.22f, 0.22f);
+                shot.FindPropertyRelative("GrowthPerSecond").vector2Value = Vector2.zero;
+                shot.FindPropertyRelative("Damage").intValue = 10;
+                shot.FindPropertyRelative("LifetimeTicks").intValue = 180;
+                shot.FindPropertyRelative("StoppedByGeometry").boolValue = true;
+                shot.FindPropertyRelative("MaxTargets").intValue = 1;
+
+                // Defeats nothing: every answer works. The honest one, and the baseline the
+                // other reads against.
+                shot.FindPropertyRelative("Defeats").enumValueFlag = (int)DefensiveAnswer.None;
+                shot.FindPropertyRelative("Height").enumValueFlag = (int)AttackHeight.High;
+            }
+            else
+            {
+                // Lands at the caster's feet and spreads. No guard turns a floor that is on fire:
+                // being elsewhere is the answer, so i-frames work and blocking does not.
+                shot.FindPropertyRelative("Id").stringValue = "shockwave";
+                shot.FindPropertyRelative("SpawnOffset").vector2Value = new Vector2(-1.6f, 0.35f);
+                shot.FindPropertyRelative("Speed").floatValue = 0f;
+                shot.FindPropertyRelative("Gravity").floatValue = 0f;
+                shot.FindPropertyRelative("HalfExtents").vector2Value = new Vector2(0.5f, 0.35f);
+                shot.FindPropertyRelative("GrowthPerSecond").vector2Value = new Vector2(3.2f, 0f);
+                shot.FindPropertyRelative("Damage").intValue = 14;
+                shot.FindPropertyRelative("LifetimeTicks").intValue = 45;
+                shot.FindPropertyRelative("StoppedByGeometry").boolValue = false;
+                shot.FindPropertyRelative("MaxTargets").intValue = 0;
+
+                // A floor that is on fire turns no shield and cannot be caught on a blade.
+                // Being elsewhere is the answer, so only i-frames survive it.
+                shot.FindPropertyRelative("Defeats").enumValueFlag =
+                    (int)(DefensiveAnswer.Block | DefensiveAnswer.Parry);
+                shot.FindPropertyRelative("Height").enumValueFlag = (int)AttackHeight.Low;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// The warp list. Ninety metres of arena with the stations that fight back at the far end
+        /// means a long walk before every attempt at a parry, which is exactly the friction that
+        /// stops anyone iterating.
+        /// </summary>
+        private static void CreateStationIndex(Transform markers)
+        {
+            var go = new GameObject("ArenaStations");
+            go.transform.SetParent(markers, false);
+
+            var stations = go.AddComponent<ArenaStations>();
+            var serialized = new SerializedObject(stations);
+            var list = serialized.FindProperty("_stations");
+
+            (string label, float x, float y)[] entries =
+            {
+                ("Spawn", -8f, 0f),
+                ("2 Squat / 3 Raised", 4f, 0f),
+                ("4 Cover", 20.5f, 0f),
+                ("5 Chain", 30.5f, 0f),
+                ("6 Ledge", 39f, 0f),
+                ("7 High telegraph", 50.5f, 0f),
+                ("8 Low telegraph", 58.5f, 0f),
+                ("9 Unblockable", 66.5f, 0f),
+                ("10 Pogo (on the ledge)", 80f, 3.6f),
+                ("11 Bolt / 12 Shockwave", 88f, 0f),
+            };
+
+            list.arraySize = entries.Length;
+
+            for (int i = 0; i < entries.Length; i++)
+            {
+                var element = list.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("Label").stringValue = entries[i].label;
+                element.FindPropertyRelative("Position").vector3Value =
+                    new Vector3(entries[i].x, entries[i].y, 0f);
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void CoverStation(Transform geometry, Transform targets, float x, Reach reach)

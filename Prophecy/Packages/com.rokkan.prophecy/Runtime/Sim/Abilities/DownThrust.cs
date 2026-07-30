@@ -39,6 +39,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         private readonly HitSweep _sweep = new HitSweep();
 
         private bool _active;
+        private bool _rising;
         private long _startTick;
 
         public DownThrust(MovementTuningData tuning, CombatTuningData combat = null)
@@ -61,7 +62,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         {
             if (_active)
             {
-                Continue(sim, in info);
+                Continue(sim, in input, in info);
                 return;
             }
 
@@ -71,8 +72,13 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public override void Reset()
         {
             _active = false;
+            _rising = false;
             _startTick = 0;
+            BounceCount = 0;
         }
+
+        /// <summary>True while riding the pop off a connect rather than driving downward.</summary>
+        public bool IsRising => _rising;
 
         /// <summary>
         /// End the dive with an upward pop. Driven by this module's own hit landing — the bounce is
@@ -82,14 +88,28 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <para>Public because a scripted moment may want to grant one, not because anything else
         /// is expected to notice a hit on this module's behalf.</para>
         /// </summary>
-        public void Bounce(CharacterSim sim, long tick = long.MinValue)
+        public void Bounce(CharacterSim sim, long tick = long.MinValue, bool keepDiving = false)
         {
             if (!_active) return;
 
-            sim.State.Velocity.y = _tuning.DownThrustBounceSpeed;
+            sim.State.Velocity.y = _tuning.DownThrustBounceVelocity;
             LastBounceTick = tick;
-            Stop(sim);
+            BounceCount++;
+
+            if (!keepDiving)
+            {
+                Stop(sim);
+                return;
+            }
+
+            // Still committed, but riding the pop rather than driving down. Everything under the
+            // blade becomes hittable again, which is what makes descending a column work at all.
+            _rising = true;
+            _sweep.Begin();
         }
+
+        /// <summary>Bounces in the current dive. Resets when the dive does. Debug overlay.</summary>
+        public int BounceCount { get; private set; }
 
         private void TryStart(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
@@ -103,7 +123,9 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (!sim.TryLock(this, DiveLock, LockPriority.Attack)) return;
 
             _active = true;
+            _rising = false;
             _startTick = info.Tick;
+            BounceCount = 0;
             state.Velocity.y = -_tuning.DownThrustSpeed;
 
             // A fresh dive, so everything under it is hittable again — including whatever the last
@@ -111,7 +133,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _sweep.Begin();
         }
 
-        private void Continue(CharacterSim sim, in SimTickInfo info)
+        /// <summary>
+        /// Keep diving. The dive ends on the ground, or when the button is let go — and nowhere
+        /// else, which is what lets it be held through a whole descent.
+        /// </summary>
+        private void Continue(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
             var state = sim.State;
 
@@ -123,11 +149,34 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 return;
             }
 
+            // Letting go ends it, and that is the whole control scheme: hold to keep falling on
+            // things, release to take the pop and get your air control back. Only checked while
+            // rising, so a tap still buys a full committed dive rather than being cancelled by the
+            // release that follows it a frame later.
+            if (_rising && !input.Attack.Held)
+            {
+                Stop(sim);
+                return;
+            }
+
+            // Riding a bounce: gravity owns the arc until the apex, then the dive resumes. Pinning
+            // the dive speed here instead would cancel the pop on the tick it was granted.
+            if (_rising)
+            {
+                if (state.Velocity.y > 0f)
+                {
+                    sim.SetCancelWindow(this, false);
+                    return;
+                }
+
+                _rising = false;
+            }
+
             state.Velocity.y = -_tuning.DownThrustSpeed;
 
             sim.SetCancelWindow(this, info.Tick - _startTick >= _tuning.DownThrustMinTicks);
 
-            Strike(sim, in info);
+            Strike(sim, in input, in info);
         }
 
         /// <summary>
@@ -135,7 +184,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// bounce set here is the last word on this tick's vertical motion rather than something
         /// the dive immediately overwrites.
         /// </summary>
-        private void Strike(CharacterSim sim, in SimTickInfo info)
+        private void Strike(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
             if (_combat == null || sim.CombatWorld == null) return;
 
@@ -162,7 +211,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             // Blocked counts. Something solid was struck, and the pop off it is what makes the
             // move chainable; whether the target was hurt by it is the target's business.
-            if (result.Connected > 0) Bounce(sim, info.Tick);
+            //
+            // Holding the button keeps the dive alive through the pop, so a held descent carries
+            // down a column of enemies. Releasing takes the pop and hands back air control.
+            if (result.Connected > 0) Bounce(sim, info.Tick, keepDiving: input.Attack.Held);
         }
 
         private void Stop(CharacterSim sim)

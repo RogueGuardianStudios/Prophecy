@@ -61,9 +61,13 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// </summary>
         /// <param name="level">Geometry for cover queries. Null skips them, which is correct for
         /// an attack that no wall should stop.</param>
+        /// <param name="maxTargets">Stop after this many connect. Zero is unlimited, which is what
+        /// a sword swing and an area attack both want; a piercing shot with a limit of one has to
+        /// stop <i>inside</i> the sweep, because the people it would have hit are all standing in
+        /// the same volume on the same tick.</param>
         public SweepResult Sweep(int boxIndex, in AttackHitBox box, in Attacker attacker,
                                  ICombatWorld world, CollisionWorld level,
-                                 long tick, string attackId)
+                                 long tick, string attackId, int maxTargets = 0)
         {
             if (world == null) return default;
 
@@ -83,10 +87,13 @@ namespace Rokkan.Prophecy.Sim.Combat
 
                 var answer = world.OnHit(new HitEvent(
                     attacker.Id, target.OwnerId, box.Damage, attacker.Facing,
-                    tick, attackId, boxIndex, box.Height, box.Unblockable));
+                    tick, attackId, boxIndex, box.Height, box.Defeats));
 
                 last = answer.Outcome;
                 if (!answer.Negated) connected++;
+
+                if (maxTargets > 0 && connected >= maxTargets)
+                    return new SweepResult(connected, answer.AttackerStunTicks, answer.Outcome);
 
                 // Parried. The sweep stops here: a swing that has been turned should not keep
                 // connecting with whoever was standing behind the person who turned it.

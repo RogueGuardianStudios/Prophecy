@@ -62,6 +62,16 @@ course of the story.
 moveset only, and the unlock schedule driven by progression rather than by this asset being
 hand-edited.
 
+### `ArenaStations` warp is editor scaffolding
+
+Number keys teleport the player between arena stations and restore health. It exists because the
+arena is over a hundred metres long and the stations that fight back are at the far end, so testing
+a parry window meant a long walk before every attempt.
+
+**Done looks like:** the component is gone, along with the gray-box scenes it belongs to. It is on
+a generated scene object, so deleting the generator call removes it — nothing in Bootstrap or the
+player prefab references it.
+
 ### Death is a respawn, and that is scaffolding
 
 `SceneDescriptor.RespawnOnDeath` ships **on**. Running out of health puts the player back at the

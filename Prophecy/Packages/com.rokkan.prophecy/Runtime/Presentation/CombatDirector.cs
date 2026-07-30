@@ -56,6 +56,7 @@ namespace Rokkan.Prophecy.Presentation
         private readonly List<Hurtbox> _hurtboxes = new List<Hurtbox>();
         private readonly List<LoggedHit> _hitLog = new List<LoggedHit>();
 
+        private readonly ProjectileSystem _projectiles = new ProjectileSystem();
         private SimClockDriver _registeredWith;
 
         /// <summary>The director for the loaded scene, or null. Set in <c>Awake</c>.</summary>
@@ -70,6 +71,17 @@ namespace Rokkan.Prophecy.Presentation
 
         /// <summary>Most recent hits and their outcomes, newest last. Demo diagnostics.</summary>
         public IReadOnlyList<LoggedHit> HitLog => _hitLog;
+
+        /// <summary>Everything currently in the air. Read by the overlay.</summary>
+        public IReadOnlyList<LiveProjectile> Projectiles => _projectiles.Live;
+
+        /// <summary>
+        /// Level geometry projectiles are stopped by. Taken from the player's baked world rather
+        /// than baked twice — there is one definition of solid in this project and a shot has to
+        /// agree with it.
+        /// </summary>
+        [SerializeField, Tooltip("Leave empty to find the player host in the scene.")]
+        private PlayerCharacterHost _geometrySource;
 
         private void Awake()
         {
@@ -90,6 +102,7 @@ namespace Rokkan.Prophecy.Presentation
                 _registeredWith.Clock.Unregister(this);
 
             if (Instance == this) Instance = null;
+            _projectiles.Clear();
         }
 
         // ---------------------------------------------------------------- registry
@@ -112,6 +125,19 @@ namespace Rokkan.Prophecy.Presentation
         public void Tick(in SimTickInfo info)
         {
             Rebuild();
+
+            // After the rebuild, so a shot resolves against the same snapshot every character does,
+            // and before nothing else — projectiles are the one attacker with no tick order of
+            // their own.
+            if (_geometrySource == null) _geometrySource = FindAnyObjectByType<PlayerCharacterHost>();
+
+            _projectiles.Tick(this, _geometrySource != null ? _geometrySource.World : null,
+                              info.Tick, info.DeltaSeconds);
+        }
+
+        public void Spawn(ProjectileDefinition definition, in Attacker owner)
+        {
+            _projectiles.Spawn(definition, in owner);
         }
 
         /// <summary>

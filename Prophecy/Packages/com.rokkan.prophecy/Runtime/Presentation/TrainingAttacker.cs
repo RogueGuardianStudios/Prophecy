@@ -130,6 +130,7 @@ namespace Rokkan.Prophecy.Presentation
                 return;
             }
 
+            LaunchSpawns(director, in info);
             Resolve(director, in info);
         }
 
@@ -156,6 +157,32 @@ namespace Rokkan.Prophecy.Presentation
             }
 
             _resolvedFacing = facing;
+        }
+
+        /// <summary>
+        /// Put this tick's projectiles and areas in the air.
+        ///
+        /// <para>The same five lines the attack module has, for the same reason it has them — and
+        /// a dummy that could swing but not cast would make half the arena impossible to build.
+        /// When enemies own a real <c>CharacterSim</c> this goes away with the rest of this class.</para>
+        /// </summary>
+        private void LaunchSpawns(CombatDirector director, in SimTickInfo info)
+        {
+            if (_attack?.Spawns == null || _attack.Spawns.Length == 0) return;
+
+            int elapsed = _timeline.ElapsedTicks;
+            var here = SpaceMapping.ToPlane(transform.position, director.Space);
+
+            for (int i = 0; i < _attack.Spawns.Length; i++)
+            {
+                if (_attack.Spawns[i].Tick != elapsed) continue;
+                if (_attack.Spawns[i].Projectile == null) continue;
+
+                var attacker = Attacker.FromBody(_self.CombatId, here, new Vector2(0.9f, 1.8f),
+                                                 _resolvedFacing, _self.Team);
+
+                director.Spawn(_attack.Spawns[i].Projectile, attacker);
+            }
         }
 
         private void Resolve(CombatDirector director, in SimTickInfo info)

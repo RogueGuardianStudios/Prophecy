@@ -228,8 +228,11 @@ namespace Rokkan.Prophecy.Sim
         [Tooltip("Downward speed of the dive. Bible §6.1: jump + hold down + attack. Non-negotiable move.")]
         public float DownThrustSpeed = 22f;
 
-        [Tooltip("Upward pop on connecting. The bounce is what makes the move chainable.")]
-        public float DownThrustBounceSpeed = 9f;
+        [Tooltip("How high the pop off a connect carries, in metres. Authored as a height like " +
+                 "every other launch, so it is directly comparable to JumpHeight — and set equal " +
+                 "to it by default, because a bounce that lifts you less than a jump makes " +
+                 "descending a column a losing race with gravity.")]
+        public float DownThrustBounceHeight = 2.4f;
 
         [Tooltip("Minimum ticks the dive commits for before it can be cancelled.")]
         public int DownThrustMinTicks = 4;
@@ -273,6 +276,11 @@ namespace Rokkan.Prophecy.Sim
         public float WallJumpVelocity => Mathf.Sqrt(2f * RiseGravity * WallJumpHeight);
 
         public float ClimbDismountJumpVelocity => Mathf.Sqrt(2f * RiseGravity * ClimbDismountJumpHeight);
+
+        /// <summary>Pop off a connecting down-thrust. Same derivation as every other launch, so a
+        /// bounce height equal to <see cref="JumpHeight"/> really does carry you as far as a
+        /// jump.</summary>
+        public float DownThrustBounceVelocity => Mathf.Sqrt(2f * RiseGravity * DownThrustBounceHeight);
 
         public Vector2 StandSize => new Vector2(BodyWidth, StandHeight);
         public Vector2 CrouchSize => new Vector2(BodyWidth, CrouchHeight);

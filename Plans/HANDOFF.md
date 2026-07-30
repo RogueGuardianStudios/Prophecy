@@ -1,8 +1,8 @@
 # Prophecy — session handoff
 
 **Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
-**Resume at:** M4 — finishers. All four answers exist and dying is survivable; what is missing is
-what winning an exchange gets you.
+**Resume at:** M4 — enemies. Every combat system now exists and is reachable in the arena; what is
+missing is something to use them against that is not a dummy on a timer.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **357 passing, 0 failed, 0 skipped** (~4.1 s) |
+| Tests | **379 passing, 0 failed, 0 skipped** (~3.7 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -31,7 +31,8 @@ c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 7c661a5  Answer the attack: block, parry, i-frames and hit-react, all in ticks
 70d362e  Give the down-thrust its blade, and let it bounce itself
 40ddd8f  Build the dodge step, the one thing that is intangible on purpose
-(this)   Respawn on death, so combat can be lost and then tried again
+a92437a  Respawn on death, so combat can be lost and then tried again
+(this)   Hold the dive, and give combat things that are not swords
 ```
 
 ### Three repos are in play
@@ -66,6 +67,7 @@ CombatTuningData.cs   the moveset, stance entry points, buffer length, defence n
 Damage.cs             HitOutcome, HitResult, IDamageGate + GateOrder, PendingStun
 Vitals.cs             health, owned by CharacterSim so a test can kill something
 HitSweep.cs           swing one volume, dedup per box/target/action, notice being parried
+Projectile.cs         ProjectileDefinition + ProjectileSystem: one type for bolts and areas
 ```
 
 ### Combat — the rest
@@ -79,7 +81,8 @@ Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, sho
 Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
 Runtime/Presentation/CombatDirector.cs  scene combat world; rebuilds hurtboxes once per tick
 Runtime/Presentation/Combatant.cs       hittable: a dummy, or a front for a simulated character
-Runtime/Presentation/TrainingAttacker.cs a dummy that swings back on a tick cycle
+Runtime/Presentation/TrainingAttacker.cs a dummy that swings back, or casts, on a tick cycle
+Runtime/Presentation/ArenaStations.cs   number-key warp between stations (editor scaffolding)
 Runtime/Presentation/CombatDebugOverlay F2: frame data a tick at a time, defence state, GL volumes
 Editor/Build/GrayBoxArenaBuilder.cs     generates GrayBox_Arena from the authored reach
 Assets/_Prophecy/Data/CombatTuning.asset       the live moveset and defence numbers
@@ -88,7 +91,7 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
 `ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 13, `DodgeTests` 21 → **357 total**.
+`DownThrustCombatTests` 17, `DodgeTests` 21, `ProjectileTests` 17 → **379 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
 and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
@@ -173,7 +176,25 @@ Added this session:
     the swing running for one more tick. The gate chain resolves it correctly anyway and a dead
     swing does no damage — but a character who is briefly parrying and blocking at once stays
     harmless right up until something reads it.
-33. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
+33. **Which answers work is authored per hit box, as a set of what the attack DEFEATS.** Stored as
+    negatives so the safe default is zero: Unity is on C# 9 here, where a struct cannot carry field
+    initializers, so an "answers that work" field would have defaulted to *none of them* and made
+    every attack in the game silently unanswerable. `HitEvent.CanBe(...)` reads the right way round
+    at the call sites.
+34. **One type serves projectiles and area attacks.** A bolt is a small volume with speed; a
+    shockwave is a wide one with growth and no speed. Splitting them would mean two lifetimes, two
+    resolution loops and two places for the dedup rule to drift — and the interesting authoring
+    space is the middle, which a split makes unreachable.
+35. **A spawned volume holds no reference to whoever fired it**, only an id and a team. That is the
+    point of it: the caster can be parried, stunned or killed mid-flight and the shot still lands.
+36. **Nothing is reflected on a parry.** A parried shot dies where it was turned. Reflection is a
+    mechanic this project has not decided on, and inventing it would make a parry behave differently
+    against a bolt than against a blade.
+37. **Holding attack keeps the dive alive through a bounce.** Release takes the pop and hands back
+    air control; hold and it keeps falling on things until it lands. The bounce is authored as a
+    *height* equal to `JumpHeight`, because a pop that lifts less than a jump makes descending
+    anything a losing race with gravity.
+38. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
     struck, and whether the target was hurt is the target's business. Phasing through i-frames is
     not a connection, or the dive becomes a way to hover over anything recently hit.
 
@@ -232,7 +253,17 @@ New this session:
     one frame, held state cannot. Two arena checks "passed" by never blocking at all before this was
     spotted. To verify held input, remove the capture component and push an `InputFrame` straight
     into the sim; everything below the capture layer is what is under test anyway.
-23. **Three copies of a dedup rule is three chances for them to disagree.** The attack module, the
+23. **`Unity_ReadConsole` can report zero errors while the build is broken.** Three compile errors
+    sat in `Logs/Editor.log` while the MCP console returned nothing and `IsCompiling` read false —
+    the only symptom was assemblies that quietly stopped being rebuilt. **Check the DLL timestamps
+    in `Library/ScriptAssemblies/`, and grep the Editor log for `error CS`**, before believing a
+    clean console. `CompilationPipeline.RequestScriptCompilation()` forces the rebuild.
+24. **`result.LogWarning` in a `Unity_RunCommand` is reported as a failure** — and a failed command
+    exits play mode. Use `Log` for anything that is not genuinely an error.
+25. **Struct field initializers do not compile here.** Unity 6000.5 is on C# 9. Any default on a
+    `[Serializable] struct` field has to be expressed as "zero means the sensible thing", which is
+    worth designing for rather than discovering.
+26. **Three copies of a dedup rule is three chances for them to disagree.** The attack module, the
     training attacker and the down-thrust all need the same five steps around a hit. The third copy
     was the moment to extract `HitSweep`; it should have been the second.
 24. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
@@ -349,6 +380,9 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   restored, sharing `SceneDirector.Respawn` with the kill plane so the two cannot drift.
   Scaffolding, not design — a defensive system you cannot lose to is one you cannot test.
 
+- **The held down-thrust**, the answer matrix, and volumes that outlive their swing: projectiles
+  and area attacks on one type, spawned from an authored tick of any attack.
+
 ### Next
 
 1. **Enemies.** `TrainingAttacker` is a dummy on a timer, and it is now the only thing standing
@@ -373,8 +407,12 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothing else to set up.
 
 **Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` block (hold)**,
-**`L` parry**, **`Ctrl` dodge**. Airborne, hold `S` and press `J` for the **down-thrust**.
-`F1` movement overlay, `F2` combat overlay.
+**`L` parry**, **`Ctrl` dodge**. Airborne, hold `S` and press `J` for the **down-thrust** — and
+*keep holding* `J` to stay in it through every bounce. `F1` movement overlay, `F2` combat overlay.
+
+**Number keys 1-0 warp between stations**, restoring health on arrival. The arena is 130 m long and
+the stations that fight back are at the far end; without this, testing a parry meant a long walk
+before every attempt. The list is in the F2 overlay.
 
 A neutral dodge steps backwards; holding a direction steers it. It does not turn you round, so a
 back-dodge keeps the enemy in front of you.
@@ -398,7 +436,9 @@ can miss four different ways and they look identical at speed.
 | 7 `High` | swings back, high — hold `K` standing, or `L` on the beat |
 | 8 `Low` | swings back, low — the standing guard does not answer it; crouch first, then guard |
 | 9 `Unblockable` | swings back and no guard answers it at all — move, or parry |
-| 10 `Pogo` | a ledge and three tough targets: dive, bounce, and try to chain along the row |
+| 10 `Pogo` | a ledge and three tough targets: dive, bounce, and hold to keep pogoing |
+| 11 `Bolt` | fires a projectile every ~190 ticks. Every answer works on it |
+| 12 `Shockwave` | drops a spreading area at its feet. Only i-frames answer it — dodge or leave |
 
 Stations 7–9 run on a 176-tick cycle (34 startup, 6 active, 26 recovery, 110 rest) with staggered
 openings so they do not fire in unison. 34 ticks of wind-up is a little over half a second — long

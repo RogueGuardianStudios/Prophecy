@@ -4,6 +4,47 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Sim.Combat
 {
     /// <summary>
+    /// A way of answering an incoming hit. Used as a set of the answers an attack <i>defeats</i>.
+    ///
+    /// <para><b>Expressed as what fails rather than what works, so the safe default is zero.</b>
+    /// Unity is on C# 9 here, where a struct cannot carry field initializers — so a hit box's
+    /// default is whatever <c>default(T)</c> gives, and an "answers that work" field would have
+    /// defaulted to <i>none of them</i>. Every attack in the game would have become unanswerable,
+    /// silently, and the asset would have looked fine. Defeating nothing by default is the reading
+    /// that fails safe.</para>
+    ///
+    /// <para><b>Not all answers work on all attacks — that is the whole reason a fight has more
+    /// than one.</b> An attack everything beats is a formality; an attack nothing beats is a
+    /// cutscene. The interesting ones are in between — a sweep you can dodge but not block, a
+    /// burst you can parry but not out-range — and that is a per-attack decision made in the
+    /// asset, not a rule anyone writes in code.</para>
+    ///
+    /// <para><b>Only <i>voluntary</i> invulnerability can be defeated.</b> Defeating
+    /// <c>IFrames</c> beats a dodge and an attack's authored i-frames; it does not beat the brief
+    /// invulnerability that follows being hit, because that one is a multi-hit guard rather than an
+    /// answer. Letting an attack through it would let a lingering volume chain a player to death
+    /// with nothing they could have done about it.</para>
+    /// </summary>
+    [Flags]
+    public enum DefensiveAnswer
+    {
+        /// <summary>Defeats nothing. Every answer works — the default, and the common case.</summary>
+        None = 0,
+
+        /// <summary>A matching, forward-facing guard.</summary>
+        Block = 1 << 0,
+
+        /// <summary>A parry window, which also punishes the attacker.</summary>
+        Parry = 1 << 1,
+
+        /// <summary>Voluntary invulnerability — a dodge, or i-frames authored on an attack.</summary>
+        IFrames = 1 << 2,
+
+        /// <summary>Defeats everything. Reserve it: an attack with no answer is a cutscene.</summary>
+        All = Block | Parry | IFrames,
+    }
+
+    /// <summary>
     /// Where a hit is aimed, for the purpose of answering it.
     ///
     /// <para><b>Authored, not derived from the box's height.</b> Deriving it would be free but
@@ -85,9 +126,10 @@ namespace Rokkan.Prophecy.Sim.Combat
                  "swing works because the body is smaller, not because of this.")]
         public AttackHeight Height;
 
-        [Tooltip("No block answers this one. What stops holding the shield down from being the " +
-                 "correct play forever, and what makes a telegraph worth reading.")]
-        public bool Unblockable;
+        [Tooltip("Answers this hit DEFEATS. Empty means every answer works, which is the common " +
+                 "case. Adding Block is what stops holding the shield down being correct forever; " +
+                 "adding all three makes a cutscene.")]
+        public DefensiveAnswer Defeats;
 
         [Tooltip("If set, level geometry between attacker and target stops this hit — a spear " +
                  "thrust through a grate. Leave off for anything that should reach regardless.")]

@@ -166,6 +166,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
         {
             if (!_timeline.IsInvulnerable) return HitResult.Continue;
+            if (!hit.CanBe(DefensiveAnswer.IFrames)) return HitResult.Continue;
 
             return new HitResult(HitOutcome.Invulnerable);
         }

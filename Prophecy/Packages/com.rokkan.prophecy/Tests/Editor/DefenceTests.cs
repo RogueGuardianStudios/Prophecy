@@ -67,10 +67,10 @@ namespace Rokkan.Prophecy.Tests
         /// <summary>A blow travelling left, i.e. arriving at a right-facing defender's front.</summary>
         private static HitEvent Blow(CharacterSim sim, int damage = 20,
                                      AttackHeight height = AttackHeight.Any,
-                                     bool unblockable = false, int facing = -1)
+                                     DefensiveAnswer defeats = DefensiveAnswer.None, int facing = -1)
         {
             return new HitEvent(AttackerId, DefenderId, damage, facing, sim.CurrentTick,
-                                "test_swing", 0, height, unblockable);
+                                "test_swing", 0, height, defeats);
         }
 
         // ---------------------------------------------------------------- taking damage
@@ -226,8 +226,10 @@ namespace Rokkan.Prophecy.Tests
 
             Step(sim, Guarding());
 
+            // Defeats the guard and nothing else: a dodge or a parry would still have worked.
+            // That combination is the interesting one — an attack no answer beats is a cutscene.
             Assert.AreEqual(HitOutcome.Landed,
-                sim.ReceiveHit(Blow(sim, 20, AttackHeight.Any, unblockable: true)).Outcome);
+                sim.ReceiveHit(Blow(sim, 20, AttackHeight.Any, DefensiveAnswer.Block)).Outcome);
         }
 
         [Test]

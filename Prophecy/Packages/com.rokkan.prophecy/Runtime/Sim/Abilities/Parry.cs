@@ -120,6 +120,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
         {
             if (!_timeline.IsParrying) return HitResult.Continue;
+            if (!hit.CanBe(DefensiveAnswer.Parry)) return HitResult.Continue;
 
             // A parry covers the front, like a block. Turning your back mid-window is not a read.
             if (sim.State.Facing == hit.Facing) return HitResult.Continue;

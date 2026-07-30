@@ -45,6 +45,13 @@ namespace Rokkan.Prophecy.Tests
             /// cares about the attacker's fate points it at something else.</summary>
             public HitResult Answer = new HitResult(HitOutcome.Landed);
 
+
+            /// <summary>Everything this world was asked to launch.</summary>
+            public readonly List<ProjectileDefinition> Spawned = new List<ProjectileDefinition>();
+
+            public void Spawn(ProjectileDefinition definition, in Attacker owner) =>
+                Spawned.Add(definition);
+
             public IReadOnlyList<Hurtbox> Hurtboxes => Targets;
 
             public HitResult OnHit(in HitEvent hit)

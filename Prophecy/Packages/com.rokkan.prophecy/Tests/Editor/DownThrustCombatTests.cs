@@ -34,6 +34,13 @@ namespace Rokkan.Prophecy.Tests
 
             public HitResult Answer = new HitResult(HitOutcome.Landed, 16);
 
+
+            /// <summary>Everything this world was asked to launch.</summary>
+            public readonly List<ProjectileDefinition> Spawned = new List<ProjectileDefinition>();
+
+            public void Spawn(ProjectileDefinition definition, in Attacker owner) =>
+                Spawned.Add(definition);
+
             public IReadOnlyList<Hurtbox> Hurtboxes => Targets;
 
             public HitResult OnHit(in HitEvent hit)
@@ -114,7 +121,7 @@ namespace Rokkan.Prophecy.Tests
             Step(sim, Hold(y: -1f));
 
             Assert.IsFalse(thrust.IsActive, "connecting ends the dive");
-            Assert.AreEqual(tuning.DownThrustBounceSpeed, sim.State.Velocity.y, 0.001f);
+            Assert.AreEqual(tuning.DownThrustBounceVelocity, sim.State.Velocity.y, 0.001f);
             Assert.AreEqual(1, world.Hits.Count);
             Assert.AreEqual(combat.DownThrustAttackId, world.Hits[0].AttackId);
             Assert.AreEqual(combat.DownThrustBox.Damage, world.Hits[0].Damage);
@@ -202,6 +209,100 @@ namespace Rokkan.Prophecy.Tests
             Step(sim, Hold(y: -1f));
 
             Assert.AreEqual(2, world.Hits.Count);
+        }
+
+        // ---------------------------------------------------------------- holding the dive
+
+        /// <summary>Down and attack both held: the input a player gives for a whole descent.</summary>
+        private static InputFrame HeldDive() =>
+            new InputFrame(new Vector2(0f, -1f), attack: ButtonState.Holding);
+
+        [Test]
+        public void HoldingAttackKeepsTheDiveAliveThroughABounce()
+        {
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
+            var thrust = Dive(sim);
+
+            world.Targets.Add(TargetAt(0f, sim.State.Position.y - 0.2f));
+            Step(sim, HeldDive());
+
+            Assert.IsTrue(thrust.IsActive, "the dive must survive the pop while the button is held");
+            Assert.IsTrue(thrust.IsRising);
+            Assert.Greater(sim.State.Velocity.y, 0f);
+            Assert.AreEqual(1, thrust.BounceCount);
+        }
+
+        [Test]
+        public void ReleasingAttackTakesThePopAndEndsTheDive()
+        {
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
+            var thrust = Dive(sim);
+
+            world.Targets.Add(TargetAt(0f, sim.State.Position.y - 0.2f));
+            Step(sim, Hold(y: -1f));
+
+            Assert.IsFalse(thrust.IsActive, "letting go hands air control back");
+            Assert.Greater(sim.State.Velocity.y, 0f, "but the pop is still granted");
+        }
+
+        [Test]
+        public void TheBounceCarriesAsHighAsAJump()
+        {
+            // Authored as a height rather than a speed for exactly this comparison: a bounce that
+            // lifts less than a jump makes descending a column a losing race with gravity.
+            var tuning = new MovementTuningData();
+
+            Assert.AreEqual(tuning.JumpHeight, tuning.DownThrustBounceHeight, 0.0001f);
+            Assert.AreEqual(tuning.JumpVelocity, tuning.DownThrustBounceVelocity, 0.0001f);
+        }
+
+        [Test]
+        public void AHeldDiveKeepsPogoingWithoutEverLanding()
+        {
+            // The move's whole reason for existing. Held, it should bounce off the same target over
+            // and over and never reach the floor — which is also why the dedup set resets on every
+            // bounce rather than only on a fresh dive.
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
+            var thrust = Dive(sim);
+
+            world.Targets.Add(TargetAt(0f, 5f));
+
+            for (int i = 0; i < 300; i++) Step(sim, HeldDive());
+
+            Assert.IsTrue(thrust.IsActive, "held, it should still be going");
+            Assert.IsFalse(sim.State.Grounded, "and should never have reached the floor");
+            Assert.Greater(thrust.BounceCount, 3, "each pass off the target is another bounce");
+            Assert.AreEqual(thrust.BounceCount, world.Hits.Count,
+                "one hit per bounce — no more, no less");
+        }
+
+        [Test]
+        public void AHeldDiveStillEndsOnTheGround()
+        {
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
+            var thrust = Dive(sim);
+
+            Step(sim, HeldDive(), 200);
+
+            Assert.IsFalse(thrust.IsActive, "landing ends it however hard the button is held");
+            Assert.IsTrue(sim.State.Grounded);
+            Assert.IsTrue(sim.Can(LockFlags.Move));
         }
 
         // ---------------------------------------------------------------- what does not bounce

@@ -103,7 +103,37 @@ namespace Rokkan.Prophecy.Sim.Abilities
             }
 
             sim.SetCancelWindow(this, _runner.Timeline.IsCancellable);
+            LaunchSpawns(sim, in info);
             ResolveHits(sim, in info);
+        }
+
+        /// <summary>
+        /// Put this tick's projectiles and areas in the air.
+        ///
+        /// <para>Handed to the combat world rather than kept here, because the volume outlives the
+        /// swing: the character can be parried, stunned or killed a tick later and the shot still
+        /// has to land. Fired on an exact elapsed tick rather than a window, so a spawn happens
+        /// once and cannot double up on a frame where two ticks retire.</para>
+        /// </summary>
+        private void LaunchSpawns(CharacterSim sim, in SimTickInfo info)
+        {
+            var definition = _runner.Current;
+            if (definition?.Spawns == null || definition.Spawns.Length == 0) return;
+            if (sim.CombatWorld == null) return;
+
+            int elapsed = _runner.Timeline.ElapsedTicks;
+            var state = sim.State;
+
+            for (int i = 0; i < definition.Spawns.Length; i++)
+            {
+                if (definition.Spawns[i].Tick != elapsed) continue;
+                if (definition.Spawns[i].Projectile == null) continue;
+
+                var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
+                                                 state.Facing, state.Team);
+
+                sim.CombatWorld.Spawn(definition.Spawns[i].Projectile, attacker);
+            }
         }
 
         public override void Reset()
@@ -196,6 +226,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         {
             if (_runner == null || !_runner.IsAttacking) return HitResult.Continue;
             if (!_runner.Timeline.IsInvulnerable) return HitResult.Continue;
+            if (!hit.CanBe(DefensiveAnswer.IFrames)) return HitResult.Continue;
 
             return new HitResult(HitOutcome.Invulnerable);
         }

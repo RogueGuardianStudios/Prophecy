@@ -33,12 +33,13 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// it and they have no way to reach back to the attack definition.</summary>
         public readonly AttackHeight Height;
 
-        /// <summary>No block answers this one.</summary>
-        public readonly bool Unblockable;
+        /// <summary>Answers this hit defeats. Empty means every answer works.</summary>
+        public readonly DefensiveAnswer Defeats;
 
         public HitEvent(int attackerId, int targetId, int damage, int facing, long tick,
                         string attackId, int hitBoxIndex,
-                        AttackHeight height = AttackHeight.Any, bool unblockable = false)
+                        AttackHeight height = AttackHeight.Any,
+                        DefensiveAnswer defeats = DefensiveAnswer.None)
         {
             AttackerId = attackerId;
             TargetId = targetId;
@@ -48,8 +49,14 @@ namespace Rokkan.Prophecy.Sim.Combat
             AttackId = attackId;
             HitBoxIndex = hitBoxIndex;
             Height = height;
-            Unblockable = unblockable;
+            Defeats = defeats;
         }
+
+        /// <summary>
+        /// True if <paramref name="answer"/> still works against this hit. Reads the right way
+        /// round at every call site, which matters when the stored form is a set of negatives.
+        /// </summary>
+        public bool CanBe(DefensiveAnswer answer) => (Defeats & answer) == 0;
     }
 
     /// <summary>
@@ -74,6 +81,15 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// worlds.</para>
         /// </summary>
         IReadOnlyList<Hurtbox> Hurtboxes { get; }
+
+        /// <summary>
+        /// Put a projectile or area volume in the air on behalf of <paramref name="owner"/>.
+        ///
+        /// <para>On the world rather than on the attacker because the volume outlives whoever made
+        /// it — that is the point of it. The caster can be stunned or killed mid-flight and the
+        /// shot still lands, so there must be nothing holding a reference back to them.</para>
+        /// </summary>
+        void Spawn(ProjectileDefinition definition, in Attacker owner);
 
         /// <summary>
         /// A hit connected. Apply it, gate it, or ignore it — and say what happened.

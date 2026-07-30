@@ -64,6 +64,7 @@ namespace Rokkan.Prophecy.Presentation
         private DodgeStep _dodge;
         private HitReact _hitReact;
         private TrainingAttacker[] _attackers;
+        private ArenaStations _stations;
         private Material _lines;
 
         private readonly StringBuilder _text = new StringBuilder(512);
@@ -127,6 +128,7 @@ namespace Rokkan.Prophecy.Presentation
             {
                 _director = CombatDirector.Instance;
                 _attackers = FindObjectsByType<TrainingAttacker>(FindObjectsSortMode.None);
+                _stations = FindAnyObjectByType<ArenaStations>();
             }
         }
 
@@ -188,10 +190,24 @@ namespace Rokkan.Prophecy.Presentation
 
             AppendDefence(sim);
 
+            if (_stations != null && _stations.Stations.Count > 0)
+            {
+                _text.AppendLine();
+                _text.AppendLine("<b>warp</b>  (number keys)");
+
+                var list = _stations.Stations;
+                for (int i = 0; i < list.Count && i < 10; i++)
+                {
+                    int key = (i + 1) % 10;
+                    _text.AppendLine($"  [{key}] {list[i].Label}{(i == _stations.LastStation ? "  <-" : "")}");
+                }
+            }
+
             if (_director != null)
             {
                 _text.AppendLine();
-                _text.AppendLine($"targets  {_director.Hurtboxes.Count} live");
+                _text.AppendLine($"targets  {_director.Hurtboxes.Count} live" +
+                                 $"   in the air {_director.Projectiles.Count}");
 
                 var combatants = _director.Combatants;
                 for (int i = 0; i < combatants.Count && i < 7; i++)
@@ -385,6 +401,7 @@ namespace Rokkan.Prophecy.Presentation
 
             DrawAttackVolumes(space, depth);
             DrawIncomingVolumes(space, depth);
+            DrawProjectiles(space, depth);
 
             GL.End();
             GL.PopMatrix();
@@ -455,6 +472,21 @@ namespace Rokkan.Prophecy.Presentation
                         DrawLine(origin, targets[t].Centre, _coverRayColour, space, depth);
                 }
             }
+        }
+
+        /// <summary>
+        /// Everything in the air. Drawn in the live colour because a projectile has no wind-up —
+        /// it is dangerous for its whole existence, and showing it dim would be a lie about the
+        /// one thing the player needs to judge.
+        /// </summary>
+        private void DrawProjectiles(MovementSpace space, float depth)
+        {
+            if (_director == null) return;
+
+            var live = _director.Projectiles;
+
+            for (int i = 0; i < live.Count; i++)
+                DrawBox(live[i].Position, live[i].HalfExtents, 0f, _liveBoxColour, space, depth);
         }
 
         private void DrawBox(Vector2 centre, Vector2 halfExtents, float rotationDegrees,

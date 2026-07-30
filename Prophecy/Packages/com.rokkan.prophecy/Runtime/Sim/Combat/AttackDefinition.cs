@@ -3,6 +3,17 @@ using UnityEngine;
 
 namespace Rokkan.Prophecy.Sim.Combat
 {
+    /// <summary>A volume this attack launches, and the tick it leaves on.</summary>
+    [Serializable]
+    public struct ProjectileSpawn
+    {
+        [Tooltip("Ticks from the start of the action. Usually the end of startup — the moment the " +
+                 "telegraph pays off.")]
+        public int Tick;
+
+        public ProjectileDefinition Projectile;
+    }
+
     /// <summary>
     /// Everything one attack does, in ticks. The authored unit of the moveset.
     ///
@@ -61,6 +72,14 @@ namespace Rokkan.Prophecy.Sim.Combat
         [Tooltip("Damaging volumes. Plural for multi-hit moves; each carries its own window and box.")]
         public AttackHitBox[] HitBoxes = new AttackHitBox[0];
 
+        // ------------------------------------------------------------------ spawns
+
+        [Header("Projectiles and areas")]
+        [Tooltip("Volumes this attack launches, and the tick each one leaves on. Separate from " +
+                 "HitBoxes because what they have in common is only that they hurt: a hit box is " +
+                 "the attack, a spawn outlives it.")]
+        public ProjectileSpawn[] Spawns = new ProjectileSpawn[0];
+
         // ------------------------------------------------------------------ defence
 
         [Header("Defensive windows (scale with gear)")]
@@ -117,6 +136,21 @@ namespace Rokkan.Prophecy.Sim.Combat
 
                     if (box.HalfExtents.x <= 0f || box.HalfExtents.y <= 0f)
                         return $"{Id}: hit box {i} has no size";
+                }
+            }
+
+            if (Spawns != null)
+            {
+                for (int i = 0; i < Spawns.Length; i++)
+                {
+                    if (Spawns[i].Projectile == null)
+                        return $"{Id}: spawn {i} has no projectile";
+
+                    if (Spawns[i].Tick < 0 || Spawns[i].Tick >= TotalTicks)
+                        return $"{Id}: spawn {i} fires on tick {Spawns[i].Tick}, outside the action";
+
+                    string malformed = Spawns[i].Projectile.Validate();
+                    if (malformed != null) return $"{Id}: {malformed}";
                 }
             }
 
