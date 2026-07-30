@@ -50,6 +50,20 @@ namespace Rokkan.Prophecy.Presentation
                                  "which is what a real enemy will want.")]
         private float _reviveSeconds = 2f;
 
+        [Header("Contact")]
+        [SerializeField, Tooltip("Damage dealt just by touching this. Zero for anything that is " +
+                                 "only dangerous when it swings — a training dummy, a crate.")]
+        private int _contactDamage;
+
+        [SerializeField, Tooltip("Ticks between contact hits on the same victim. Long enough that " +
+                                 "standing in something is a bleed rather than an execution.")]
+        private int _contactIntervalTicks = 45;
+
+        [SerializeField, Tooltip("Which answers contact DEFEATS. Walking into a body is not a " +
+                                 "telegraph, so by default there is nothing to time against it and " +
+                                 "only moving away or i-frames help.")]
+        private DefensiveAnswer _contactDefeats = DefensiveAnswer.Block | DefensiveAnswer.Parry;
+
         [Header("Reaction")]
         [SerializeField] private Color _flashColour = new Color(1f, 0.35f, 0.25f);
         [SerializeField] private Color _blockColour = new Color(0.55f, 0.8f, 1f);
@@ -93,6 +107,23 @@ namespace Rokkan.Prophecy.Presentation
 
         /// <summary>Total damage taken since the last revive. The number a tuning pass reads.</summary>
         public int DamageTaken { get; private set; }
+
+        /// <summary>Damage dealt by touching this. Zero means it is only dangerous when it swings.</summary>
+        public int ContactDamage => _contactDamage;
+
+        public int ContactIntervalTicks => Mathf.Max(1, _contactIntervalTicks);
+
+        public DefensiveAnswer ContactDefeats => _contactDefeats;
+
+        /// <summary>
+        /// A tint forced by whatever is driving this body — a wind-up, a charge. Null lets the
+        /// health colour show through.
+        ///
+        /// <para>Set by the attacker rather than owned here, because <i>what</i> a body is doing is
+        /// the attacker's business and only the renderers are this component's. Two things writing
+        /// the same material property block would otherwise fight every frame.</para>
+        /// </summary>
+        public Color? TelegraphTint { get; set; }
 
         private void Awake()
         {
@@ -235,12 +266,15 @@ namespace Rokkan.Prophecy.Presentation
         {
             if (_renderers == null) return;
 
+            // A hit flash beats a wind-up, which beats the health colour. Being struck is the more
+            // urgent thing to read, and a telegraph that swallowed its own hit reaction would make
+            // a connecting attack invisible.
             Color tint = !IsAlive
                 ? new Color(0.25f, 0.25f, 0.28f)
                 : _flashRemaining > 0f
                     ? _flashTint
-                    : Color.Lerp(Color.white, new Color(0.9f, 0.35f, 0.35f),
-                                 1f - Health / (float)Mathf.Max(1, MaxHealth));
+                    : TelegraphTint ?? Color.Lerp(Color.white, new Color(0.9f, 0.35f, 0.35f),
+                                                  1f - Health / (float)Mathf.Max(1, MaxHealth));
 
             for (int i = 0; i < _renderers.Length; i++)
             {

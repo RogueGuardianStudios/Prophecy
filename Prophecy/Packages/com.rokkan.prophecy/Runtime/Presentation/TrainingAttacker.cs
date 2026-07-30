@@ -47,6 +47,14 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Which way it swings when it is not turning to face anyone.")]
         private int _facing = -1;
 
+        [Header("Telegraph")]
+        [SerializeField, Tooltip("Body colour during the wind-up. Ramps toward the active colour " +
+                                 "as the swing approaches, so the tell is a build rather than a flick.")]
+        private Color _windUpColour = new Color(1f, 0.78f, 0.25f);
+
+        [SerializeField, Tooltip("Body colour on the ticks the attack is actually dangerous.")]
+        private Color _activeColour = new Color(1f, 0.2f, 0.12f);
+
         [Header("The swing")]
         [SerializeField]
         private AttackDefinition _attack = new AttackDefinition
@@ -105,12 +113,15 @@ namespace Rokkan.Prophecy.Presentation
             if (!_self.IsAlive)
             {
                 _timeline.Disarm();
+                _self.TelegraphTint = null;
                 _nextArmTick = info.Tick + _restTicks;
                 return;
             }
 
             if (!_timeline.IsArmed)
             {
+                if (_self != null) _self.TelegraphTint = null;
+
                 if (info.Tick < _nextArmTick) return;
 
                 if (_faceNearestTarget) FaceNearest(director);
@@ -118,10 +129,12 @@ namespace Rokkan.Prophecy.Presentation
                 _sweep.Begin();
                 _timeline.Arm(_attack);
                 _timeline.Advance();
+                Telegraph();
                 return;
             }
 
             _timeline.Advance();
+            Telegraph();
 
             if (_timeline.IsComplete)
             {
@@ -132,6 +145,38 @@ namespace Rokkan.Prophecy.Presentation
 
             LaunchSpawns(director, in info);
             Resolve(director, in info);
+        }
+
+        /// <summary>
+        /// Colour the body by what the swing is doing.
+        ///
+        /// <para><b>The only tell that survives the overlay being off.</b> Hit volumes are drawn by
+        /// a debug overlay, which is exactly the wrong place for the one piece of information a
+        /// player has to read to survive — so the wind-up ramps the body toward the attack colour
+        /// and the active frames snap to it. Placeholder art doing the job real art will: an enemy
+        /// that gives no sign it is about to hit you is not a fight, it is a coin toss.</para>
+        /// </summary>
+        private void Telegraph()
+        {
+            if (_self == null) return;
+
+            switch (_timeline.CurrentPhase)
+            {
+                case AttackTimeline.Phase.Startup:
+                    float through = _attack.StartupTicks > 0
+                        ? Mathf.Clamp01(_timeline.ElapsedTicks / (float)_attack.StartupTicks)
+                        : 1f;
+                    _self.TelegraphTint = Color.Lerp(_windUpColour, _activeColour, through * through);
+                    break;
+
+                case AttackTimeline.Phase.Active:
+                    _self.TelegraphTint = _activeColour;
+                    break;
+
+                default:
+                    _self.TelegraphTint = null;
+                    break;
+            }
         }
 
         private void FaceNearest(CombatDirector director)

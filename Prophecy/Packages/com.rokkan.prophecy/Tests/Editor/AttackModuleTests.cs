@@ -489,8 +489,8 @@ namespace Rokkan.Prophecy.Tests
                     Assert.AreEqual(before.CancelWindow.BaseRange, after.CancelWindow.BaseRange);
                 }
 
-                Assert.AreEqual(authored.Data.ParryAction.ParryWindow.BaseRange,
-                                reloaded.Data.ParryAction.ParryWindow.BaseRange,
+                Assert.AreEqual(authored.Data.ParryWindow.BaseRange,
+                                reloaded.Data.ParryWindow.BaseRange,
                                 "the parry window lost its shape");
             }
             finally

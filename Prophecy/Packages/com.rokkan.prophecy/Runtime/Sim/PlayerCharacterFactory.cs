@@ -68,7 +68,6 @@ namespace Rokkan.Prophecy.Sim
             // at all but the consequence of failing to make one.
             sim.Add(new AttackModule(combat));
             sim.Add(new Block(combat));
-            sim.Add(new Parry(combat));
             sim.Add(new DodgeStep(combat));
             sim.Add(new HitReact(combat));
 

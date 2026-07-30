@@ -5,32 +5,39 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Sim.Abilities
 {
     /// <summary>
-    /// Holding the guard up. A held stance, not an action — and the gate that answers a hit while
-    /// it is up.
+    /// The guard. One button, and <b>when</b> you pressed it decides what it was.
+    ///
+    /// <para><b>A parry is a guard raised on time, not a separate move.</b> The first few ticks
+    /// after the press are a parry window; a hit arriving inside it is turned and punishes the
+    /// attacker, and a hit arriving after it is an ordinary block. Holding the button therefore
+    /// spends its parry immediately and settles into a guard — which is the whole shape of the
+    /// mechanic: you cannot hold a parry, only time one.</para>
     ///
     /// <para><b>Stance chooses the guard, the same way it chooses the attack.</b> Standing answers
-    /// high, crouching answers low, and the block lock freezes stance for as long as it is held —
-    /// so committing to a guard height is the decision, and switching costs the time it takes to
-    /// drop the shield. That is Zelda II's shield, and it is why blocking is interesting at all: a
-    /// guard that answers everything is just a button that makes you invincible.</para>
+    /// high, crouching answers low, and the guard lock freezes stance for as long as it is held, so
+    /// committing to a height is the decision. A parry ignores height — timing beat the attack, and
+    /// refusing a well-timed deflection for being aimed at the wrong part of a shield would make
+    /// the window a worse version of the block rather than a better one.</para>
     ///
-    /// <para><b>It plants your feet.</b> The lock takes Move and Attack, so a block cannot be held
-    /// while repositioning or swinging. Being unable to reposition is the cost that makes blocking
-    /// a read rather than a default — and the cancel window is left permanently open, because a
-    /// block is a stance you can always drop for something better, not a committed action.</para>
+    /// <para><b>It plants your feet.</b> The lock takes Move and Attack, so a guard cannot be held
+    /// while repositioning or swinging. The cancel window is left permanently open, because a guard
+    /// is a stance you can always drop for something better, not a committed action.</para>
     ///
-    /// <para><b>Directional.</b> Only hits arriving at the front are answered. A block cannot cover
-    /// a back you turned yourself.</para>
+    /// <para><b>Directional.</b> Only hits arriving at the front are answered, parry or block. A
+    /// shield cannot cover a back you turned yourself.</para>
     /// </summary>
     public sealed class Block : AbilityModule, IDamageGate
     {
         /// <summary>
         /// Move and Attack, not Defend: the guard suppresses walking and swinging, but leaves the
-        /// defensive slot open so a parry can be raised straight out of it.
+        /// defensive slot open so a dodge can be taken straight out of it.
         /// </summary>
         private const LockFlags GuardLock = LockFlags.Move | LockFlags.Attack;
 
         private readonly CombatTuningData _combat;
+
+        private long _guardStartTick = long.MinValue;
+        private TickRange _parryWindow = TickRange.None;
 
         public Block(CombatTuningData combat)
         {
@@ -41,16 +48,38 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public override int Order => ModuleOrder.Block;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
 
-        public int GateOrder => Combat.GateOrder.Block;
+        /// <summary>
+        /// At the parry's precedence, not the block's — one gate now answers both, and a well-timed
+        /// guard must not be downgraded into the block it would otherwise have been.
+        /// </summary>
+        public int GateOrder => Combat.GateOrder.Parry;
 
-        /// <summary>True while the guard is up. Read by presentation and the overlay.</summary>
+        /// <summary>Stat scaling for the parry window. Resolved when the guard goes up and held for
+        /// that guard, so a buff expiring mid-press cannot shorten a window already committed to.</summary>
+        public AttackModifiers Modifiers = AttackModifiers.None;
+
+        /// <summary>True while the guard is up.</summary>
         public bool IsGuarding { get; private set; }
 
-        /// <summary>The height this guard currently answers. Meaningless when not guarding.</summary>
+        /// <summary>The height this guard answers. Meaningless when not guarding.</summary>
         public AttackHeight Guarding { get; private set; } = AttackHeight.High;
 
-        /// <summary>Tick of the most recent hit this guard turned away. Debug and presentation.</summary>
+        /// <summary>Tick of the most recent hit this guard turned away.</summary>
         public long LastBlockedTick { get; private set; } = long.MinValue;
+
+        /// <summary>Tick of the most recent successful parry.</summary>
+        public long LastParryTick { get; private set; } = long.MinValue;
+
+        /// <summary>The resolved parry window, in ticks from the press. Debug overlay.</summary>
+        public TickRange ParryWindow => _parryWindow;
+
+        /// <summary>Ticks the guard has been up. -1 when down.</summary>
+        public int GuardTicks(long currentTick) =>
+            IsGuarding && _guardStartTick != long.MinValue ? (int)(currentTick - _guardStartTick) : -1;
+
+        /// <summary>True on the ticks a hit would be parried rather than blocked.</summary>
+        public bool ParryWindowOpen(long currentTick) =>
+            IsGuarding && _parryWindow.Contains(GuardTicks(currentTick));
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
@@ -58,11 +87,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             var state = sim.State;
 
-            // Lost the lock to something with a stronger claim — a parry, a hit-react. The guard is
+            // Lost the lock to something with a stronger claim — a dodge, a hit-react. The guard is
             // down and the gate stops answering on the same tick, not the next one.
             if (IsGuarding && !sim.HoldsLock(this))
             {
-                IsGuarding = false;
+                Lower();
                 return;
             }
 
@@ -73,7 +102,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 if (IsGuarding)
                 {
                     sim.ReleaseLock(this);
-                    IsGuarding = false;
+                    Lower();
                 }
                 return;
             }
@@ -83,19 +112,36 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 if (!sim.Can(LockFlags.Defend)) return;
                 if (!sim.TryLock(this, GuardLock, LockPriority.Defend)) return;
 
-                IsGuarding = true;
+                Raise(info.Tick);
             }
 
             // Re-asserted every tick: the height is read from the stance the guard froze, and the
-            // cancel window stays open so a parry or a hit-react is never fighting the shield.
+            // cancel window stays open so a dodge or a hit-react is never fighting the shield.
             Guarding = state.Stance == Stance.Crouch ? AttackHeight.Low : AttackHeight.High;
             sim.SetCancelWindow(this, true);
         }
 
         public override void Reset()
         {
-            IsGuarding = false;
+            Lower();
             Guarding = AttackHeight.High;
+        }
+
+        private void Raise(long tick)
+        {
+            IsGuarding = true;
+            _guardStartTick = tick;
+
+            // Resolved once, when the guard goes up. The window a player commits to must not change
+            // length underneath them because a buff ticked over mid-press.
+            _parryWindow = _combat.ParryWindow.Resolve(Modifiers.ParryScale);
+        }
+
+        private void Lower()
+        {
+            IsGuarding = false;
+            _guardStartTick = long.MinValue;
+            _parryWindow = TickRange.None;
         }
 
         // ---------------------------------------------------------------- the gate
@@ -107,8 +153,16 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // knocked off their feet is not a shield.
             if (!IsGuarding || !sim.HoldsLock(this)) return HitResult.Continue;
 
-            if (!hit.CanBe(DefensiveAnswer.Block)) return HitResult.Continue;
+            // Facing is the one requirement both answers share.
             if (!FacesTheHit(sim.State.Facing, hit.Facing)) return HitResult.Continue;
+
+            if (hit.CanBe(DefensiveAnswer.Parry) && ParryWindowOpen(hit.Tick))
+            {
+                LastParryTick = hit.Tick;
+                return new HitResult(HitOutcome.Parried, 0, _combat.ParryStunTicks);
+            }
+
+            if (!hit.CanBe(DefensiveAnswer.Block)) return HitResult.Continue;
             if (!Answers(hit.Height)) return HitResult.Continue;
 
             LastBlockedTick = hit.Tick;
@@ -116,11 +170,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // Pushback, not a stun.
             //
             // Parking a stun would hand the character to the hit-react module, which force-locks —
-            // and taking the lock takes the guard down. That is guard-break, arrived at by
-            // accident, on every blocked hit. A block is also already a lock that suppresses moving
-            // and attacking, so "blockstun" here would be a duration during which nothing further
-            // is prevented. So the pressure a blocked hit applies is that it moves you, and the
-            // cost is chip.
+            // and taking the lock takes the guard down. That is guard-break, arrived at by accident,
+            // on every blocked hit. A guard is also already a lock that suppresses moving and
+            // attacking, so "blockstun" would be a duration in which nothing further is prevented.
+            // So the pressure a blocked hit applies is that it moves you, and the cost is chip.
             sim.State.Velocity.x = hit.Facing * _combat.BlockPushbackSpeed;
 
             return new HitResult(HitOutcome.Blocked, Chip(hit.Damage));

@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **379 passing, 0 failed, 0 skipped** (~3.7 s) |
+| Tests | **383 passing, 0 failed, 0 skipped** (~3.7 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -32,7 +32,8 @@ c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 70d362e  Give the down-thrust its blade, and let it bounce itself
 40ddd8f  Build the dodge step, the one thing that is intangible on purpose
 a92437a  Respawn on death, so combat can be lost and then tried again
-(this)   Hold the dive, and give combat things that are not swords
+3e01cf7  Hold the dive, and give combat things that are not swords
+(this)   One button for guard and parry; contact damage; a visible wind-up
 ```
 
 ### Three repos are in play
@@ -77,6 +78,7 @@ Runtime/Sim/Abilities/AttackModule.cs   the join: lock, timeline, resolve, publi
 Runtime/Sim/Abilities/Block.cs          held guard; stance picks the height; the block gate
 Runtime/Sim/Abilities/Parry.cs          a timed action on its own AttackTimeline; the parry gate
 Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored, speed derived
+Runtime/Sim/Abilities/Block.cs          guard AND parry on one button — when you pressed decides which
 Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; the i-frame gate
 Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
 Runtime/Presentation/CombatDirector.cs  scene combat world; rebuilds hurtboxes once per tick
@@ -190,7 +192,20 @@ Added this session:
 36. **Nothing is reflected on a parry.** A parried shot dies where it was turned. Reflection is a
     mechanic this project has not decided on, and inventing it would make a parry behave differently
     against a bolt than against a blade.
-37. **Holding attack keeps the dive alive through a bounce.** Release takes the pop and hands back
+37. **Guard and parry are one button, and timing decides.** The first few ticks after the press are
+    a parry window; after that the same held button is a block. You cannot hold a parry, only time
+    one. A parry ignores guard height — timing beat the attack, and refusing a well-timed deflection
+    for being aimed at the wrong part of a shield would make the window a worse block rather than a
+    better one. **Consequence worth watching:** a mistimed parry is now just a block, so there is no
+    whiff punish for trying — which was previously what made it a read.
+38. **A connecting down-thrust hands back the air jump**, through `CharacterState.AirRefreshTick`
+    rather than one module calling another. Anything else that should earn a mid-air reset writes
+    the same field. It lands one tick later than the bounce, because the jump ticks at order 35 and
+    the dive stamps it at 50 — invisible behind the eight-tick arm delay.
+39. **Bodies can hurt to touch.** Contact is resolved once, centrally, by the director: two
+    participants each running their own overlap test would deal the damage twice. It goes through
+    the same `OnHit` as everything else, so a dodge answers a body exactly as it answers a blade.
+40. **Holding attack keeps the dive alive through a bounce.** Release takes the pop and hands back
     air control; hold and it keeps falling on things until it lands. The bounce is authored as a
     *height* equal to `JumpHeight`, because a pop that lifts less than a jump makes descending
     anything a losing race with gravity.
@@ -406,8 +421,9 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 **Open `Assets/_Prophecy/Scenes/GrayBox_Arena.unity` and press Play.** `BootstrapLoader` pulls
 Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothing else to set up.
 
-**Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` block (hold)**,
-**`L` parry**, **`Ctrl` dodge**. Airborne, hold `S` and press `J` for the **down-thrust** — and
+**Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` guard**,
+**`Ctrl` dodge**. Guard and parry are the same button: a hit in the first few ticks after the press
+is a **parry**, after that it is a **block**. (`L` is still bound to a now-unused Parry action.) Airborne, hold `S` and press `J` for the **down-thrust** — and
 *keep holding* `J` to stay in it through every bounce. `F1` movement overlay, `F2` combat overlay.
 
 **Number keys 1-0 warp between stations**, restoring health on arrival. The arena is 130 m long and

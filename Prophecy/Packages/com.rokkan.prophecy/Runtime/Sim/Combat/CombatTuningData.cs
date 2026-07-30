@@ -166,26 +166,10 @@ namespace Rokkan.Prophecy.Sim.Combat
         // ------------------------------------------------------------------ parry
 
         [Header("Parry")]
-        [Tooltip("The parry action itself: startup, the window, and the recovery that punishes a " +
-                 "mistimed one. Authored as an attack with no hit boxes, because the shape is the " +
-                 "same and one timeline is enough.")]
-        public AttackDefinition ParryAction = new AttackDefinition
-        {
-            Id = "parry",
-            RequiredStance = Stance.Stand,
-            StartupTicks = 2,
-            ActiveTicks = 6,
-            RecoveryTicks = 20,
-            HitBoxes = new AttackHitBox[0],
-
-            // Opens the tick the guard is up and stays open through the active phase. The whole
-            // move is 28 ticks and only 6 of them save you, so a panicked parry is a punish.
-            ParryWindow = new ScalableWindow(2, 6, minTicks: 2, maxTicks: 20),
-
-            // Nothing to chain into, but the window still matters: it is what lets a parry be
-            // cancelled out of once it is clear it whiffed.
-            CancelWindow = new ScalableWindow(22, 6),
-        };
+        [Tooltip("Ticks after the guard goes up during which a hit is parried rather than blocked. " +
+                 "Measured from the press, so holding the button spends the parry immediately and " +
+                 "settles into a block — you cannot hold a parry, only time one.")]
+        public ScalableWindow ParryWindow = new ScalableWindow(0, 8, minTicks: 2, maxTicks: 24);
 
         // ------------------------------------------------------------------ dodge
 
@@ -202,8 +186,12 @@ namespace Rokkan.Prophecy.Sim.Combat
             RecoveryTicks = 14,
             HitBoxes = new AttackHitBox[0],
 
-            // Exactly the active phase: intangible for precisely as long as the step is moving.
-            IFrames = new ScalableWindow(3, 10, minTicks: 2, maxTicks: 30),
+            // Deliberately wider than the step itself: it opens a tick before the character moves
+            // and closes two ticks after they stop. A dash whose intangibility ended exactly when
+            // the movement did would demand frame-perfect timing to pass through anything, and
+            // "dash through that" is the one thing a dodge is for. The startup that remains is what
+            // keeps it a read rather than a panic button.
+            IFrames = new ScalableWindow(2, 13, minTicks: 2, maxTicks: 30),
 
             CancelWindow = new ScalableWindow(20, 7),
         };

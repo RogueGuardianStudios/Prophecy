@@ -57,6 +57,7 @@ namespace Rokkan.Prophecy.Presentation
         private readonly List<LoggedHit> _hitLog = new List<LoggedHit>();
 
         private readonly ProjectileSystem _projectiles = new ProjectileSystem();
+        private readonly Dictionary<int, long> _contactReady = new Dictionary<int, long>();
         private SimClockDriver _registeredWith;
 
         /// <summary>The director for the loaded scene, or null. Set in <c>Awake</c>.</summary>
@@ -133,6 +134,67 @@ namespace Rokkan.Prophecy.Presentation
 
             _projectiles.Tick(this, _geometrySource != null ? _geometrySource.World : null,
                               info.Tick, info.DeltaSeconds);
+
+            ResolveContact(in info);
+        }
+
+        /// <summary>
+        /// Bodies that hurt to touch.
+        ///
+        /// <para>Resolved here rather than by each combatant, because contact is symmetric and
+        /// needs exactly one place to decide it — two participants each running their own overlap
+        /// test would deal the damage twice. It goes through the same <c>OnHit</c> as everything
+        /// else, so a dodge's i-frames answer a body the same way they answer a blade.</para>
+        ///
+        /// <para>On a per-victim cooldown rather than per tick: standing in something should be a
+        /// bleed you can escape, not an execution. The post-hit i-frames alone would space it out,
+        /// but they are a guard against multi-hit rather than a tuning knob for this.</para>
+        /// </summary>
+        private void ResolveContact(in SimTickInfo info)
+        {
+            for (int i = 0; i < _combatants.Count; i++)
+            {
+                var source = _combatants[i];
+                if (source == null || !source.isActiveAndEnabled || !source.IsAlive) continue;
+                if (source.ContactDamage <= 0) continue;
+
+                var body = source.BuildHurtbox(_space);
+
+                for (int t = 0; t < _combatants.Count; t++)
+                {
+                    var victim = _combatants[t];
+                    if (victim == null || victim == source) continue;
+                    if (!victim.isActiveAndEnabled || !victim.IsAlive) continue;
+                    if (victim.Team != 0 && victim.Team == source.Team) continue;
+
+                    var target = victim.BuildHurtbox(_space);
+                    if (!Overlaps(body, target)) continue;
+
+                    int key = source.CombatId * 1000 + victim.CombatId;
+                    if (_contactReady.TryGetValue(key, out long ready) && info.Tick < ready) continue;
+
+                    _contactReady[key] = info.Tick + source.ContactIntervalTicks;
+
+                    // Pushed away from the body that touched them, so being caught between two
+                    // enemies does not read as being shoved by nothing.
+                    int facing = target.Centre.x < body.Centre.x ? -1 : 1;
+
+                    var hit = new HitEvent(source.CombatId, victim.CombatId, source.ContactDamage,
+                                           facing, info.Tick, "contact", 0,
+                                           AttackHeight.Any, source.ContactDefeats);
+
+                    var result = victim.ReceiveHit(in hit);
+                    Record(in hit, in result);
+                }
+            }
+        }
+
+        /// <summary>Plain axis-aligned overlap. Contact is bodies touching, and neither body
+        /// rotates — the rotated resolver would be answering a question nobody asked.</summary>
+        private static bool Overlaps(in Hurtbox a, in Hurtbox b)
+        {
+            return Mathf.Abs(a.Centre.x - b.Centre.x) < a.HalfExtents.x + b.HalfExtents.x &&
+                   Mathf.Abs(a.Centre.y - b.Centre.y) < a.HalfExtents.y + b.HalfExtents.y;
         }
 
         public void Spawn(ProjectileDefinition definition, in Attacker owner)

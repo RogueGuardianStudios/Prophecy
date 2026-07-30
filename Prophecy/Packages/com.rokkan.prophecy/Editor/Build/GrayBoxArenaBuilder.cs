@@ -321,6 +321,10 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));
             SetPrivate(combatant, "_maxHealth", 200);
 
+            // Anything that fights back hurts to stand inside. Walking through an enemy to get
+            // behind it should cost something, or spacing is not a decision.
+            SetPrivate(combatant, "_contactDamage", 6);
+
             // Heights measured against the player's own body, so a low sweep is genuinely below
             // what a standing guard covers rather than nominally so.
             float stand = tuning.Data.StandHeight;
@@ -410,6 +414,8 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(combatant, "_size", new Vector2(0.9f, 1.8f));
             SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));
             SetPrivate(combatant, "_maxHealth", 200);
+
+            SetPrivate(combatant, "_contactDamage", 6);
 
             var attacker = root.AddComponent<TrainingAttacker>();
             SetPrivate(attacker, "_restTicks", 120);

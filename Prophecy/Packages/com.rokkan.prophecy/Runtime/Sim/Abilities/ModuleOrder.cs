@@ -39,27 +39,20 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int HitReact = 3;
 
         /// <summary>
-        /// <b>The reactions come first, and that is the whole reason for these numbers.</b> A
-        /// parry or a dodge taken out of a guard, or out of an attack's recovery, has to claim the
-        /// lock <i>before</i> the thing it is interrupting ticks — otherwise the guard is still up
-        /// and the swing still running for one more tick, and both notice a tick late.
+        /// <b>Before the guard, and that is the whole reason for the number.</b> A dodge taken out
+        /// of a guard has to claim the lock <i>before</i> the guard ticks, or the shield is still up
+        /// for one more tick and notices a tick late. The gate chain would resolve a stale shield
+        /// correctly anyway, but a character who is briefly dodging and blocking at once stays
+        /// harmless right up until something starts reading it.
         ///
-        /// <para>The gate chain would resolve a stale shield correctly anyway, and one extra tick
-        /// of a dead swing does no damage. But a character who is briefly parrying and blocking at
-        /// once is exactly the sort of thing that stays harmless right up until something starts
-        /// reading it.</para>
-        /// </summary>
-        public const int Parry = 4;
-
-        /// <summary>
-        /// With the other reactions. The step also writes a velocity that <see cref="GroundMove"/>
-        /// would otherwise apply friction to, which is a second reason to be ahead of it.
+        /// <para>It also writes a velocity that <see cref="GroundMove"/> would otherwise apply
+        /// friction to, which is a second reason to be ahead of locomotion.</para>
         /// </summary>
         public const int DodgeStep = 5;
 
         /// <summary>After <see cref="Crouch"/> for the same reason the attack is — stance decides
         /// whether the guard answers high or low, so it has to be settled first — and after the
-        /// reactions, so one raised out of the guard takes it down on the tick it is pressed.</summary>
+        /// dodge, so one taken out of the guard takes it down on the tick it is pressed.</summary>
         public const int Block = 6;
 
         /// <summary>

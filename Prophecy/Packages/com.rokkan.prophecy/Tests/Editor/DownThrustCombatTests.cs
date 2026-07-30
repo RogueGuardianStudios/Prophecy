@@ -305,6 +305,91 @@ namespace Rokkan.Prophecy.Tests
             Assert.IsTrue(sim.Can(LockFlags.Move));
         }
 
+        [Test]
+        public void ABounceHandsBackTheAirJump()
+        {
+            // Landing the hardest-to-place attack in the game should not also cost you your
+            // follow-up. Without this the safe play is never to use it far from the ground.
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 10f));
+
+            // Spend the air jump on the way up, then dive.
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+            Step(sim, Hold(), tuning.AirJumpArmTicks + 2);
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+            Assert.AreEqual(0, sim.Get<DoubleJump>().Remaining, "the harness must have spent it");
+
+            Step(sim, Hold(y: -1f), 3);
+            Step(sim, DiveInput());
+            Assert.IsTrue(sim.Get<DownThrust>().IsActive);
+
+            world.Targets.Add(TargetAt(0f, sim.State.Position.y - 0.2f));
+            Step(sim, Hold(y: -1f));
+
+            // One tick of lag, and it is structural: the air jump ticks at order 35 and the dive
+            // stamps the refresh at 50, so the jump reads it on its next tick. Invisible in play —
+            // the arm delay is eight ticks — but worth pinning rather than pretending.
+            Assert.AreEqual(0, sim.Get<DoubleJump>().Remaining, "not yet — the writer ticks later");
+
+            Step(sim, Hold(y: -1f));
+
+            Assert.AreEqual(tuning.AirJumps, sim.Get<DoubleJump>().Remaining,
+                "connecting should hand the air back");
+        }
+
+        [Test]
+        public void MerelyLandingDoesNotRefreshMidAir()
+        {
+            // The refresh is earned by connecting, not by diving. A dive that hits nothing must
+            // leave the air jump spent.
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 12f));
+
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+            Step(sim, Hold(), tuning.AirJumpArmTicks + 2);
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+
+            Step(sim, Hold(y: -1f), 3);
+            Step(sim, DiveInput());
+            Step(sim, Hold(y: -1f), 10);
+
+            Assert.AreEqual(0, sim.Get<DoubleJump>().Remaining);
+        }
+
+        [Test]
+        public void TheAirJumpEarnedByABounceCanActuallyBeSpent()
+        {
+            var tuning = new MovementTuningData();
+            var combat = new CombatTuningData();
+            var world = new RecordingWorld();
+
+            var sim = Player(tuning, combat, world, new Vector2(0f, 10f));
+
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+            Step(sim, Hold(), tuning.AirJumpArmTicks + 2);
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+
+            Step(sim, Hold(y: -1f), 3);
+            Step(sim, DiveInput());
+
+            world.Targets.Add(TargetAt(0f, sim.State.Position.y - 0.2f));
+            Step(sim, Hold(y: -1f));
+
+            // Past the arm delay the bounce restarted, then jump.
+            Step(sim, Hold(), tuning.AirJumpArmTicks + 1);
+            float before = sim.State.Velocity.y;
+            Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
+
+            Assert.Greater(sim.State.Velocity.y, before, "the earned jump must actually launch");
+            Assert.AreEqual(0, sim.Get<DoubleJump>().Remaining);
+        }
+
         // ---------------------------------------------------------------- what does not bounce
 
         [Test]

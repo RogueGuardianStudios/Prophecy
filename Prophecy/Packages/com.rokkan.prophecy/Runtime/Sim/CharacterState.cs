@@ -57,6 +57,17 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public long LastGroundedTick = long.MinValue;
 
+        /// <summary>
+        /// The tick air abilities were last restored without touching the ground.
+        ///
+        /// <para>Shared state rather than one module calling another, for the same reason
+        /// <see cref="Grounded"/> is: a down-thrust bouncing off an enemy should hand the air jump
+        /// back, and neither module may know the other exists. The down-thrust stamps this; the
+        /// air jump watches it. Anything else that earns a mid-air reset — a wall scramble, a
+        /// pick-up — writes the same field and works immediately.</para>
+        /// </summary>
+        public long AirRefreshTick = long.MinValue;
+
         /// <summary>True while the player is deliberately dropping through a one-way platform.</summary>
         public bool DropThrough;
 

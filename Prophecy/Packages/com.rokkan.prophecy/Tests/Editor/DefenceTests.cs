@@ -64,6 +64,20 @@ namespace Rokkan.Prophecy.Tests
         private static InputFrame Guarding(float y = 0f) =>
             new InputFrame(new Vector2(0f, y), block: ButtonState.Holding);
 
+        /// <summary>
+        /// Raise the guard and hold it until the parry window has lapsed, so an incoming hit is a
+        /// block rather than a parry.
+        ///
+        /// <para>One button now means both, so every block test has to be explicit about which half
+        /// of it is being tested — that is the point of the merge, and it would be very easy to
+        /// write a "block" test that was quietly measuring a parry.</para>
+        /// </summary>
+        private static void SettleGuard(CharacterSim sim, CombatTuningData combat, float y = 0f)
+        {
+            Step(sim, Guarding(y));
+            Step(sim, Guarding(y), combat.ParryWindow.BaseRange.End + 1);
+        }
+
         /// <summary>A blow travelling left, i.e. arriving at a right-facing defender's front.</summary>
         private static HitEvent Blow(CharacterSim sim, int damage = 20,
                                      AttackHeight height = AttackHeight.Any,
@@ -121,8 +135,10 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             Assert.IsTrue(sim.Get<Block>().IsGuarding, "the harness must actually have the guard up");
+            Assert.IsFalse(sim.Get<Block>().ParryWindowOpen(sim.CurrentTick),
+                "and must be past the parry window, or this is testing the wrong half");
 
             var result = sim.ReceiveHit(Blow(sim, 20));
 
@@ -138,7 +154,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             var result = sim.ReceiveHit(Blow(sim, 20));
 
             Assert.Greater(result.DamageApplied, 0);
@@ -153,7 +169,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
 
             Assert.AreEqual(1, sim.ReceiveHit(Blow(sim, 1)).DamageApplied);
         }
@@ -164,7 +180,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
 
             // Same direction as the defender faces: the blow catches them from behind.
             var result = sim.ReceiveHit(Blow(sim, 20, facing: 1));
@@ -178,7 +194,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             Assert.AreEqual(AttackHeight.High, sim.Get<Block>().Guarding);
 
             Assert.AreEqual(HitOutcome.Landed,
@@ -191,7 +207,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding(y: -1f));
+            SettleGuard(sim, combat, y: -1f);
             Assert.AreEqual(AttackHeight.Low, sim.Get<Block>().Guarding,
                 "down plus block on the same tick must produce a low guard");
 
@@ -211,7 +227,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             Step(sim, Guarding(y: -1f), 10);
 
             Assert.AreEqual(AttackHeight.High, sim.Get<Block>().Guarding);
@@ -224,7 +240,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
 
             // Defeats the guard and nothing else: a dodge or a parry would still have worked.
             // That combination is the interesting one — an attack no answer beats is a cutscene.
@@ -260,16 +276,14 @@ namespace Rokkan.Prophecy.Tests
         // ---------------------------------------------------------------- parry
 
         [Test]
-        public void AHitInsideTheParryWindowIsParried()
+        public void AHitOnTheTickTheGuardGoesUpIsParried()
         {
+            // One button. When you pressed it is the whole mechanic.
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
-            Step(sim, Hold(), combat.ParryAction.ParryWindow.BaseStart);
-
-            var parry = sim.Get<Parry>();
-            Assert.IsTrue(parry.WindowOpen, "the harness must be inside the window");
+            Step(sim, Guarding());
+            Assert.IsTrue(sim.Get<Block>().ParryWindowOpen(sim.CurrentTick));
 
             var result = sim.ReceiveHit(Blow(sim, 20));
 
@@ -286,62 +300,104 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
-            Step(sim, Hold(), combat.ParryAction.ParryWindow.BaseStart);
+            Step(sim, Guarding());
 
-            var result = sim.ReceiveHit(Blow(sim, 20));
-
-            Assert.AreEqual(combat.ParryStunTicks, result.AttackerStunTicks);
+            Assert.AreEqual(combat.ParryStunTicks, sim.ReceiveHit(Blow(sim, 20)).AttackerStunTicks);
         }
 
         [Test]
-        public void AHitBeforeTheWindowOpensIsNotParried()
+        public void AHeldGuardSettlesIntoABlock()
         {
+            // You cannot hold a parry, only time one. Holding the button spends its window
+            // immediately and becomes a guard, which is the entire shape of the merged button.
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            // Armed this tick; the window opens later. Startup is what makes a parry a read.
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
+            SettleGuard(sim, combat);
 
-            Assert.IsFalse(sim.Get<Parry>().WindowOpen);
-            Assert.AreEqual(HitOutcome.Landed, sim.ReceiveHit(Blow(sim, 20)).Outcome);
-        }
-
-        [Test]
-        public void AHitAfterTheWindowClosesIsNotParried()
-        {
-            var combat = new CombatTuningData();
-            var sim = Defender(combat);
-
-            var window = combat.ParryAction.ParryWindow.BaseRange;
-
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
-            Step(sim, Hold(), window.End);
-
-            Assert.IsFalse(sim.Get<Parry>().WindowOpen, "the window must have closed by now");
-            Assert.AreEqual(HitOutcome.Landed, sim.ReceiveHit(Blow(sim, 20)).Outcome);
+            Assert.IsTrue(sim.Get<Block>().IsGuarding);
+            Assert.IsFalse(sim.Get<Block>().ParryWindowOpen(sim.CurrentTick));
+            Assert.AreEqual(HitOutcome.Blocked, sim.ReceiveHit(Blow(sim, 20)).Outcome);
         }
 
         [Test]
         public void TheParryWindowIsExactlyAsLongAsAuthored()
         {
-            // Asserted tick by tick rather than at the edges, because a window that is open for
-            // the right number of ticks in the wrong place passes an edge test.
+            // Tick by tick rather than at the edges: a window open for the right number of ticks in
+            // the wrong place passes an edge test.
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            var expected = combat.ParryAction.ParryWindow.BaseRange;
-            var parry = sim.Get<Parry>();
+            var expected = combat.ParryWindow.BaseRange;
+            var block = sim.Get<Block>();
 
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
+            Step(sim, Guarding());
 
-            for (int elapsed = 0; elapsed < combat.ParryAction.TotalTicks; elapsed++)
+            for (int elapsed = 0; elapsed < expected.End + 6; elapsed++)
             {
-                Assert.AreEqual(expected.Contains(elapsed), parry.WindowOpen,
-                    $"parry window disagreed with the authored range on tick {elapsed}");
+                Assert.AreEqual(expected.Contains(elapsed), block.ParryWindowOpen(sim.CurrentTick),
+                    $"parry window disagreed with the authored range on guard tick {elapsed}");
 
-                Step(sim, Hold());
+                Step(sim, Guarding());
             }
+        }
+
+        [Test]
+        public void ReleasingAndRePressingBuysAnotherParry()
+        {
+            // The window is measured from the press, so re-timing the guard is how a second parry
+            // is earned — and it costs the moment of being unguarded in between.
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            SettleGuard(sim, combat);
+            Assert.AreEqual(HitOutcome.Blocked, sim.ReceiveHit(Blow(sim, 20)).Outcome);
+
+            Step(sim, Hold(), 2);
+            Step(sim, Guarding());
+
+            Assert.AreEqual(HitOutcome.Parried, sim.ReceiveHit(Blow(sim, 20)).Outcome);
+        }
+
+        [Test]
+        public void AParryIgnoresGuardHeight()
+        {
+            // Timing beat the attack. Refusing a well-timed deflection for being aimed at the wrong
+            // part of a shield would make the window a worse block rather than a better one.
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            Step(sim, Guarding());
+            Assert.AreEqual(AttackHeight.High, sim.Get<Block>().Guarding);
+
+            Assert.AreEqual(HitOutcome.Parried,
+                sim.ReceiveHit(Blow(sim, 20, AttackHeight.Low)).Outcome);
+        }
+
+        [Test]
+        public void AParryStillDoesNotCoverYourBack()
+        {
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            Step(sim, Guarding());
+
+            Assert.AreEqual(HitOutcome.Landed, sim.ReceiveHit(Blow(sim, 20, facing: 1)).Outcome);
+        }
+
+        [Test]
+        public void AnAttackThatDefeatsTheParryIsStillBlocked()
+        {
+            // Defeating one half of the button must not defeat the other. An attack you cannot
+            // parry but can block is a different read from one you cannot answer at all.
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            Step(sim, Guarding());
+
+            var result = sim.ReceiveHit(Blow(sim, 20, AttackHeight.Any, DefensiveAnswer.Parry));
+
+            Assert.AreEqual(HitOutcome.Blocked, result.Outcome);
         }
 
         [Test]
@@ -352,28 +408,13 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            var parry = sim.Get<Parry>();
-            parry.Modifiers = new AttackModifiers { IFrameScale = 1f, ParryScale = 2f, CancelScale = 1f };
+            var block = sim.Get<Block>();
+            block.Modifiers = new AttackModifiers { IFrameScale = 1f, ParryScale = 2f, CancelScale = 1f };
 
-            Step(sim, new InputFrame(Vector2.zero, parry: ButtonState.Press));
+            Step(sim, Guarding());
 
-            Assert.AreEqual(combat.ParryAction.ParryWindow.BaseStart, parry.Timeline.ParryRange.Start);
-            Assert.Greater(parry.Timeline.ParryRange.Duration, combat.ParryAction.ParryWindow.BaseDuration);
-        }
-
-        [Test]
-        public void AParryCanBeRaisedStraightOutOfABlock()
-        {
-            // The guard holds its cancel window open for exactly this reason: a block is a stance
-            // you can drop for something better, not a committed action.
-            var combat = new CombatTuningData();
-            var sim = Defender(combat);
-
-            Step(sim, Guarding(), 3);
-            Step(sim, new InputFrame(Vector2.zero, block: ButtonState.Holding, parry: ButtonState.Press));
-
-            Assert.IsTrue(sim.Get<Parry>().IsActive);
-            Assert.IsFalse(sim.Get<Block>().IsGuarding, "the guard must give way rather than fight it");
+            Assert.AreEqual(combat.ParryWindow.BaseStart, block.ParryWindow.Start);
+            Assert.Greater(block.ParryWindow.Duration, combat.ParryWindow.BaseDuration);
         }
 
         // ---------------------------------------------------------------- i-frames
@@ -421,7 +462,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             Assert.AreEqual(HitOutcome.Blocked, sim.ReceiveHit(Blow(sim, 20)).Outcome);
 
             Step(sim, Guarding());
@@ -499,7 +540,7 @@ namespace Rokkan.Prophecy.Tests
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
             sim.ReceiveHit(Blow(sim, 20));
 
             Assert.Less(sim.State.Velocity.x, 0f, "a blocked hit must still move you");
@@ -605,25 +646,9 @@ namespace Rokkan.Prophecy.Tests
             var sim = Defender(combat);
 
             sim.ReceiveHit(Blow(sim, 20));
-            Step(sim, Guarding());
+            SettleGuard(sim, combat);
 
             Assert.AreEqual(HitOutcome.Invulnerable, sim.ReceiveHit(Blow(sim, 20)).Outcome);
-        }
-
-        [Test]
-        public void AParryOutranksTheGuard()
-        {
-            // A parry raised out of a block must not be downgraded into the block it replaced.
-            var combat = new CombatTuningData();
-            var sim = Defender(combat);
-
-            Step(sim, Guarding(), 3);
-            Step(sim, new InputFrame(Vector2.zero, block: ButtonState.Holding, parry: ButtonState.Press));
-            Step(sim, new InputFrame(Vector2.zero, block: ButtonState.Holding),
-                 combat.ParryAction.ParryWindow.BaseStart);
-
-            Assert.IsTrue(sim.Get<Parry>().WindowOpen);
-            Assert.AreEqual(HitOutcome.Parried, sim.ReceiveHit(Blow(sim, 20)).Outcome);
         }
 
         // ---------------------------------------------------------------- frame rate
@@ -675,9 +700,10 @@ namespace Rokkan.Prophecy.Tests
 
                     // The press lands on the first simulated tick at every frame rate, so the
                     // windows below are being compared from the same starting point.
-                    var input = pressed
-                        ? InputFrame.Empty
-                        : new InputFrame(Vector2.zero, parry: ButtonState.Press);
+                    // The guard goes up on the first simulated tick and is held from then on, so
+                    // the parry window and the block that follows it are being compared from the
+                    // same starting point at every frame rate.
+                    var input = new InputFrame(Vector2.zero, block: ButtonState.Holding);
                     pressed = true;
 
                     sim.SetInput(input);

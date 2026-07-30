@@ -96,6 +96,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
             LastBounceTick = tick;
             BounceCount++;
 
+            // Connecting hands the air back. A bounce is a reward for landing the hardest-to-place
+            // attack in the game, and taking the follow-up jump away from it would make the safe
+            // play never to use it far from the ground.
+            sim.State.AirRefreshTick = tick;
+
             if (!keepDiving)
             {
                 Stop(sim);

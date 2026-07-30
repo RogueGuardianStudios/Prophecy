@@ -31,8 +31,9 @@ MonoBehaviour:
         RotationDegrees: 0
         Damage: 10
         Height: 0
-        Unblockable: 0
+        Defeats: 0
         StoppedByGeometry: 1
+      Spawns: []
       IFrames:
         BaseStart: 0
         BaseDuration: 0
@@ -63,8 +64,9 @@ MonoBehaviour:
         RotationDegrees: -15
         Damage: 14
         Height: 0
-        Unblockable: 0
+        Defeats: 0
         StoppedByGeometry: 1
+      Spawns: []
       IFrames:
         BaseStart: 0
         BaseDuration: 0
@@ -95,8 +97,9 @@ MonoBehaviour:
         RotationDegrees: 0
         Damage: 9
         Height: 0
-        Unblockable: 0
+        Defeats: 0
         StoppedByGeometry: 1
+      Spawns: []
       IFrames:
         BaseStart: 0
         BaseDuration: 0
@@ -114,34 +117,51 @@ MonoBehaviour:
         MaxTicks: 60
       ChainsInto: 
       RequiresExecutableTarget: 0
+    DownThrustBox:
+      OpenTick: 0
+      CloseTick: 1
+      Offset: {x: 0, y: -0.2}
+      HalfExtents: {x: 0.45, y: 0.35}
+      RotationDegrees: 0
+      Damage: 16
+      Height: 2
+      Defeats: 0
+      StoppedByGeometry: 0
+    DownThrustAttackId: down_thrust
     MaxHealth: 100
     BlockedDamageFraction: 0.25
-    BlockStunTicks: 6
     BlockPushbackSpeed: 2.5
-    ParryAction:
-      Id: parry
+    ParryWindow:
+      BaseStart: 0
+      BaseDuration: 8
+      MinTicks: 2
+      MaxTicks: 24
+    DodgeAction:
+      Id: dodge
       RequiredStance: 0
-      StartupTicks: 2
-      ActiveTicks: 6
-      RecoveryTicks: 20
+      StartupTicks: 3
+      ActiveTicks: 10
+      RecoveryTicks: 14
       HitBoxes: []
+      Spawns: []
       IFrames:
+        BaseStart: 2
+        BaseDuration: 13
+        MinTicks: 2
+        MaxTicks: 30
+      ParryWindow:
         BaseStart: 0
         BaseDuration: 0
         MinTicks: 1
         MaxTicks: 60
-      ParryWindow:
-        BaseStart: 2
-        BaseDuration: 6
-        MinTicks: 2
-        MaxTicks: 20
       CancelWindow:
-        BaseStart: 22
-        BaseDuration: 6
+        BaseStart: 20
+        BaseDuration: 7
         MinTicks: 1
         MaxTicks: 60
       ChainsInto: 
       RequiresExecutableTarget: 0
+    DodgeDistance: 2.2
     ParryStunTicks: 40
     HitStunTicks: 18
     KnockbackSpeed: 4

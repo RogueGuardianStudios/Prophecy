@@ -60,7 +60,6 @@ namespace Rokkan.Prophecy.Presentation
 
         private AttackModule _attack;
         private Block _block;
-        private Parry _parry;
         private DodgeStep _dodge;
         private HitReact _hitReact;
         private TrainingAttacker[] _attackers;
@@ -101,7 +100,6 @@ namespace Rokkan.Prophecy.Presentation
 
             _attack = _host.Sim.Get<AttackModule>();
             _block = _host.Sim.Get<Block>();
-            _parry = _host.Sim.Get<Parry>();
             _dodge = _host.Sim.Get<DodgeStep>();
             _hitReact = _host.Sim.Get<HitReact>();
         }
@@ -250,23 +248,15 @@ namespace Rokkan.Prophecy.Presentation
 
             if (_block != null)
             {
-                _text.AppendLine(_block.IsGuarding
-                    ? $"guard    <b>UP</b> answering {_block.Guarding}"
-                    : "guard    down");
-            }
-
-            if (_parry != null)
-            {
-                if (!_parry.IsActive)
+                if (!_block.IsGuarding)
                 {
-                    _text.AppendLine("parry    ready");
+                    _text.AppendLine($"guard    down   (parry window {_combatParryWindow(_block)} ticks)");
                 }
                 else
                 {
-                    var timeline = _parry.Timeline;
-                    _text.AppendLine($"parry    {timeline.CurrentPhase} {timeline.ElapsedTicks}/" +
-                                     $"{_parry.Timeline.Definition.TotalTicks}" +
-                                     $"{(_parry.WindowOpen ? "   <b>WINDOW OPEN</b>" : "")}");
+                    int up = _block.GuardTicks(sim.CurrentTick);
+                    _text.AppendLine($"guard    <b>UP</b> {up}t answering {_block.Guarding}" +
+                                     $"{(_block.ParryWindowOpen(sim.CurrentTick) ? "   <b>PARRY</b>" : "")}");
                 }
             }
 
@@ -294,6 +284,8 @@ namespace Rokkan.Prophecy.Presentation
                 if (iframes > 0) _text.AppendLine($"iframes  {iframes,2} ticks");
             }
         }
+
+        private static int _combatParryWindow(Block block) => block.ParryWindow.Duration;
 
         private static string Describe(HitOutcome outcome)
         {

@@ -25,6 +25,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         private int _used;
         private long _airborneSinceTick = long.MinValue;
+        private long _refreshSeen = long.MinValue;
 
         public DoubleJump(MovementTuningData tuning)
         {
@@ -46,11 +47,22 @@ namespace Rokkan.Prophecy.Sim.Abilities
             {
                 _used = 0;
                 _airborneSinceTick = long.MinValue;
+                _refreshSeen = state.AirRefreshTick;
                 return;
             }
 
             if (_airborneSinceTick == long.MinValue)
                 _airborneSinceTick = info.Tick;
+
+            // Something gave the air back mid-flight — a down-thrust bouncing off an enemy. The arm
+            // delay restarts with it, so the press that caused the bounce cannot also spend the jump
+            // it just earned.
+            if (state.AirRefreshTick > _refreshSeen)
+            {
+                _refreshSeen = state.AirRefreshTick;
+                _used = 0;
+                _airborneSinceTick = info.Tick;
+            }
 
             if (!input.Jump.Pressed) return;
             if (_used >= _tuning.AirJumps) return;
@@ -68,6 +80,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         {
             _used = 0;
             _airborneSinceTick = long.MinValue;
+            _refreshSeen = long.MinValue;
         }
 
         private bool TouchingAnyWall(CharacterSim sim)
