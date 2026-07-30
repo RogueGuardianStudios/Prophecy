@@ -8,7 +8,7 @@ namespace Rokkan.Prophecy.Tests
     /// Cover queries: "is there a wall between me and you".
     ///
     /// <para>This is the half of hit resolution that stays on the project's own geometry. Hit
-    /// volumes are resolved with <c>ImmediatePhysics</c>, which knows nothing about the level, so
+    /// volumes are resolved by <c>HitResolver</c>, which knows nothing about the level, so
     /// without this an attack would happily land through a metre of stone. Keeping the query on
     /// <see cref="CollisionWorld"/> means the level has exactly one definition of solid, asked two
     /// different questions.</para>

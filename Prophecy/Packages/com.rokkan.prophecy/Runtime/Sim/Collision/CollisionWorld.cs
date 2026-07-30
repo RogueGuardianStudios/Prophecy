@@ -294,7 +294,7 @@ namespace Rokkan.Prophecy.Sim.Collision
         /// <paramref name="to"/> — "is there a wall between me and you".
         ///
         /// <para><b>Why this lives here rather than in the hit system.</b> Combat hit volumes are
-        /// resolved with <c>ImmediatePhysics</c>, which knows nothing about the level; the baked
+        /// resolved by <c>HitResolver</c>, which knows nothing about the level; the baked
         /// solids in this class are the project's single answer to "what is solid". Rather than
         /// keep a second copy of the geometry for cover checks, the hit system asks this class a
         /// different question about the same data. One source of truth, two queries.</para>

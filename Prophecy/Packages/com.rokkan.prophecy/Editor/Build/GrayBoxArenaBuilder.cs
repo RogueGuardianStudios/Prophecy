@@ -38,6 +38,16 @@ namespace Rokkan.Prophecy.Editor.Build
         private const float Depth = 3f;
         private const float GroundThickness = 2f;
 
+        /// <summary>
+        /// Authored combat ids, handed out in build order.
+        ///
+        /// <para>They have to be stable across machines — a host naming "entity 12" to a client
+        /// needs both to agree which one that is — so they are written into the scene rather than
+        /// counted at runtime. Starting at 10 leaves room below for anything Bootstrap owns; the
+        /// player is 1.</para>
+        /// </summary>
+        private static int _nextAuthoredId;
+
         [MenuItem("Prophecy/Build/Generate GrayBox_Arena", priority = 41)]
         public static void Generate()
         {
@@ -158,6 +168,8 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private static void BuildContents(MovementTuning tuning, CombatTuning combat, Reach reach)
         {
+            _nextAuthoredId = 10;
+
             var geometry = new GameObject("Geometry").transform;
             var targets = new GameObject("Targets").transform;
             var markers = new GameObject("Markers").transform;
@@ -261,6 +273,7 @@ namespace Rokkan.Prophecy.Editor.Build
             Object.DestroyImmediate(body.GetComponent<Collider>());
 
             var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_combatId", _nextAuthoredId++);
             SetPrivate(combatant, "_team", 2);
             SetPrivate(combatant, "_size", size);
             SetPrivate(combatant, "_offset", new Vector2(0f, centreY));
@@ -316,6 +329,7 @@ namespace Rokkan.Prophecy.Editor.Build
             Object.DestroyImmediate(body.GetComponent<Collider>());
 
             var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_combatId", _nextAuthoredId++);
             SetPrivate(combatant, "_team", 2);
             SetPrivate(combatant, "_size", new Vector2(0.9f, 1.8f));
             SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));
@@ -410,6 +424,7 @@ namespace Rokkan.Prophecy.Editor.Build
             Object.DestroyImmediate(body.GetComponent<Collider>());
 
             var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_combatId", _nextAuthoredId++);
             SetPrivate(combatant, "_team", 2);
             SetPrivate(combatant, "_size", new Vector2(0.9f, 1.8f));
             SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));

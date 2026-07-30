@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **383 passing, 0 failed, 0 skipped** (~3.7 s) |
+| Tests | **393 passing, 0 failed, 0 skipped** (~4.0 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -33,7 +33,9 @@ c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 40ddd8f  Build the dodge step, the one thing that is intangible on purpose
 a92437a  Respawn on death, so combat can be lost and then tried again
 3e01cf7  Hold the dive, and give combat things that are not swords
-(this)   One button for guard and parry; contact damage; a visible wind-up
+5b8355c  One button for guard and parry; contact damage; a visible wind-up
+3df8c7e  Record the netcode decision: co-op PvE, host authority, HopeFell first
+(this)   Own the hit geometry, add a broadphase, move the fight out of presentation
 ```
 
 ### Three repos are in play
@@ -68,6 +70,8 @@ CombatTuningData.cs   the moveset, stance entry points, buffer length, defence n
 Damage.cs             HitOutcome, HitResult, IDamageGate + GateOrder, PendingStun
 Vitals.cs             health, owned by CharacterSim so a test can kill something
 HitSweep.cs           swing one volume, dedup per box/target/action, notice being parried
+HurtboxSet.cs         this tick's volumes, bucketed on X — the broadphase
+CombatState.cs        the fight itself: registry, projectiles, contact, hit routing. Plain C#
 Projectile.cs         ProjectileDefinition + ProjectileSystem: one type for bolts and areas
 ```
 
@@ -93,7 +97,8 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
 `ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 17, `DodgeTests` 21, `ProjectileTests` 17 → **379 total**.
+`DownThrustCombatTests` 21, `DodgeTests` 21, `ProjectileTests` 17, `CombatScaleTests` 17
+→ **393 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
 and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
@@ -526,24 +531,48 @@ The existing shape suits it well: `InputFrame` is already what you would send, t
 and `HitResult` coming back from the gate chain is already the right channel for "here is what I
 made of that hit".
 
-### Still required
+### Done — all seven, 2026-07-30
 
-1. **Broadphase.** Nothing has one. `HitResolver.Resolve` tests every live box against every
-   hurtbox, and each live projectile runs a full sweep of its own — 50 bolts against 100 targets is
-   5,000 pairs a tick. An x-sorted sweep or a uniform grid.
-2. **`CombatDirector.ResolveContact` is O(n²) every tick, unconditionally.** 100 combatants is
-   10,000 overlap tests a tick, 600k a second.
-3. **The contact cooldown key collides.** `source.CombatId * 1000 + victim.CombatId` gives 3000 for
-   both (1, 2000) and (2, 1000). Correct below ~1000 ids and silently *skips a hit* above it. Pack
-   it into a `long` the way `HitSweep` already does.
-4. **`CombatDirector.OnHit` is a linear id search** through every combatant, per hit. Dictionary.
-5. **`Combatant` ids come from a `static int _nextId++`** — instantiation-order dependent, so two
-   peers can disagree about which entity is 47. Network-stable ids are needed even under authority,
-   because the host has to name entities to clients.
-6. **Per-combatant `Update()` and `SetPropertyBlock` every frame.** 100 of each.
-7. **Combat state lives in presentation** — dummy health on `Combatant`, projectiles owned by the
-   director, both MonoBehaviours. The host must simulate authoritatively and clients must predict,
-   so this wants to be sim-side. `ICombatWorld` already makes it movable.
+1. **Broadphase.** `HurtboxSet` buckets this tick's volumes on X and every query asks only the
+   buckets it spans. X only on purpose: the play space is a lane a few metres tall and hundreds
+   long, so bucketing Y would add arithmetic to separate things already within a body height of
+   each other. A second axis is a change here and nowhere else.
+2. **Contact is no longer O(n²).** Only sources that deal contact damage are considered, and each
+   asks the broadphase rather than walking everyone.
+3. **The contact key is packed into a `long`**, the way `HitSweep` already did. The old
+   `source * 1000 + victim` gave 3000 for both (1, 2000) and (2, 1000), and the collision presented
+   as a hit that silently never happened. There is a test for exactly that pair.
+4. **Hit routing is a dictionary.**
+5. **Ids are authored.** `Combatant._combatId` is serialized; the arena generator hands them out in
+   build order from 10, the player prefab is 1, and anything spawned takes one from
+   `CombatState.AllocateId()` above `FirstRuntimeId` so runtime and authored ranges cannot meet.
+   Registering a duplicate is refused with an error rather than accepted — a duplicate does not
+   fail loudly on its own, it silently routes someone else's hits to the wrong body.
+6. **One `Update` for all combatants**, driven by the director, and the tint property block is only
+   written when the colour actually changes.
+7. **The fight moved into `CombatState`** — plain C#, holding the registry, the projectiles, the
+   contact cooldowns and the hit routing. `CombatDirector` is now a MonoBehaviour that finds the
+   scene's geometry, ticks on the clock, and drives the visual half. The authoritative state a host
+   would replicate is no longer in presentation, and it is testable with no scene.
+
+### And the geometry is ours
+
+`ImmediatePhysics` is gone. `HitResolver` does separating-axis on two rotated rectangles — four
+projections — with `DeterministicMath` for the axes and an axis-aligned fast path for the common
+unrotated pair. No `Allocator.Temp` arrays, no native interop, runs everywhere Unity does, and
+bit-identical across same-architecture targets. The console-porting entry has been removed from the
+release checklist rather than deferred, and `ImmediatePhysicsProbeTests` deleted with it.
+
+**Unity raycasts and trigger colliders remain the wrong direction** and were considered and
+rejected: still PhysX so no determinism gained, they need a live `PhysicsScene` so the headless
+contract and `SimArchitectureGateTests` both break, and they resolve on the physics timestep rather
+than the fixed tick — the mistake HopeFell already paid for once with animation events.
+
+### What is still outstanding
+
+Nothing from the list above. What remains is netcode proper — client prediction, replication, and
+the promotion of combat out of `com.rokkan.prophecy` into a shared package — and none of it can be
+built until HopeFell needs it.
 
 ### Replace `ImmediatePhysics` with our own OBB overlap
 

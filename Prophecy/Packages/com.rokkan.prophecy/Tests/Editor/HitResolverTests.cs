@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Tests
 {
     /// <summary>
-    /// Hit resolution: rotated volumes via <c>ImmediatePhysics</c>, cover via the same baked
+    /// Hit resolution: rotated volumes via our own separating-axis test, cover via the same baked
     /// geometry movement uses.
     ///
     /// <para>All headless — no scene, no colliders. Combat outcomes are the thing this project

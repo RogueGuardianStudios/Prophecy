@@ -5,29 +5,32 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Presentation
 {
     /// <summary>
-    /// Something that can be hit. Publishes a hurtbox to the <see cref="CombatDirector"/> and
-    /// routes what comes back.
+    /// Something that can be hit. Publishes a hurtbox to the fight and routes what comes back.
     ///
     /// <para><b>Two kinds of target, one component.</b> A training dummy has no simulation — it
     /// does not move, fall or decide anything — so its hurtbox is a box on a transform and its
-    /// health is a local number. A simulated character's hurtbox has to follow its feet, shrink
-    /// when it crouches, and route hits into <c>CharacterSim.ReceiveHit</c> so the damage gates get
-    /// their say. Assigning <see cref="_simHost"/> switches between them.</para>
+    /// health is a local <see cref="Vitals"/>. A simulated character's hurtbox follows its feet,
+    /// shrinks when it crouches, and routes hits into <c>CharacterSim.ReceiveHit</c> so the damage
+    /// gates get their say. Assigning <see cref="_simHost"/> switches between them.</para>
     ///
     /// <para>That is why crouching under a high swing needs no rule anywhere: a simulated hurtbox
     /// is built from <c>BodySize</c>, which is already the crouch height when crouched, so the
     /// geometry misses on its own.</para>
     ///
-    /// <para><b>The id is assigned, not authored.</b> Hit dedup and hit routing both key on it, so
-    /// it has to be unique and non-zero; leaving that to whoever drags the component in is a bug
-    /// waiting for a duplicate. When there is a sim, the id is pushed into it so a character's
-    /// hurtbox and their attacks cannot disagree about who they belong to.</para>
+    /// <para><b>The id is authored, not counted.</b> It used to come from a static counter, which
+    /// made it depend on instantiation order — fine for one machine and useless for two, since a
+    /// host naming "entity 47" to a client needs both to agree which one that is. Scene-placed
+    /// combatants carry an authored id; anything spawned takes one from the fight's allocator,
+    /// which a host will own. Zero means "allocate me one".</para>
     /// </summary>
-    public sealed class Combatant : MonoBehaviour
+    public sealed class Combatant : MonoBehaviour, ICombatant
     {
-        private static int _nextId = 1;
-
         [Header("Identity")]
+        [SerializeField, Tooltip("Stable across machines, so it must be authored rather than " +
+                                 "counted. Leave at 0 for anything spawned at runtime and the " +
+                                 "fight allocates one.")]
+        private int _combatId;
+
         [SerializeField, Tooltip("Faction. Attacks skip their own team; 0 is neutral and hit by everyone.")]
         private int _team = 2;
 
@@ -74,32 +77,42 @@ namespace Rokkan.Prophecy.Presentation
         private float _knockback = 0.25f;
         [SerializeField] private float _knockbackRecoverySeconds = 0.35f;
 
+        private readonly Vitals _dummyVitals = new Vitals();
+
         private Renderer[] _renderers;
         private MaterialPropertyBlock _block;
         private Vector3 _restPosition;
+        private MovementSpace _space = MovementSpace.SideScroll;
 
         private Color _flashTint;
+        private Color _lastWritten = new Color(-1f, -1f, -1f, -1f);
         private float _flashRemaining;
         private float _shove;
         private int _shoveDirection = 1;
         private float _reviveRemaining;
-        private int _dummyHealth;
 
-        /// <summary>Unique within the session. What hit routing and hit dedup key on.</summary>
-        public int CombatId { get; private set; }
+        public int CombatId => _combatId;
 
         public int Team => _team;
 
         /// <summary>True when this is a simulated character rather than a dummy.</summary>
         public bool IsSimulated => _simHost != null && _simHost.Sim != null;
 
-        public int Health => IsSimulated ? _simHost.Sim.Vitals.Health : _dummyHealth;
+        private Vitals Vitals => IsSimulated ? _simHost.Sim.Vitals : _dummyVitals;
 
-        public int MaxHealth => IsSimulated ? _simHost.Sim.Vitals.MaxHealth : _maxHealth;
+        public int Health => Vitals.Health;
 
-        public bool IsAlive => Health > 0;
+        public int MaxHealth => Vitals.MaxHealth;
 
-        /// <summary>Sim tick of the most recent hit taken, for the overlay. Long.MinValue if never.</summary>
+        public bool IsAlive => Vitals.IsAlive;
+
+        public int ContactDamage => _contactDamage;
+
+        public int ContactIntervalTicks => _contactIntervalTicks;
+
+        public DefensiveAnswer ContactDefeats => _contactDefeats;
+
+        /// <summary>Sim tick of the most recent hit taken. <c>long.MinValue</c> if never.</summary>
         public long LastHitTick { get; private set; } = long.MinValue;
 
         /// <summary>What the last incoming hit turned into.</summary>
@@ -108,36 +121,37 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Total damage taken since the last revive. The number a tuning pass reads.</summary>
         public int DamageTaken { get; private set; }
 
-        /// <summary>Damage dealt by touching this. Zero means it is only dangerous when it swings.</summary>
-        public int ContactDamage => _contactDamage;
-
-        public int ContactIntervalTicks => Mathf.Max(1, _contactIntervalTicks);
-
-        public DefensiveAnswer ContactDefeats => _contactDefeats;
-
         /// <summary>
         /// A tint forced by whatever is driving this body — a wind-up, a charge. Null lets the
         /// health colour show through.
         ///
         /// <para>Set by the attacker rather than owned here, because <i>what</i> a body is doing is
-        /// the attacker's business and only the renderers are this component's. Two things writing
-        /// the same material property block would otherwise fight every frame.</para>
+        /// the attacker's business and only the renderers are this component's.</para>
         /// </summary>
         public Color? TelegraphTint { get; set; }
 
         private void Awake()
         {
-            CombatId = _nextId++;
-            _dummyHealth = _maxHealth;
-            _restPosition = transform.position;
+            _dummyVitals.MaxHealth = _maxHealth;
+            _dummyVitals.Reset();
 
+            _restPosition = transform.position;
             _renderers = GetComponentsInChildren<Renderer>();
             _block = new MaterialPropertyBlock();
         }
 
         private void OnEnable()
         {
-            if (CombatDirector.Instance != null) CombatDirector.Instance.Register(this);
+            var director = CombatDirector.Instance;
+            if (director == null) return;
+
+            _space = director.Space;
+
+            // Zero means "not authored", which is correct for anything spawned. Everything placed
+            // in a scene should carry one, so the id survives being loaded on another machine.
+            if (_combatId == 0) _combatId = director.State.AllocateId();
+
+            director.Register(this);
         }
 
         private void OnDisable()
@@ -157,23 +171,23 @@ namespace Rokkan.Prophecy.Presentation
             if (!IsSimulated) return;
 
             var state = _simHost.Sim.State;
-            state.CombatId = CombatId;
+            state.CombatId = _combatId;
             state.Team = _team;
         }
 
         /// <summary>The volume attacks resolve against, in the sim's plane.</summary>
-        public Hurtbox BuildHurtbox(MovementSpace space)
+        public Hurtbox BuildHurtbox()
         {
             if (IsSimulated)
             {
                 SyncIdentity();
 
                 var state = _simHost.Sim.State;
-                return Hurtbox.ForBody(CombatId, state.Position, state.BodySize, _team);
+                return Hurtbox.ForBody(_combatId, state.Position, state.BodySize, _team);
             }
 
-            var plane = SpaceMapping.ToPlane(_restPosition, space);
-            return new Hurtbox(CombatId, plane + _offset, _size * 0.5f, 0f, _team);
+            var plane = SpaceMapping.ToPlane(_restPosition, _space);
+            return new Hurtbox(_combatId, plane + _offset, _size * 0.5f, 0f, _team);
         }
 
         /// <summary>
@@ -197,8 +211,8 @@ namespace Rokkan.Prophecy.Presentation
             }
             else
             {
-                _dummyHealth = Mathf.Max(0, _dummyHealth - hit.Damage);
-                result = new HitResult(HitOutcome.Landed, hit.Damage);
+                int applied = _dummyVitals.ApplyDamage(hit.Damage, hit.Tick);
+                result = new HitResult(HitOutcome.Landed, applied);
 
                 _shove = _knockback;
                 _shoveDirection = hit.Facing < 0 ? -1 : 1;
@@ -219,20 +233,20 @@ namespace Rokkan.Prophecy.Presentation
 
         public void Revive()
         {
-            if (IsSimulated) _simHost.Sim.Vitals.Reset();
-            else _dummyHealth = _maxHealth;
-
+            Vitals.Reset();
             DamageTaken = 0;
             _reviveRemaining = 0f;
         }
 
-        private void Update()
+        /// <summary>
+        /// The visual half, driven by the director rather than by an <c>Update</c> of its own —
+        /// a hundred of those is a hundred managed-to-native transitions a frame for a flash timer.
+        /// </summary>
+        public void PresentationTick(float deltaSeconds)
         {
-            float dt = Time.deltaTime;
-
             if (!IsAlive && _reviveSeconds > 0f)
             {
-                _reviveRemaining -= dt;
+                _reviveRemaining -= deltaSeconds;
                 if (_reviveRemaining <= 0f) Revive();
             }
 
@@ -243,7 +257,8 @@ namespace Rokkan.Prophecy.Presentation
             {
                 if (_shove > 0f)
                 {
-                    _shove = Mathf.Max(0f, _shove - _knockback * dt / Mathf.Max(0.0001f, _knockbackRecoverySeconds));
+                    _shove = Mathf.Max(0f, _shove - _knockback * deltaSeconds /
+                                             Mathf.Max(0.0001f, _knockbackRecoverySeconds));
                     transform.position = _restPosition + new Vector3(_shove * _shoveDirection, 0f, 0f);
                 }
                 else if (transform.position != _restPosition)
@@ -252,15 +267,18 @@ namespace Rokkan.Prophecy.Presentation
                 }
             }
 
-            if (_flashRemaining > 0f) _flashRemaining -= dt;
+            if (_flashRemaining > 0f) _flashRemaining -= deltaSeconds;
 
             ApplyTint();
         }
 
         /// <summary>
-        /// Tint through a property block rather than the material. Touching <c>renderer.material</c>
-        /// instantiates a copy per object and leaks it, which in a scene full of dummies is a pile
-        /// of materials nobody asked for.
+        /// Tint through a property block rather than the material, and only when it changes.
+        ///
+        /// <para>Touching <c>renderer.material</c> instantiates a copy per object and leaks it.
+        /// Writing the property block unconditionally is cheaper but still not free, and a body
+        /// that is idle at full health has exactly one colour for minutes at a time — so the write
+        /// is skipped unless the colour actually moved.</para>
         /// </summary>
         private void ApplyTint()
         {
@@ -275,6 +293,9 @@ namespace Rokkan.Prophecy.Presentation
                     ? _flashTint
                     : TelegraphTint ?? Color.Lerp(Color.white, new Color(0.9f, 0.35f, 0.35f),
                                                   1f - Health / (float)Mathf.Max(1, MaxHealth));
+
+            if (tint == _lastWritten) return;
+            _lastWritten = tint;
 
             for (int i = 0; i < _renderers.Length; i++)
             {

@@ -50,6 +50,7 @@ namespace Rokkan.Prophecy.Sim.Combat
     public sealed class HitSweep
     {
         private readonly List<int> _hits = new List<int>();
+        private readonly List<int> _candidates = new List<int>();
         private readonly HashSet<long> _spent = new HashSet<long>();
 
         /// <summary>Start a new action. Everyone becomes hittable again.</summary>
@@ -74,7 +75,8 @@ namespace Rokkan.Prophecy.Sim.Combat
             var targets = world.Hurtboxes;
             if (targets == null || targets.Count == 0) return default;
 
-            if (HitResolver.Resolve(box, attacker, targets, level, _hits) == 0) return default;
+            if (HitResolver.Resolve(box, attacker, targets, level, _hits, _candidates) == 0)
+                return default;
 
             int connected = 0;
             var last = HitOutcome.Ignored;

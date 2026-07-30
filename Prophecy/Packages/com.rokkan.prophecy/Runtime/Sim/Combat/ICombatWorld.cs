@@ -76,11 +76,14 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// Every hurtbox that can be hit this tick, including the attacker's own — the resolver
         /// filters by id and team, so callers do not have to build a different list per attacker.
         ///
-        /// <para>Rebuilt or refreshed by the owner once per tick, not per attack: a list that
-        /// changed midway through a tick would let two simultaneous attacks see different
-        /// worlds.</para>
+        /// <para>A <see cref="HurtboxSet"/> rather than a list, because it carries the broadphase.
+        /// Without one, every attack tests every hurtbox and every projectile runs its own full
+        /// sweep, which is the product of two numbers both meant to get bigger.</para>
+        ///
+        /// <para>Rebuilt by the owner once per tick, not per attack: a set that changed midway
+        /// through a tick would let two simultaneous attacks see different worlds.</para>
         /// </summary>
-        IReadOnlyList<Hurtbox> Hurtboxes { get; }
+        HurtboxSet Hurtboxes { get; }
 
         /// <summary>
         /// Put a projectile or area volume in the air on behalf of <paramref name="owner"/>.

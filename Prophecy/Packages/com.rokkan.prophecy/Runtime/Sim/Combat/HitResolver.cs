@@ -1,43 +1,51 @@
 using System.Collections.Generic;
+using RGS.Core;
 using Rokkan.Prophecy.Sim.Collision;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.LowLevelPhysics;
 
 namespace Rokkan.Prophecy.Sim.Combat
 {
     /// <summary>
-    /// Answers "who does this hit box touch this tick", inside the tick, with no scene.
+    /// Answers "who does this hit box touch this tick", inside the tick, with no scene and no
+    /// engine.
     ///
-    /// <para><b>Two questions, two systems, one truth.</b> Overlap between a rotated hit box and a
-    /// hurtbox is <see cref="ImmediatePhysics"/> — Unity's own geometry maths, which is why hit
-    /// volumes can rotate at all. Whether a wall is in the way is
+    /// <para><b>The overlap maths is ours.</b> This used to call
+    /// <c>UnityEngine.LowLevelPhysics.ImmediatePhysics</c>, chosen over hand-rolled AABBs for one
+    /// reason: rotation, which an axis-aligned box cannot express. That reason turned out to be
+    /// answerable in about forty lines — two rotated rectangles are separated if and only if one of
+    /// their four face normals separates them, which is four projections. Owning it is better on
+    /// every axis that mattered:</para>
+    ///
+    /// <list type="bullet">
+    ///   <item>no six <c>Allocator.Temp</c> arrays per call, which at fifty projectiles was ~300
+    ///         allocations a tick</item>
+    ///   <item>no native interop, so the sim stays genuinely headless</item>
+    ///   <item>it runs everywhere Unity does, rather than being validated on Windows and hoped for
+    ///         on console</item>
+    ///   <item>bit-identical across same-architecture targets, because the only transcendentals are
+    ///         <see cref="DeterministicMath"/>'s — free here, and expensive to retrofit if the
+    ///         co-op-only netcode decision is ever revisited</item>
+    /// </list>
+    ///
+    /// <para><b>Cover is a separate question.</b> Whether a wall is in the way is
     /// <see cref="CollisionWorld.IsOccluded"/>, asked of the same baked geometry movement collides
-    /// with. There is deliberately no second copy of the level in here.</para>
-    ///
-    /// <para><b>Cover is per attack, not per world.</b> A spear thrust through a grate stops; an
-    /// expanding shockwave does not. <see cref="AttackHitBox.StoppedByGeometry"/> decides, and the
-    /// world only ever answers the geometric question.</para>
-    ///
-    /// <para>Allocations are <c>Allocator.Temp</c> and disposed on the way out, so there is no
-    /// lifetime to manage and nothing to leak between ticks. Every target is submitted in a single
-    /// batched call rather than one call per pair.</para>
+    /// with. There is deliberately no second copy of the level in here, and it is only asked for
+    /// attacks that care, only after overlap — an occlusion query per non-touching target would be
+    /// work spent proving nothing.</para>
     /// </summary>
     public static class HitResolver
     {
         /// <summary>
-        /// Contact generation rejects a distance of zero outright, so "no inflation" has to be an
-        /// epsilon. Attacks that want forgiveness inflate deliberately instead.
+        /// Kept for the callers that pass it. It used to be a hard requirement — contact generation
+        /// rejected a distance of zero outright — and is now simply the default inflation, which is
+        /// none worth speaking of. An attack wanting forgiveness inflates deliberately instead.
         /// </summary>
-        public const float NoSkin = 0.0001f;
+        public const float NoSkin = 0f;
 
-        /// <summary>
-        /// Depth half-extent given to every volume. The sim is a 2D plane inside a 3D query, so
-        /// the depth axis must always overlap or nothing would ever connect.
-        /// </summary>
-        private const float PlaneDepth = 1f;
+        private const float DegreesToRadians = DeterministicMath.PI / 180f;
 
-        private const int MaxContactsPerPair = 4;
+        /// <summary>Below this a rotation is treated as none, taking the axis-aligned fast path.</summary>
+        private const float FlatEpsilon = 0.0001f;
 
         /// <summary>
         /// Fill <paramref name="hits"/> with the indices of every target the box connects with.
@@ -55,103 +63,189 @@ namespace Rokkan.Prophecy.Sim.Combat
             float skin = NoSkin)
         {
             hits.Clear();
-
             if (targets == null || targets.Count == 0) return 0;
-            if (box.HalfExtents.x <= 0f || box.HalfExtents.y <= 0f) return 0;
+            if (!Prepare(box, attacker, skin, out var centre, out var rotation,
+                         out var half, out var bound)) return 0;
 
-            var centre = box.ResolveCentre(attacker.Feet, attacker.Facing);
-            float rotation = box.ResolveRotation(attacker.Facing);
-
-            // Cull first so the batch only contains plausible pairs. Cheap rejections here keep
-            // the contact call proportional to what is actually nearby.
-            var candidates = new List<int>();
             for (int i = 0; i < targets.Count; i++)
+                Consider(i, targets[i], box, attacker, world, hits,
+                         centre, rotation, half, bound);
+
+            return hits.Count;
+        }
+
+        /// <summary>
+        /// The same test, but asking the broadphase which targets are even worth looking at.
+        ///
+        /// <para>This is the overload everything in the sim uses. The list version above stays for
+        /// tests, which are usually asking about two boxes and one answer.</para>
+        /// </summary>
+        public static int Resolve(
+            in AttackHitBox box,
+            in Attacker attacker,
+            HurtboxSet targets,
+            CollisionWorld world,
+            List<int> hits,
+            List<int> candidates,
+            float skin = NoSkin)
+        {
+            hits.Clear();
+            if (targets == null || targets.Count == 0) return 0;
+            if (!Prepare(box, attacker, skin, out var centre, out var rotation,
+                         out var half, out var bound)) return 0;
+
+            int found = targets.Query(centre.x - bound.x, centre.x + bound.x, candidates);
+
+            for (int c = 0; c < found; c++)
             {
-                var target = targets[i];
-                if (!target.IsValid) continue;
-                if (target.OwnerId == attacker.Id) continue;
-                if (target.Team != 0 && target.Team == attacker.Team) continue;
-
-                candidates.Add(i);
-            }
-
-            if (candidates.Count == 0) return 0;
-
-            int pairs = candidates.Count;
-
-            var geomA = new NativeArray<GeometryHolder>(pairs, Allocator.Temp);
-            var geomB = new NativeArray<GeometryHolder>(pairs, Allocator.Temp);
-            var xformA = new NativeArray<ImmediateTransform>(pairs, Allocator.Temp);
-            var xformB = new NativeArray<ImmediateTransform>(pairs, Allocator.Temp);
-            var contacts = new NativeArray<ImmediateContact>(pairs * MaxContactsPerPair, Allocator.Temp);
-            var counts = new NativeArray<int>(pairs, Allocator.Temp);
-
-            try
-            {
-                var attackGeometry = GeometryHolder.Create(
-                    new BoxGeometry(new Vector3(box.HalfExtents.x, box.HalfExtents.y, PlaneDepth)));
-
-                var attackTransform = new ImmediateTransform
-                {
-                    Position = new Vector3(centre.x, centre.y, 0f),
-                    Rotation = Quaternion.Euler(0f, 0f, rotation),
-                };
-
-                for (int p = 0; p < pairs; p++)
-                {
-                    var target = targets[candidates[p]];
-
-                    geomA[p] = attackGeometry;
-                    xformA[p] = attackTransform;
-
-                    geomB[p] = GeometryHolder.Create(
-                        new BoxGeometry(new Vector3(target.HalfExtents.x, target.HalfExtents.y, PlaneDepth)));
-
-                    xformB[p] = new ImmediateTransform
-                    {
-                        Position = new Vector3(target.Centre.x, target.Centre.y, 0f),
-                        Rotation = Quaternion.Euler(0f, 0f, target.RotationDegrees),
-                    };
-                }
-
-                ImmediatePhysics.GenerateContacts(
-                    geomA.AsReadOnly(), geomB.AsReadOnly(),
-                    xformA.AsReadOnly(), xformB.AsReadOnly(),
-                    pairs, contacts, counts,
-                    Mathf.Max(NoSkin, skin));
-
-                for (int p = 0; p < pairs; p++)
-                {
-                    if (counts[p] <= 0) continue;
-
-                    int targetIndex = candidates[p];
-
-                    // Traced from the ATTACKER, not the hit box. A reaching attack's volume is
-                    // often already past the wall that ought to have stopped it, so casting from
-                    // the box would report clear exactly when cover matters most.
-                    //
-                    // Checked only for attacks that care, and only after overlap — an occlusion
-                    // query per non-touching target would be wasted work.
-                    if (box.StoppedByGeometry && world != null &&
-                        world.IsOccluded(attacker.Origin, targets[targetIndex].Centre))
-                    {
-                        continue;
-                    }
-
-                    hits.Add(targetIndex);
-                }
-            }
-            finally
-            {
-                geomA.Dispose();
-                geomB.Dispose();
-                xformA.Dispose();
-                xformB.Dispose();
-                contacts.Dispose();
-                counts.Dispose();
+                int index = candidates[c];
+                Consider(index, targets[index], box, attacker, world, hits,
+                         centre, rotation, half, bound);
             }
 
             return hits.Count;
+        }
+
+        private static bool Prepare(in AttackHitBox box, in Attacker attacker, float skin,
+                                    out Vector2 centre, out float rotation,
+                                    out Vector2 half, out Vector2 bound)
+        {
+            centre = default;
+            rotation = 0f;
+            half = default;
+            bound = default;
+
+            if (box.HalfExtents.x <= 0f || box.HalfExtents.y <= 0f) return false;
+
+            centre = box.ResolveCentre(attacker.Feet, attacker.Facing);
+            rotation = box.ResolveRotation(attacker.Facing);
+            half = box.HalfExtents + new Vector2(skin, skin);
+
+            // The rotated box's axis-aligned bound, computed once. It is both the broadphase query
+            // span and the cheap reject, and rotation makes it genuinely non-obvious: a 0.5
+            // half-extent reaches 0.5 unrotated and 0.707 at 45 degrees.
+            bound = BoundingHalfExtents(half, rotation);
+            return true;
+        }
+
+        private static void Consider(int index, in Hurtbox target, in AttackHitBox box,
+                                     in Attacker attacker, CollisionWorld world, List<int> hits,
+                                     Vector2 centre, float rotation, Vector2 half, Vector2 bound)
+        {
+            if (!target.IsValid) return;
+            if (target.OwnerId == attacker.Id) return;
+            if (target.Team != 0 && target.Team == attacker.Team) return;
+
+            if (!Overlaps(centre, half, rotation,
+                          target.Centre, target.HalfExtents, target.RotationDegrees, bound)) return;
+
+            // Traced from the ATTACKER, not the hit box. A reaching attack's volume is often already
+            // past the wall that ought to have stopped it, so casting from the box would report
+            // clear exactly when cover matters most.
+            if (box.StoppedByGeometry && world != null &&
+                world.IsOccluded(attacker.Origin, target.Centre))
+            {
+                return;
+            }
+
+            hits.Add(index);
+        }
+
+        /// <summary>
+        /// True if two rotated rectangles overlap. Public because it is the one piece of geometry
+        /// the whole combat system rests on, and it deserves to be testable on its own.
+        /// </summary>
+        public static bool Overlaps(Vector2 centreA, Vector2 halfA, float rotationA,
+                                    Vector2 centreB, Vector2 halfB, float rotationB)
+        {
+            return Overlaps(centreA, halfA, rotationA, centreB, halfB, rotationB,
+                            BoundingHalfExtents(halfA, rotationA));
+        }
+
+        private static bool Overlaps(Vector2 centreA, Vector2 halfA, float rotationA,
+                                     Vector2 centreB, Vector2 halfB, float rotationB,
+                                     Vector2 boundA)
+        {
+            var delta = centreB - centreA;
+
+            // Cheap axis-aligned reject using A's precomputed bound. Almost every pair fails here,
+            // and the ones that do not are worth the four projections below.
+            if (Mathf.Abs(delta.x) > boundA.x + Mathf.Abs(halfB.x) + Mathf.Abs(halfB.y)) return false;
+            if (Mathf.Abs(delta.y) > boundA.y + Mathf.Abs(halfB.x) + Mathf.Abs(halfB.y)) return false;
+
+            bool flatA = Mathf.Abs(rotationA) < FlatEpsilon;
+            bool flatB = Mathf.Abs(rotationB) < FlatEpsilon;
+
+            // Both unrotated is the overwhelmingly common case — a stationary hurtbox and an
+            // unrotated swing — and it is a plain interval test on each axis.
+            if (flatA && flatB)
+            {
+                return Mathf.Abs(delta.x) < halfA.x + halfB.x &&
+                       Mathf.Abs(delta.y) < halfA.y + halfB.y;
+            }
+
+            Axes(rotationA, out var ax, out var ay);
+            Axes(rotationB, out var bx, out var by);
+
+            // Separating axis: two convex shapes miss if and only if some axis separates them, and
+            // for rectangles only the four face normals can. Any one of them separating is enough,
+            // so this returns on the first.
+            return !Separated(delta, ax, halfA, ax, ay, halfB, bx, by)
+                && !Separated(delta, ay, halfA, ax, ay, halfB, bx, by)
+                && !Separated(delta, bx, halfA, ax, ay, halfB, bx, by)
+                && !Separated(delta, by, halfA, ax, ay, halfB, bx, by);
+        }
+
+        /// <summary>True if <paramref name="axis"/> separates the two boxes.</summary>
+        private static bool Separated(Vector2 delta, Vector2 axis,
+                                      Vector2 halfA, Vector2 axisAx, Vector2 axisAy,
+                                      Vector2 halfB, Vector2 axisBx, Vector2 axisBy)
+        {
+            float distance = Mathf.Abs(delta.x * axis.x + delta.y * axis.y);
+
+            return distance > ProjectionRadius(halfA, axis, axisAx, axisAy) +
+                              ProjectionRadius(halfB, axis, axisBx, axisBy);
+        }
+
+        /// <summary>How far a box reaches along <paramref name="axis"/>, given its own two axes.</summary>
+        private static float ProjectionRadius(Vector2 half, Vector2 axis, Vector2 boxX, Vector2 boxY)
+        {
+            return half.x * Mathf.Abs(boxX.x * axis.x + boxX.y * axis.y) +
+                   half.y * Mathf.Abs(boxY.x * axis.x + boxY.y * axis.y);
+        }
+
+        /// <summary>The two unit axes of a box rotated by <paramref name="degrees"/>.</summary>
+        private static void Axes(float degrees, out Vector2 x, out Vector2 y)
+        {
+            if (Mathf.Abs(degrees) < FlatEpsilon)
+            {
+                x = new Vector2(1f, 0f);
+                y = new Vector2(0f, 1f);
+                return;
+            }
+
+            float radians = degrees * DegreesToRadians;
+            float cos = DeterministicMath.Cos(radians);
+            float sin = DeterministicMath.Sin(radians);
+
+            x = new Vector2(cos, sin);
+            y = new Vector2(-sin, cos);
+        }
+
+        /// <summary>
+        /// The axis-aligned half-extents of a rotated box. A 0.5 half-extent reaches 0.5 along X
+        /// unrotated and 0.707 at 45°, which is exactly the intuition that is unreliable enough to
+        /// be worth computing rather than eyeballing.
+        /// </summary>
+        public static Vector2 BoundingHalfExtents(Vector2 half, float degrees)
+        {
+            if (Mathf.Abs(degrees) < FlatEpsilon) return half;
+
+            Axes(degrees, out var x, out var y);
+
+            return new Vector2(
+                half.x * Mathf.Abs(x.x) + half.y * Mathf.Abs(y.x),
+                half.x * Mathf.Abs(x.y) + half.y * Mathf.Abs(y.y));
         }
     }
 }

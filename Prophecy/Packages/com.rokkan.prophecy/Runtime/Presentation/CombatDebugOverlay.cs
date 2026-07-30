@@ -367,7 +367,7 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>
         /// Draws hurtboxes, the armed attack's boxes, and the cover ray, in world space and in the
         /// Game view. Rotated boxes are drawn as four transformed corners rather than an AABB,
-        /// because rotation is the reason the resolver uses ImmediatePhysics at all and an
+        /// because rotation is the reason the resolver does separating-axis at all and an
         /// axis-aligned outline would misrepresent every diagonal swing.
         /// </summary>
         private void OnRenderObject()

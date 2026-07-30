@@ -31,7 +31,20 @@ namespace Rokkan.Prophecy.Tests
 
             public HitResult Answer = new HitResult(HitOutcome.Landed, 12);
 
-            public IReadOnlyList<Hurtbox> Hurtboxes => Targets;
+            private readonly HurtboxSet _set = new HurtboxSet();
+
+            /// <summary>Rebuilt on every read so a test can add a target mid-run and have it
+            /// counted. The real one is built once a tick; correctness is the same either way.</summary>
+            public HurtboxSet Hurtboxes
+            {
+                get
+                {
+                    _set.Clear();
+                    for (int i = 0; i < Targets.Count; i++) _set.Add(Targets[i]);
+                    _set.Build();
+                    return _set;
+                }
+            }
 
             public void Spawn(ProjectileDefinition definition, in Attacker owner) { }
 

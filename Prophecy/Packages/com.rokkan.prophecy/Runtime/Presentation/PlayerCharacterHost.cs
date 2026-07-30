@@ -96,7 +96,7 @@ namespace Rokkan.Prophecy.Presentation
                 _space,
                 _loadout != null ? _loadout.Data : null,
                 _combatTuning != null ? _combatTuning.Data : null,
-                CombatDirector.Instance);
+                CombatDirector.Instance != null ? CombatDirector.Instance.State : null);
         }
 
         private void Start()
@@ -141,8 +141,8 @@ namespace Rokkan.Prophecy.Presentation
             // A reference compare per tick is cheaper than the class of bug where the player swings
             // at an arena that loaded after they did. On the character rather than per module, so
             // every module that swings gets it — the down-thrust included.
-            if (!ReferenceEquals(Sim.CombatWorld, CombatDirector.Instance))
-                Sim.CombatWorld = CombatDirector.Instance;
+            var fight = CombatDirector.Instance != null ? CombatDirector.Instance.State : null;
+            if (!ReferenceEquals(Sim.CombatWorld, fight)) Sim.CombatWorld = fight;
 
             if (_input != null)
                 Sim.SetInput(_input.ConsumeFrame());

@@ -226,7 +226,7 @@ namespace Rokkan.Prophecy.Presentation
                 var attacker = Attacker.FromBody(_self.CombatId, here, new Vector2(0.9f, 1.8f),
                                                  _resolvedFacing, _self.Team);
 
-                director.Spawn(_attack.Spawns[i].Projectile, attacker);
+                director.State.Spawn(_attack.Spawns[i].Projectile, attacker);
             }
         }
 
@@ -235,8 +235,7 @@ namespace Rokkan.Prophecy.Presentation
             int boxes = _timeline.HitBoxCount;
             if (boxes == 0) return;
 
-            var targets = director.Hurtboxes;
-            if (targets.Count == 0) return;
+            if (director.Hurtboxes.Count == 0) return;
 
             var here = SpaceMapping.ToPlane(transform.position, director.Space);
             var attacker = Attacker.FromBody(_self.CombatId, here, new Vector2(0.9f, 1.8f),
@@ -246,7 +245,7 @@ namespace Rokkan.Prophecy.Presentation
             {
                 if (!_timeline.IsHitBoxLive(i)) continue;
 
-                var result = _sweep.Sweep(i, _timeline.GetHitBox(i), attacker, director, null,
+                var result = _sweep.Sweep(i, _timeline.GetHitBox(i), attacker, director.State, null,
                                           info.Tick, _attack.Id);
 
                 if (!result.Punished) continue;
