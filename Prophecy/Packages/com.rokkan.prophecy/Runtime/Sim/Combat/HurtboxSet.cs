@@ -92,6 +92,12 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// Fill <paramref name="candidates"/> with the indices of every box whose X span touches
         /// <paramref name="minX"/>..<paramref name="maxX"/>. Broad, not exact — the caller still
         /// has to test properly.
+        ///
+        /// <para><b>Not re-entrant.</b> The dedup stamp is one counter on the set, so starting a
+        /// second query invalidates the first one's stamps. Callers each own their candidate list
+        /// and must finish reading it before querying again — copy out what you need if you are
+        /// going to call something that might query. Every current caller reads its results into
+        /// its own list first, which is why this is a note rather than a lock.</para>
         /// </summary>
         public int Query(float minX, float maxX, List<int> candidates)
         {

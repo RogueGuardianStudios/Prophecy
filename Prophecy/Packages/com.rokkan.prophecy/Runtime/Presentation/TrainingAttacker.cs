@@ -44,6 +44,11 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Turn to face the nearest thing it can hit before each swing.")]
         private bool _faceNearestTarget = true;
 
+        [SerializeField, Tooltip("How far to look when turning to face a target, in metres. Bounded " +
+                                 "so a crowded arena does not make every wind-up a scan of the whole " +
+                                 "level. Nothing further away could win anyway.")]
+        private float _targetSearchRadius = 16f;
+
         [SerializeField, Tooltip("Which way it swings when it is not turning to face anyone.")]
         private int _facing = -1;
 
@@ -68,6 +73,7 @@ namespace Rokkan.Prophecy.Presentation
         private Combatant _self;
         private readonly AttackTimeline _timeline = new AttackTimeline();
         private readonly HitSweep _sweep = new HitSweep();
+        private readonly List<int> _candidates = new List<int>();
 
         private SimClockDriver _registeredWith;
         private long _nextArmTick = long.MinValue;
@@ -179,17 +185,31 @@ namespace Rokkan.Prophecy.Presentation
             }
         }
 
+        /// <summary>
+        /// Turn toward the closest thing worth swinging at, within <see cref="_targetSearchRadius"/>.
+        ///
+        /// <para><b>Bounded, and through the broadphase.</b> This used to compare against every
+        /// hurtbox in the level — an arena of a hundred dummies made every wind-up a full scan, and
+        /// the answer was always something a few metres away. Nothing outside the search radius can
+        /// change the result, so nothing outside it is looked at.</para>
+        ///
+        /// <para>Finding nobody leaves the current facing alone rather than resetting it, so an
+        /// attacker whose target walked off keeps swinging the way it was.</para>
+        /// </summary>
         private void FaceNearest(CombatDirector director)
         {
             var targets = director.Hurtboxes;
             var here = SpaceMapping.ToPlane(transform.position, director.Space);
 
+            float reach = Mathf.Max(0.5f, _targetSearchRadius);
+            int found = targets.Query(here.x - reach, here.x + reach, _candidates);
+
             float best = float.MaxValue;
             int facing = _resolvedFacing;
 
-            for (int i = 0; i < targets.Count; i++)
+            for (int c = 0; c < found; c++)
             {
-                var target = targets[i];
+                var target = targets[_candidates[c]];
                 if (target.OwnerId == _self.CombatId) continue;
                 if (target.Team != 0 && target.Team == _self.Team) continue;
 

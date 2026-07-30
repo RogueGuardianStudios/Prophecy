@@ -70,7 +70,27 @@ namespace Rokkan.Prophecy.Sim.Combat
             }
         }
 
+        /// <summary>
+        /// A body that hurts to touch, paired with where it was in this tick's snapshot.
+        ///
+        /// <para>The index rather than a second <c>BuildHurtbox</c> call: contact then tests against
+        /// the same volume everything else resolved against, instead of a freshly built one that
+        /// only happens to agree.</para>
+        /// </summary>
+        private readonly struct ContactSource
+        {
+            public readonly ICombatant Combatant;
+            public readonly int BoxIndex;
+
+            public ContactSource(ICombatant combatant, int boxIndex)
+            {
+                Combatant = combatant;
+                BoxIndex = boxIndex;
+            }
+        }
+
         private readonly List<ICombatant> _combatants = new List<ICombatant>();
+        private readonly List<ContactSource> _contactSources = new List<ContactSource>();
         private readonly Dictionary<int, ICombatant> _byId = new Dictionary<int, ICombatant>();
         private readonly Dictionary<long, long> _contactReady = new Dictionary<long, long>();
         private readonly List<long> _expired = new List<long>();
@@ -128,6 +148,7 @@ namespace Rokkan.Prophecy.Sim.Combat
         public void Clear()
         {
             _combatants.Clear();
+            _contactSources.Clear();
             _byId.Clear();
             _contactReady.Clear();
             _hitLog.Clear();
@@ -160,15 +181,23 @@ namespace Rokkan.Prophecy.Sim.Combat
         ///
         /// <para>A dead combatant contributes nothing rather than being removed, so a dummy that
         /// revives does not have to re-register.</para>
+        ///
+        /// <para><b>The one pass over everyone.</b> Somebody has to ask each body where it is, so
+        /// this loop is irreducible — which is exactly why the bodies that hurt to touch are
+        /// collected here too rather than by a second walk of the same list.</para>
         /// </summary>
         public void RebuildHurtboxes()
         {
             _hurtboxes.Clear();
+            _contactSources.Clear();
 
             for (int i = 0; i < _combatants.Count; i++)
             {
                 var combatant = _combatants[i];
                 if (combatant == null || !combatant.IsAlive) continue;
+
+                if (combatant.ContactDamage > 0)
+                    _contactSources.Add(new ContactSource(combatant, _hurtboxes.Count));
 
                 _hurtboxes.Add(combatant.BuildHurtbox());
             }
@@ -181,10 +210,11 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// <summary>
         /// Bodies that hurt to touch.
         ///
-        /// <para><b>Only sources with contact damage are considered, and each queries the
-        /// broadphase.</b> The first version walked every combatant against every combatant every
-        /// tick — a hundred of them is ten thousand overlap tests a tick, for a rule that usually
-        /// applies to two or three of them.</para>
+        /// <para><b>Nothing here walks the roster.</b> The sources were picked out during the
+        /// snapshot, and each one queries the broadphase. The first version tested every combatant
+        /// against every combatant every tick — a hundred of them is ten thousand overlap tests a
+        /// tick, for a rule that usually applies to two or three of them. The version after that
+        /// still swept the whole list looking for those two or three.</para>
         ///
         /// <para>Resolved centrally rather than by each participant, because contact is symmetric
         /// and needs exactly one place to decide it: two bodies each running their own test would
@@ -193,12 +223,10 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// </summary>
         private void ResolveContact(long tick)
         {
-            for (int i = 0; i < _combatants.Count; i++)
+            for (int i = 0; i < _contactSources.Count; i++)
             {
-                var source = _combatants[i];
-                if (source == null || !source.IsAlive || source.ContactDamage <= 0) continue;
-
-                var body = source.BuildHurtbox();
+                var source = _contactSources[i].Combatant;
+                var body = _hurtboxes[_contactSources[i].BoxIndex];
 
                 int found = _hurtboxes.Query(body.Centre.x - body.HalfExtents.x,
                                              body.Centre.x + body.HalfExtents.x,

@@ -48,13 +48,20 @@ namespace Rokkan.Prophecy.Sim.Combat
         private const float FlatEpsilon = 0.0001f;
 
         /// <summary>
-        /// Fill <paramref name="hits"/> with the indices of every target the box connects with.
+        /// The same test against a plain list, checking every entry.
+        ///
+        /// <para><b>Named this way on purpose, and internal on purpose.</b> Nothing shipping calls
+        /// it — <see cref="Resolve"/> is what the sim uses, and it asks the broadphase first. This
+        /// exists because a test that means "these two boxes, does it connect" should not have to
+        /// build a spatial index to ask. If it were called <c>Resolve</c> too, the next call site
+        /// would pick it out of an autocomplete list and quietly reintroduce the O(n) sweep this
+        /// whole file was rewritten to remove.</para>
         ///
         /// <para>Targets on the attacker's own team are skipped, as is the attacker itself. Team 0
         /// is neutral and hit by anyone.</para>
         /// </summary>
         /// <returns>How many targets were hit.</returns>
-        public static int Resolve(
+        internal static int ResolveWithoutBroadphase(
             in AttackHitBox box,
             in Attacker attacker,
             IReadOnlyList<Hurtbox> targets,
@@ -75,11 +82,16 @@ namespace Rokkan.Prophecy.Sim.Combat
         }
 
         /// <summary>
-        /// The same test, but asking the broadphase which targets are even worth looking at.
+        /// Fill <paramref name="hits"/> with the indices of every target the box connects with,
+        /// asking the broadphase which targets are even worth looking at.
         ///
-        /// <para>This is the overload everything in the sim uses. The list version above stays for
-        /// tests, which are usually asking about two boxes and one answer.</para>
+        /// <para>This is the resolve. There is deliberately no public one that does not narrow
+        /// first — see <see cref="ResolveWithoutBroadphase"/>.</para>
+        ///
+        /// <para>Targets on the attacker's own team are skipped, as is the attacker itself. Team 0
+        /// is neutral and hit by anyone.</para>
         /// </summary>
+        /// <returns>How many targets were hit.</returns>
         public static int Resolve(
             in AttackHitBox box,
             in Attacker attacker,

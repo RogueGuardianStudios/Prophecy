@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
@@ -67,6 +68,7 @@ namespace Rokkan.Prophecy.Presentation
         private Material _lines;
 
         private readonly StringBuilder _text = new StringBuilder(512);
+        private readonly List<int> _candidates = new List<int>();
 
         // Phase and window colours, shared by the strip and the volume drawing so the same thing
         // is never two colours in two places.
@@ -455,13 +457,20 @@ namespace Rokkan.Prophecy.Presentation
 
                 // The cover ray is traced from the body, not the box — seeing that line start at
                 // the chest is what makes the rule obvious rather than something to be told.
+                //
+                // Only to targets the swing could actually reach. Drawing one to every hurtbox in
+                // the level was a line per body per frame, and past a dozen of them the picture it
+                // produced was a fan of noise rather than the one ray being explained.
                 if (live && box.StoppedByGeometry && _director != null)
                 {
                     var origin = new Vector2(state.Position.x, state.Position.y + state.BodySize.y * 0.5f);
                     var targets = _director.Hurtboxes;
 
-                    for (int t = 0; t < targets.Count; t++)
-                        DrawLine(origin, targets[t].Centre, _coverRayColour, space, depth);
+                    var reach = HitResolver.BoundingHalfExtents(box.HalfExtents, rotation);
+                    int found = targets.Query(centre.x - reach.x, centre.x + reach.x, _candidates);
+
+                    for (int t = 0; t < found; t++)
+                        DrawLine(origin, targets[_candidates[t]].Centre, _coverRayColour, space, depth);
                 }
             }
         }

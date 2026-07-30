@@ -200,8 +200,22 @@ namespace Rokkan.Prophecy.Tests
             public int Hits;
             public int DamageTaken;
 
-            public Hurtbox BuildHurtbox() =>
-                new Hurtbox(CombatId, Position, new Vector2(0.45f, 0.9f), 0f, Team);
+            /// <summary>How many times the fight has asked where this body is. See the tick-cost test.</summary>
+            public int BuildCalls;
+
+            /// <summary>Where this body claims to be from its second answer onward. Null keeps it
+            /// honest; setting it makes asking twice in one tick visible as a wrong answer.</summary>
+            public Vector2? PositionFromSecondBuild;
+
+            public Hurtbox BuildHurtbox()
+            {
+                var at = BuildCalls > 0 && PositionFromSecondBuild.HasValue
+                    ? PositionFromSecondBuild.Value
+                    : Position;
+
+                BuildCalls++;
+                return new Hurtbox(CombatId, at, new Vector2(0.45f, 0.9f), 0f, Team);
+            }
 
             public HitResult ReceiveHit(in HitEvent hit)
             {
@@ -316,6 +330,65 @@ namespace Rokkan.Prophecy.Tests
 
             for (int i = 0; i < state.Combatants.Count; i++)
                 Assert.AreEqual(0, ((Dummy)state.Combatants[i]).Hits);
+        }
+
+        [Test]
+        public void ATickAsksEachBodyWhereItIsExactlyOnce()
+        {
+            // The number that decides whether a fight scales. A tick has to ask every live body for
+            // its volume once — that pass is irreducible. Anything asking a second time is a second
+            // walk of the roster, which is what this is here to catch: contact resolution used to
+            // rebuild each hazard's box after the snapshot had already built it.
+            var state = new CombatState();
+
+            for (int i = 1; i <= 40; i++)
+            {
+                state.Register(new Dummy
+                {
+                    CombatId = i,
+                    Team = i <= 4 ? 1 : 2,
+                    Position = new Vector2(i * 0.5f, 1f),
+                    ContactDamage = i <= 4 ? 5 : 0,   // four hazards standing in a crowd of victims
+                });
+            }
+
+            state.Tick(null, 0, 1f / 60f);
+
+            for (int i = 0; i < state.Combatants.Count; i++)
+            {
+                var dummy = (Dummy)state.Combatants[i];
+                Assert.AreEqual(1, dummy.BuildCalls,
+                    $"combatant {dummy.CombatId} was asked for its hurtbox {dummy.BuildCalls} times in one tick");
+            }
+        }
+
+        [Test]
+        public void ContactTestsTheSnapshotEveryoneElseResolvedAgainst()
+        {
+            // A hazard whose second answer differs from its first. There is no way to move a body
+            // mid-tick from outside, so the disagreement has to come from the body itself — and a
+            // body that answers twice is precisely the thing being ruled out.
+            //
+            // Resolving against the snapshot, contact uses the box at x=0 and connects. Rebuilding,
+            // it would get x=50 and the hazard would miss a victim it is standing inside.
+            var state = new CombatState();
+
+            var hazard = new Dummy
+            {
+                CombatId = 1,
+                Team = 1,
+                ContactDamage = 7,
+                Position = new Vector2(0f, 1f),
+                PositionFromSecondBuild = new Vector2(50f, 1f),
+            };
+
+            state.Register(hazard);
+            state.Register(new Dummy { CombatId = 2, Team = 2, Position = new Vector2(0f, 1f) });
+
+            state.Tick(null, 0, 1f / 60f);
+
+            Assert.AreEqual(1, ((Dummy)state.Combatants[1]).Hits,
+                "contact should resolve against the tick's snapshot, not a freshly built box");
         }
 
         [Test]

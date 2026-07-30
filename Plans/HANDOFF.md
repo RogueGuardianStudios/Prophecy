@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **393 passing, 0 failed, 0 skipped** (~4.0 s) |
+| Tests | **395 passing, 0 failed, 0 skipped** (~3.6 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -62,7 +62,7 @@ ScalableWindow.cs     start + duration; the opening tick never moves, only the l
 AttackHitBox.cs       one damaging volume: window, offset, half-extents, rotation, damage, cover flag
 AttackDefinition.cs   phases as three DURATIONS that partition the action; windows laid over them
 AttackTimeline.cs     arms once, resolves windows at Arm, reports what is true this tick
-HitResolver.cs        batched ImmediatePhysics overlap + CollisionWorld.IsOccluded for cover
+HitResolver.cs        separating-axis overlap + CollisionWorld.IsOccluded for cover
 Hurtbox.cs            Hurtbox + Attacker, plain structs keyed on an integer id
 ComboRunner.cs        chain links gated on the cancel window, with input buffering
 ICombatWorld.cs       the target seam: hurtboxes in, HitEvents out, HitResults back
@@ -97,8 +97,8 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
 `ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 21, `DodgeTests` 21, `ProjectileTests` 17, `CombatScaleTests` 17
-→ **393 total**.
+`DownThrustCombatTests` 21, `DodgeTests` 21, `ProjectileTests` 17, `CombatScaleTests` 19
+→ **395 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
 and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
@@ -113,7 +113,7 @@ Carried forward and still true: **feel first**; **sim owns its own `CollisionWor
 timing in ticks, never animation events**; **one action lock, not a stack**; **position is the
 feet, overlap is strict, coyote counts ticks**; **three scenes, not four**; **progression is an
 `AbilityLoadout` asset**; **levels are composed in lanes**; **Cinemachine, Follow only, no Aim**;
-**hitboxes are sim-side, not trigger colliders**; **hit geometry is `ImmediatePhysics`**; **cover
+**hitboxes are sim-side, not trigger colliders**; **hit geometry is ours, by separating axis**; **cover
 is decided per attack**; **one definition of solid, two questions**.
 
 Added this session:
@@ -343,10 +343,9 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
    scalable window currently resolves at its authored length. The seam is there; the source is not.
 6. **`Interact` produces a request and a probe box that nothing consumes.**
 7. **F1 and F2 overlays ship visible**, gray-box loadout has everything on — release checklist.
-8. **`ImmediatePhysics` is validated on Windows only.** No console playback engines installed.
-9. **Cross-platform determinism of hit resolution is unproven and probably false.** PhysX contact
-   generation is floating point; Switch 2 is ARM. Harmless for single-player, fatal for replays or
-   lockstep. Movement never touches PhysX, so the 30/60/144 guarantee is unaffected.
+8. **Hit geometry is deterministic within an architecture, unproven across.** `HitResolver` is
+   our own separating-axis test over `DeterministicMath`, so there is no PhysX left to vary — but
+   x86-64 and ARM have not been compared. Harmless for co-op PvE (§10); it would matter for replays.
 10. **`RequiredStance` is enforced on start but not on chain links.** Crouching mid-combo does not
     stop a stand-only follow-up from firing.
 11. **Death is a respawn, and that is a placeholder.** Running out of health puts the player back
@@ -373,8 +372,8 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   active / recovery as a partition, plus absolute-tick ranges for hit windows (plural), i-frames,
   parry and cancel. This is more than HopeFell ever had — its `AttackTimeline` carried one on/off
   hit window and left parry and i-frames in seconds accumulated in `Update()`.
-- **Hit resolution** behind a resolver seam: batched `ImmediatePhysics`, per-attack cover through
-  the same baked geometry movement uses, team and self filtering.
+- **Hit resolution** behind a resolver seam: separating-axis overlap, per-attack cover through
+  the same baked geometry movement uses, team and self filtering, and a broadphase in front of it.
 - **Combos** with input buffering, gated on the cancel window the arbiter already understands.
 - **The module**, registered in `PlayerCharacterFactory` alongside every other ability.
 - **The acceptance test**: identical combat at 30, 60 and 144 fps, driven through the real capture
@@ -568,34 +567,41 @@ rejected: still PhysX so no determinism gained, they need a live `PhysicsScene` 
 contract and `SimArchitectureGateTests` both break, and they resolve on the physics timestep rather
 than the fixed tick — the mistake HopeFell already paid for once with animation events.
 
+### The scans that survived the first pass, 2026-07-30
+
+"Every damage path goes through the broadphase" was true and still left four full walks of the
+roster. Audited on challenge, and worth recording because three of the four were in the parts
+nobody thinks of as the hot path:
+
+- **`TrainingAttacker.FaceNearest`** compared against every hurtbox in the level to answer "which
+  way do I turn", once per swing per attacker. Now a bounded `Query` over `_targetSearchRadius`
+  (16 m) — nothing further away could have won.
+- **`CombatState.ResolveContact`** swept the whole roster each tick looking for the two or three
+  bodies that deal contact damage. Those are now picked out during `RebuildHurtboxes`, which is the
+  one pass over everyone that cannot be removed, along with the index of the box each one published.
+  Contact therefore also resolves against the tick's snapshot rather than a second `BuildHurtbox`.
+- **`CombatDebugOverlay`** drew a cover ray to every hurtbox, per live box, per frame. Bounded to
+  the swing's reach — which fixed the picture as much as the cost, since past a dozen bodies the fan
+  of lines obscured the one ray it was meant to explain.
+- **`HitResolver.Resolve(…, IReadOnlyList<Hurtbox>, …)`** had no runtime callers, but it was public
+  and shared a name with the fast one. Renamed `ResolveWithoutBroadphase` and made `internal`
+  (`Runtime/AssemblyInfo.cs` grants the test assembly access). The guard rail is the name: an
+  overload set where the O(n) member is one autocomplete entry away from the right one is a
+  regression waiting for whoever writes the next call site.
+
+Pinned by two tests. `ATickAsksEachBodyWhereItIsExactlyOnce` counts `BuildHurtbox` calls per tick —
+anything above one is a second walk of the roster. `ContactTestsTheSnapshotEveryoneElseResolvedAgainst`
+uses a body that answers differently the second time it is asked, so rebuilding is a wrong answer
+rather than a slow one.
+
+`HurtboxSet.Query` is **not re-entrant** — one dedup stamp per set. Three callers share it now;
+each reads its results into its own list before doing anything that could query again.
+
 ### What is still outstanding
 
 Nothing from the list above. What remains is netcode proper — client prediction, replication, and
 the promotion of combat out of `com.rokkan.prophecy` into a shared package — and none of it can be
 built until HopeFell needs it.
-
-### Replace `ImmediatePhysics` with our own OBB overlap
-
-**Do this regardless.** It was chosen over hand-rolled AABBs for one reason — rotation, which an
-AABB cannot express — and that reason is answerable in about fifty lines: separating-axis on two
-rotated rectangles is four axis tests. `com.rgs.core` already ships `DeterministicMath` with
-bit-exact `Sin`/`Cos`/`Atan2` and golden-vector tests, so the rotation is deterministic by
-construction.
-
-It is strictly better on every axis that matters here:
-
-- **Faster**, and allocation-free — it removes the six `Allocator.Temp` arrays per `Resolve` call,
-  which at 50 projectiles is ~300 allocations a tick
-- **Keeps the sim headless** with no native interop
-- **Removes the console-porting risk** in the release checklist: `ImmediatePhysics` is validated on
-  Windows only and no console playback engines are installed
-- Gives determinism for free, which costs nothing to have and would be expensive to retrofit if the
-  answer above ever changes
-
-**Unity raycasts and trigger colliders are the wrong direction** and were considered and rejected:
-still PhysX so no determinism gained, require a live `PhysicsScene` so the headless contract and
-`SimArchitectureGateTests` both break, and they resolve on the physics timestep rather than the
-fixed tick — which is the mistake HopeFell already paid for once with animation events.
 
 ### Sequencing
 

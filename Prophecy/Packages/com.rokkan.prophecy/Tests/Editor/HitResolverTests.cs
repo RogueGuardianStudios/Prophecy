@@ -47,7 +47,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1f, 1f), new Vector2(0.7f, 0.7f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(1.2f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(), targets, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
             Assert.AreEqual(0, _hits[0]);
         }
 
@@ -57,7 +57,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(8f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
         }
 
         [Test]
@@ -69,11 +69,11 @@ namespace Rokkan.Prophecy.Tests
             var inFront = new List<Hurtbox> { new Hurtbox(2, new Vector2(1f, 1f), Vector2.one * 0.4f) };
             var behind = new List<Hurtbox> { new Hurtbox(2, new Vector2(-1f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(1), inFront, null, _hits));
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(1), behind, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(1), inFront, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(1), behind, null, _hits));
 
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(-1), behind, null, _hits));
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(-1), inFront, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(-1), behind, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(-1), inFront, null, _hits));
         }
 
         [Test]
@@ -86,9 +86,9 @@ namespace Rokkan.Prophecy.Tests
             var flat = Box(new Vector2(0f, 1f), new Vector2(1.2f, 0.3f));
             var upright = Box(new Vector2(0f, 1f), new Vector2(1.2f, 0.3f), rotation: 90f);
 
-            Assert.AreEqual(0, HitResolver.Resolve(flat, Me(), target, null, _hits),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(flat, Me(), target, null, _hits),
                 "a wide flat box does not reach up");
-            Assert.AreEqual(1, HitResolver.Resolve(upright, Me(), target, null, _hits),
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(upright, Me(), target, null, _hits),
                 "the same box turned upright does");
         }
 
@@ -100,7 +100,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(Vector2.zero, Vector2.one * 2f);
             var targets = new List<Hurtbox> { new Hurtbox(MyId, Vector2.zero, Vector2.one * 0.5f) };
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
         }
 
         [Test]
@@ -114,7 +114,7 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(4, Vector2.zero, Vector2.one * 0.3f, 0f, team: 0),      // neutral crate
             };
 
-            HitResolver.Resolve(box, Me(), targets, null, _hits);
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
 
             CollectionAssert.AreEquivalent(new[] { 1, 2 }, _hits, "the enemy and the crate, not the ally");
         }
@@ -137,10 +137,10 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1.8f, 1f), new Vector2(0.8f, 0.6f), stoppedByGeometry: true);
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(2.2f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(), targets, null, _hits),
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits),
                 "with no world it connects");
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), targets, WallBetween(), _hits),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits),
                 "and a wall between attacker and target stops it");
         }
 
@@ -151,7 +151,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1.8f, 1f), new Vector2(0.8f, 0.6f), stoppedByGeometry: false);
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(2.2f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(), targets, WallBetween(), _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits));
         }
 
         [Test]
@@ -164,7 +164,7 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(3, new Vector2(2.6f, 1f), Vector2.one * 0.3f),  // behind it
             };
 
-            HitResolver.Resolve(box, Me(), targets, WallBetween(), _hits);
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits);
 
             CollectionAssert.AreEqual(new[] { 0 }, _hits, "only the sheltered one is spared");
         }
@@ -180,7 +180,7 @@ namespace Rokkan.Prophecy.Tests
             for (int i = 0; i < 6; i++)
                 targets.Add(new Hurtbox(10 + i, new Vector2(0.5f + i * 0.4f, 1f), Vector2.one * 0.2f));
 
-            int count = HitResolver.Resolve(box, Me(), targets, null, _hits);
+            int count = HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
 
             Assert.Greater(count, 1, "a wide sweep catches several at once");
             Assert.AreEqual(count, _hits.Count);
@@ -191,8 +191,8 @@ namespace Rokkan.Prophecy.Tests
         {
             var box = Box(Vector2.one, Vector2.one);
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), new List<Hurtbox>(), null, _hits));
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), null, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), new List<Hurtbox>(), null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), null, null, _hits));
         }
 
         [Test]
@@ -201,7 +201,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(Vector2.one, Vector2.zero);
             var targets = new List<Hurtbox> { new Hurtbox(2, Vector2.one, Vector2.one) };
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
         }
 
         [Test]
@@ -210,8 +210,8 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1f, 1f), new Vector2(0.4f, 0.4f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(1.9f, 1f), Vector2.one * 0.3f) };
 
-            Assert.AreEqual(0, HitResolver.Resolve(box, Me(), targets, null, _hits));
-            Assert.AreEqual(1, HitResolver.Resolve(box, Me(), targets, null, _hits, skin: 0.5f),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits, skin: 0.5f),
                 "forgiveness without resizing the authored volume");
         }
 
@@ -225,12 +225,12 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(3, new Vector2(4f, 1f), Vector2.one * 0.35f),
             };
 
-            HitResolver.Resolve(box, Me(), targets, null, _hits);
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
             var first = _hits.ToArray();
 
             for (int i = 0; i < 10; i++)
             {
-                HitResolver.Resolve(box, Me(), targets, null, _hits);
+                HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
                 CollectionAssert.AreEqual(first, _hits, "same inputs, same hits, every time");
             }
         }
