@@ -389,6 +389,24 @@ namespace Rokkan.Prophecy.Sim
             return !World.OverlapsAnySolid(standing);
         }
 
+        /// <summary>
+        /// Put the character back to starting condition: full health, nothing pending.
+        ///
+        /// <para>Deliberately separate from <see cref="Teleport"/>. Moving a character and
+        /// restoring one are different events — walking through a door should not heal you, and
+        /// Zelda II's own rule is that a screen transition keeps your health while a death does
+        /// not. Respawning is both, which is why the host has one call that does them together and
+        /// this one only does the stats.</para>
+        ///
+        /// <para>This is the single place that has to grow when there is more to a character than
+        /// health. Anything that respawns goes through here rather than listing stats itself.</para>
+        /// </summary>
+        public void Revive()
+        {
+            Vitals.Reset();
+            _pendingStun = default;
+        }
+
         /// <summary>Place the character, clearing motion and history. Used on spawn and on scene
         /// transitions so no stale velocity or coyote credit survives the move.</summary>
         public void Teleport(Vector2 footPosition, int facing = 0)

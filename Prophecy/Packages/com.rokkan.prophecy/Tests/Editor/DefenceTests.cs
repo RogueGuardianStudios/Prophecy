@@ -524,6 +524,75 @@ namespace Rokkan.Prophecy.Tests
             Assert.AreEqual(40, sim.Get<HitReact>().TicksRemaining(sim.CurrentTick));
         }
 
+        // ---------------------------------------------------------------- death and revival
+
+        [Test]
+        public void ReviveRestoresStartingCondition()
+        {
+            // The one call a respawn goes through. It has to put back everything a run can spend,
+            // which today is health and a parked stun and tomorrow will be more — which is exactly
+            // why respawning does not list stats itself.
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            sim.ReceiveHit(Blow(sim, 40));
+            Assert.Less(sim.Vitals.Health, combat.MaxHealth);
+            Assert.IsTrue(sim.HasPendingStun);
+
+            sim.Revive();
+
+            Assert.AreEqual(combat.MaxHealth, sim.Vitals.Health);
+            Assert.IsFalse(sim.HasPendingStun, "a stun parked as you died must not survive the respawn");
+            Assert.IsTrue(sim.Vitals.IsAlive);
+        }
+
+        [Test]
+        public void ReviveBringsBackTheDead()
+        {
+            var combat = new CombatTuningData { MaxHealth = 20 };
+            var sim = Defender(combat);
+
+            sim.ReceiveHit(Blow(sim, 100));
+            Assert.IsFalse(sim.Vitals.IsAlive);
+
+            sim.Revive();
+
+            Assert.IsTrue(sim.Vitals.IsAlive);
+            Assert.AreEqual(20, sim.Vitals.Health);
+        }
+
+        [Test]
+        public void TeleportingDoesNotHeal()
+        {
+            // Moving a character and restoring one are different events. Walking through a door
+            // should not undo a fight — Zelda II's own rule, and the reason Revive is separate.
+            var combat = new CombatTuningData();
+            var sim = Defender(combat);
+
+            sim.ReceiveHit(Blow(sim, 30));
+            int hurt = sim.Vitals.Health;
+
+            sim.Teleport(new Vector2(50f, 0f));
+
+            Assert.AreEqual(hurt, sim.Vitals.Health);
+        }
+
+        [Test]
+        public void ARevivedCharacterCanBeHurtAgain()
+        {
+            // Death makes hits Ignored. If revival did not clear that, a respawned player would be
+            // permanently invincible and every later test of combat would quietly pass.
+            var combat = new CombatTuningData { MaxHealth = 20 };
+            var sim = Defender(combat);
+
+            sim.ReceiveHit(Blow(sim, 100));
+            Assert.AreEqual(HitOutcome.Ignored, sim.ReceiveHit(Blow(sim, 5)).Outcome);
+
+            sim.Revive();
+
+            Assert.AreEqual(HitOutcome.Landed, sim.ReceiveHit(Blow(sim, 5)).Outcome);
+        }
+
         // ---------------------------------------------------------------- gate order
 
         [Test]

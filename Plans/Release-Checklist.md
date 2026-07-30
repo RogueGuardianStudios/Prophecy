@@ -62,12 +62,29 @@ course of the story.
 moveset only, and the unlock schedule driven by progression rather than by this asset being
 hand-edited.
 
+### Death is a respawn, and that is scaffolding
+
+`SceneDescriptor.RespawnOnDeath` ships **on**. Running out of health puts the player back at the
+scene's spawn point with every stat restored — exactly what falling off the level does, sharing
+`SceneDirector.Respawn` so the two cannot drift.
+
+This exists because a defensive system you cannot lose to is one you cannot test: dying at a
+training dummy should cost a second, not a play session. It is **not a design decision**. Zelda II's
+own rule is back to the start with everything else intact, but Prophecy's binding economy may want
+something else entirely — and the answer belongs with the Protector fights, alongside the
+health-economy question the finisher model already raised.
+
+**Done looks like:** a real death flow exists and this flag is off — or a deliberate note here
+saying the placeholder *is* the design, with the reasoning written down.
+
 ### `MovementDebugOverlay` must not ship visible
 
-F1 overlay on the `UI` object in `Bootstrap`. It ships enabled and visible-on-start.
+F1 overlay on the `UI` object in `Bootstrap`. It ships enabled and visible-on-start. The F2
+`CombatDebugOverlay` beside it is the same story, and additionally draws hit volumes with `GL`
+every frame.
 
-**Done looks like:** off by default in release builds — or stripped entirely, since it also
-carries an IMGUI dependency that a shipping UI has no other reason to include.
+**Done looks like:** both off by default in release builds — or stripped entirely, since they also
+carry an IMGUI dependency that a shipping UI has no other reason to include.
 
 ### Stock `InputSystem_Actions.inputactions` is still in the project
 

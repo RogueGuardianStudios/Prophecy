@@ -164,6 +164,20 @@ namespace Rokkan.Prophecy.Presentation
             PreviousPosition = CurrentPosition = plane;
         }
 
+        /// <summary>
+        /// Put the character back at <paramref name="worldPosition"/> as if they had just started:
+        /// moved, motion cleared, and every stat restored.
+        ///
+        /// <para>One call rather than a teleport followed by a revive, because the two are easy to
+        /// separate by accident and the failure mode is a respawn that quietly keeps whatever
+        /// killed you.</para>
+        /// </summary>
+        public void RespawnAt(Vector3 worldPosition, int facing = 0)
+        {
+            TeleportTo(worldPosition, facing);
+            Sim?.Revive();
+        }
+
         /// <summary>Re-bake the collision world. For scene loads, not for per-tick use.</summary>
         public int RebakeCollision()
         {

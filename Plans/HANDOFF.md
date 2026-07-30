@@ -1,8 +1,8 @@
 # Prophecy — session handoff
 
 **Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
-**Resume at:** M4 — death, then finishers. All four answers exist; what is missing is what winning
-an exchange gets you.
+**Resume at:** M4 — finishers. All four answers exist and dying is survivable; what is missing is
+what winning an exchange gets you.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **353 passing, 0 failed, 0 skipped** (~3.6 s) |
+| Tests | **357 passing, 0 failed, 0 skipped** (~4.1 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -30,7 +30,8 @@ c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 1aa5586  Add the combat arena: a demo you can swing in, and the overlay to read it
 7c661a5  Answer the attack: block, parry, i-frames and hit-react, all in ticks
 70d362e  Give the down-thrust its blade, and let it bounce itself
-(this)   Build the dodge step, the one thing that is intangible on purpose
+40ddd8f  Build the dodge step, the one thing that is intangible on purpose
+(this)   Respawn on death, so combat can be lost and then tried again
 ```
 
 ### Three repos are in play
@@ -87,11 +88,12 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
 `ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 13, `DodgeTests` 21 → **353 total**.
+`DownThrustCombatTests` 13, `DodgeTests` 21 → **357 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
-and that is all. No animation system. No overworld scene. Death is a number reaching zero and
-nothing else. `Crawl` and `FlameArt` are the last two stubs.
+and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
+deliberately scaffolding, see §7 and the release checklist. `Crawl` and `FlameArt` are the last two
+stubs.
 
 ---
 
@@ -296,9 +298,12 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
    lockstep. Movement never touches PhysX, so the 30/60/144 guarantee is unaffected.
 10. **`RequiredStance` is enforced on start but not on chain links.** Crouching mid-combo does not
     stop a stand-only follow-up from firing.
-11. **Death is a health value and nothing else.** `Vitals.IsAlive` goes false, the hurtbox stops
-    being published and hits are `Ignored` — but nothing locks the character, plays anything, or
-    ends the encounter. The player can be killed and will simply keep walking.
+11. **Death is a respawn, and that is a placeholder.** Running out of health puts the player back
+    at the spawn point restored, exactly as falling off the level does. Nothing plays, nothing is
+    lost, no encounter ends. It exists so combat can be lost and retried while tuning; the real
+    rule is a design decision nobody has made, and it belongs with the Protector fights alongside
+    the health-economy question the finisher model already raised. `SceneDescriptor.RespawnOnDeath`
+    is the switch to turn off when there is a real one.
 12. **Defensive state is read as of the defender's last completed tick.** A hit is resolved during
     the *attacker's* tick, so a guard raised on the same tick the blow lands is not yet up. It is a
     deliberate at-most-one-tick lag — the alternative makes the answer depend on which character
@@ -340,18 +345,25 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 
 - **The dodge step**, the only thing in the game that is intangible on purpose. Distance authored,
   speed derived, i-frames covering exactly the active phase behind a vulnerable wind-up.
+- **Losing.** Running out of health respawns the player at the scene's spawn point with every stat
+  restored, sharing `SceneDirector.Respawn` with the kill plane so the two cannot drift.
+  Scaffolding, not design — a defensive system you cannot lose to is one you cannot test.
 
 ### Next
 
-1. **Death**, which is currently a number going to zero and nothing else.
-3. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
+1. **Enemies.** `TrainingAttacker` is a dummy on a timer, and it is now the only thing standing
+   between the combat systems and an actual fight. It needs a `CharacterSim`, a reason to choose
+   between its attacks, and an executable state when it is staggered.
+2. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
-   executable/staggered state on enemies, and a parried attacker is now exactly that state waiting
-   to be named. The last-kill camera shot is nearly free in Cinemachine (a second camera at higher
-   priority) but needs an encounter concept that does not exist.
+   executable/staggered state on enemies, and **a parried attacker is now exactly that state
+   waiting to be named**. The last-kill camera shot is nearly free in Cinemachine (a second camera
+   at higher priority) but needs an encounter concept that does not exist.
    **The slow-motion trap stands: scale the clock's input, never `FixedDeltaSeconds`, or every
    authored window in the game silently rescales.**
-5. **Feel.** None of the combat numbers have been played. See §6.
+3. **A real death rule**, decided together with the health economy — see gap 11 and the release
+   checklist. The placeholder is fine for tuning and wrong for shipping.
+4. **Feel.** None of the combat numbers have been played. See §6.
 
 ---
 

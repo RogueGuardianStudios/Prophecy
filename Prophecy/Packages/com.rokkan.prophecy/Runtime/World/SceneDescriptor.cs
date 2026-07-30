@@ -54,12 +54,20 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("Turn off for scenes with no falling — the overworld, interiors.")]
         private bool _killPlaneEnabled = true;
 
+        [SerializeField, Tooltip("Running out of health respawns the player, exactly as falling " +
+                                 "out of the world does. A placeholder for a real death flow — " +
+                                 "the switch to turn off when there is one.")]
+        private bool _respawnOnDeath = true;
+
         public MovementSpace Space => _space;
 
         /// <summary>Height below which the player is considered lost. See <see cref="SceneDirector"/>.</summary>
         public float KillPlaneY => _killPlaneY;
 
         public bool KillPlaneEnabled => _killPlaneEnabled;
+
+        /// <summary>Whether death sends the player back to the spawn point. See <see cref="SceneDirector"/>.</summary>
+        public bool RespawnOnDeath => _respawnOnDeath;
 
         public string DisplayName => string.IsNullOrWhiteSpace(_displayName) ? gameObject.scene.name : _displayName;
 

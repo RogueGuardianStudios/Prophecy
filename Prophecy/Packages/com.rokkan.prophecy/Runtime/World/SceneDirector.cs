@@ -48,6 +48,11 @@ namespace Rokkan.Prophecy.World
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
         public int FallResetCount { get; private set; }
 
+        /// <summary>How many times the player has been respawned for running out of health. Kept
+        /// apart from <see cref="FallResetCount"/> because "I keep dying here" and "I keep falling
+        /// off here" are different problems with the same fix.</summary>
+        public int DeathResetCount { get; private set; }
+
         /// <summary>Name of the world scene currently loaded, or empty.</summary>
         public string CurrentWorldScene { get; private set; } = string.Empty;
 
@@ -171,27 +176,52 @@ namespace Rokkan.Prophecy.World
         }
 
         /// <summary>
-        /// Catch the player when they fall out of the world.
+        /// Catch the player when they fall out of the world, or when they run out of health.
         ///
-        /// <para>Without this, a missed jump in the gray box means stopping and restarting play
-        /// mode — which is enough friction to stop anyone iterating on jump feel, the one thing
-        /// this whole milestone exists to do. Respawning at the spawn point they arrived at is
-        /// also Zelda II's own death rule in miniature: back to the start, everything else intact.</para>
+        /// <para>Without the first, a missed jump in the gray box means stopping and restarting
+        /// play mode — which is enough friction to stop anyone iterating on jump feel, the one
+        /// thing that whole milestone existed to do. The second is the same problem wearing
+        /// combat's clothes: a defensive system you cannot lose to is one you cannot test, and
+        /// dying at a training dummy should cost a second, not a play session.</para>
+        ///
+        /// <para><b>Both are the same event on purpose, and both are a placeholder.</b> Real death
+        /// is a decision this project has not made — Zelda II's own rule is back to the start with
+        /// everything else intact, but Prophecy's binding economy may want something else entirely,
+        /// and the answer belongs with the Protector fights. Until then, dying does exactly what
+        /// falling does, which is honest about being scaffolding rather than pretending to be
+        /// design. See <c>Plans/Release-Checklist.md</c>.</para>
         /// </summary>
         private void Update()
         {
             if (IsTransitioning) return;
             if (_player == null || _descriptor == null) return;
-            if (!_descriptor.KillPlaneEnabled) return;
 
-            if (_player.transform.position.y > _descriptor.KillPlaneY) return;
+            if (_descriptor.KillPlaneEnabled && _player.transform.position.y <= _descriptor.KillPlaneY)
+            {
+                FallResetCount++;
+                Respawn();
+                return;
+            }
 
-            FallResetCount++;
+            if (_descriptor.RespawnOnDeath && _player.Sim != null && !_player.Sim.Vitals.IsAlive)
+            {
+                DeathResetCount++;
+                Respawn();
+            }
+        }
 
+        /// <summary>
+        /// Back to the spawn point the player arrived at, restored to starting condition.
+        ///
+        /// <para>Shared by both resets so they cannot drift: whatever "start again" means, falling
+        /// off the world and being killed have to agree about it.</para>
+        /// </summary>
+        private void Respawn()
+        {
             if (_activeSpawn != null)
-                _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
+                _player.RespawnAt(_activeSpawn.Position, _activeSpawn.Facing);
             else
-                _player.TeleportTo(Vector3.zero);
+                _player.RespawnAt(Vector3.zero);
 
             if (_camera != null) _camera.SnapToTarget();
         }
