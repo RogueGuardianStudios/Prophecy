@@ -291,6 +291,38 @@ Worth taking: `HitWindow`'s two-int tick model and its rationale; the `IHitResol
 that keeps the timeline headless; `IDamageGate`/`DamageGateResult`/`DamageContext` as a first-wins
 gate chain; and their "relocate, don't re-feel" discipline.
 
+### Finishers and binding — decided 2026-07-29, not yet built
+
+- **Finishers are the Doom model**: health and resources off an execution. Fast, in place, a combat
+  economy that rewards a successful *read* rather than reckless advance — the bible's "open it,
+  then strike it" is the bridge between that and Zelda II's patient stance play.
+- **Binding is the BioShock Little Sister choice**, not a move: a decision at a defeated Protector,
+  harvest or spare. It lands with the Protector fights, not with combat timing.
+- Because a Doom finisher is **one-way** — attacker acts, victim dies and drops resources — it needs
+  no two-actor choreography. It is expressible as an ordinary `AttackDefinition` plus a
+  precondition (`RequiresExecutableTarget`, already reserved) and a reward.
+- **Still missing:** an executable/staggered state on enemies, and the reward payload.
+- **Health economy coupling:** kill-to-heal only pulls if health is otherwise scarce. If potions or
+  Flame-Art healing exist, finishers stop driving anything. Decide the two together.
+
+### Camera takeover for last-kill moments — required, not yet built
+
+A cinematic shot on the final kill of an encounter. **Cinemachine makes this nearly free**: a second
+`CinemachineCamera` at higher priority, the Brain blends to it and back. `LaneCameraRig` needs no
+cooperation and no knowledge of it — it simply loses the priority contest. Lane framing and bounds
+correctly do not apply to a scripted shot.
+
+**Trap to avoid.** If the moment includes slow motion, scale the clock's *input*, never the tick
+length:
+
+```csharp
+Clock.Advance(Time.deltaTime * slowFactor);   // fewer ticks per second — correct
+SimConstants.FixedDeltaSeconds = smaller;     // silently rescales EVERY authored window
+```
+
+The trigger ("last enemy in the encounter") needs an encounter concept that does not exist yet and
+belongs with the enemy work.
+
 ### Next
 
 1. **`AttackTimeline` with the full decomposition** — `StartupTicks` / `ActiveTicks` /
