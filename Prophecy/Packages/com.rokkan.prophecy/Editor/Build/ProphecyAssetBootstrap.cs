@@ -35,6 +35,7 @@ namespace Rokkan.Prophecy.Editor.Build
     {
         public const string DataFolder = "Assets/_Prophecy/Data";
         public const string MovementTuningPath = DataFolder + "/MovementTuning.asset";
+        public const string CombatTuningPath = DataFolder + "/CombatTuning.asset";
 
         [MenuItem("Prophecy/Build/Create Missing Data Assets", priority = 20)]
         public static void CreateDataAssets()
@@ -42,6 +43,7 @@ namespace Rokkan.Prophecy.Editor.Build
             int created = 0;
 
             if (EnsureAsset<MovementTuning>(MovementTuningPath)) created++;
+            if (EnsureAsset<CombatTuning>(CombatTuningPath)) created++;
 
             if (created > 0)
             {

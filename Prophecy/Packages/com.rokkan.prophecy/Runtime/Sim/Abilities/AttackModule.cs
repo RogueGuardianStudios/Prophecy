@@ -40,7 +40,6 @@ namespace Rokkan.Prophecy.Sim.Abilities
             LockFlags.Move | LockFlags.Turn | LockFlags.Jump | LockFlags.Attack;
 
         private readonly CombatTuningData _combat;
-        private readonly ICombatWorld _world;
 
         private readonly List<int> _hits = new List<int>();
         private readonly HashSet<long> _spent = new HashSet<long>();
@@ -51,8 +50,16 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public AttackModule(CombatTuningData combat, ICombatWorld world = null)
         {
             _combat = combat;
-            _world = world;
+            World = world;
         }
+
+        /// <summary>
+        /// Who this character can hit. Settable rather than fixed at construction because the
+        /// character outlives the scene: the player is a persistent prefab and the fight it is in
+        /// arrives later, and again after every transition. Null is legitimate — the swing still
+        /// commits and runs, it simply lands on nobody.
+        /// </summary>
+        public ICombatWorld World { get; set; }
 
         public override AbilityId Id => AbilityId.Attack;
         public override int Order => ModuleOrder.Attack;
@@ -163,13 +170,13 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         private void ResolveHits(CharacterSim sim, in SimTickInfo info)
         {
-            if (_world == null) return;
+            if (World == null) return;
 
             var timeline = _runner.Timeline;
             int boxes = timeline.HitBoxCount;
             if (boxes == 0) return;
 
-            var targets = _world.Hurtboxes;
+            var targets = World.Hurtboxes;
             if (targets == null || targets.Count == 0) return;
 
             var state = sim.State;
@@ -192,7 +199,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
                     if (!_spent.Add(SpendKey(i, target.OwnerId))) continue;
 
-                    _world.OnHit(new HitEvent(
+                    World.OnHit(new HitEvent(
                         attacker.Id, target.OwnerId, box.Damage, state.Facing,
                         info.Tick, attackId, i));
                 }

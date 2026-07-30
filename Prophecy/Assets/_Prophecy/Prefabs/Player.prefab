@@ -139,6 +139,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.PlayerCharacterHost
   _tuning: {fileID: 11400000, guid: e3e31b26c0e3f2b49b09c30e5226b71e, type: 2}
   _loadout: {fileID: 11400000, guid: a743d65cd3598f44c80fdbbd0b70d1b1, type: 2}
+  _combatTuning: {fileID: 11400000, guid: 8573a735e0605e74f80300205bd9c465, type: 2}
   _clockDriver: {fileID: 0}
   _input: {fileID: 2152798882108509657}
   _space: 1

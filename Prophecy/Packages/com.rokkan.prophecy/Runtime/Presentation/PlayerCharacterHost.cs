@@ -1,6 +1,7 @@
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Sim;
+using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
 
@@ -33,6 +34,10 @@ namespace Rokkan.Prophecy.Presentation
                                  "tick, mid-play. Leave empty to use each module's own default.")]
         private AbilityLoadout _loadout;
 
+        [SerializeField, Tooltip("The live moveset and frame data. Edits apply on the next tick, " +
+                                 "mid-play — which is how combat numbers get authored at all.")]
+        private CombatTuning _combatTuning;
+
         [SerializeField, Tooltip("Leave empty to find one in the scene.")]
         private SimClockDriver _clockDriver;
 
@@ -54,6 +59,7 @@ namespace Rokkan.Prophecy.Presentation
         private bool _bakeOnStart = true;
 
         private SimClockDriver _registeredWith;
+        private AttackModule _attack;
 
         /// <summary>The simulated character. Read by presentation; never written to.</summary>
         public CharacterSim Sim { get; private set; }
@@ -89,7 +95,11 @@ namespace Rokkan.Prophecy.Presentation
                 World,
                 _tuning != null ? _tuning.Data : null,
                 _space,
-                _loadout != null ? _loadout.Data : null);
+                _loadout != null ? _loadout.Data : null,
+                _combatTuning != null ? _combatTuning.Data : null,
+                CombatDirector.Instance);
+
+            _attack = Sim.Get<AttackModule>();
         }
 
         private void Start()
@@ -128,6 +138,13 @@ namespace Rokkan.Prophecy.Presentation
             // asset has, and what makes A/B-ing a moveset quick. It is deterministic: the same
             // loadout data always produces the same enabled set.
             if (_loadout != null) _loadout.Data.Apply(Sim);
+
+            // Re-pointed rather than fixed at construction: this character is a persistent prefab
+            // and the fight it is in arrives with a scene load, then again after every transition.
+            // A reference compare per tick is cheaper than the class of bug where the player swings
+            // at an arena that loaded after they did.
+            if (_attack != null && !ReferenceEquals(_attack.World, CombatDirector.Instance))
+                _attack.World = CombatDirector.Instance;
 
             if (_input != null)
                 Sim.SetInput(_input.ConsumeFrame());

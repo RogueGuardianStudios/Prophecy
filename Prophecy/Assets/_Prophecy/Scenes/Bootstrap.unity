@@ -156,8 +156,15 @@ MonoBehaviour:
   _visibleLanes: 4
   _lanesBelowFeet: 1.5
   _fieldOfView: 28
-  _lookAhead: 1.8
+  _lookAheadLanesAtRun: 1
   _lookAheadSmoothTime: 0.45
+  _fallLookLanes: 1
+  _fallLookDelay: 0.33
+  _fallLookRamp: 0.4
+  _verticalDeadZoneLanes: 0.8
+  _horizontalDeadZone: 0.06
+  _dampingHorizontal: 0.35
+  _dampingVertical: 0.6
   _snapToLanes: 0
 --- !u!114 &597681944
 MonoBehaviour:
@@ -242,7 +249,7 @@ Transform:
   m_GameObject: {fileID: 597681942}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -334,6 +341,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1383766944}
   - component: {fileID: 1383766943}
+  - component: {fileID: 1383766945}
   m_Layer: 0
   m_Name: UI
   m_TagString: Untagged
@@ -375,6 +383,31 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1383766945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383766942}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edd495ac6d51a5746b7b7e48f885f700, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CombatDebugOverlay
+  _host: {fileID: 0}
+  _director: {fileID: 0}
+  _actions: {fileID: -944628639613478452, guid: 42cd2e4b5c7b0d444800da5fee73f5cf, type: 3}
+  _debugMapName: Debug
+  _toggleActionName: ToggleCombatOverlay
+  _visibleOnStart: 1
+  _origin: {x: 12, y: 300}
+  _width: 420
+  _drawVolumes: 1
+  _hurtboxColour: {r: 0.3, g: 0.75, b: 1, a: 0.9}
+  _armedBoxColour: {r: 1, g: 0.75, b: 0.2, a: 0.35}
+  _liveBoxColour: {r: 1, g: 0.25, b: 0.15, a: 1}
+  _coverRayColour: {r: 0.6, g: 1, b: 0.5, a: 0.8}
 --- !u!1 &1407532270
 GameObject:
   m_ObjectHideFlags: 0

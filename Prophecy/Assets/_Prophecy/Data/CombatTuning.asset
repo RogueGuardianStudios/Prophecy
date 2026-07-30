@@ -1,0 +1,104 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a0036507bfa34f42bc254acecbda089, type: 3}
+  m_Name: CombatTuning
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Core.CombatTuning
+  _data:
+    StandingAttackId: slash_high
+    CrouchingAttackId: thrust_low
+    AirAttackId: 
+    AttackBufferTicks: 10
+    Attacks:
+    - Id: slash_high
+      RequiredStance: 0
+      StartupTicks: 6
+      ActiveTicks: 4
+      RecoveryTicks: 12
+      HitBoxes:
+      - Offset: {x: 0.7, y: 1.1}
+        HalfExtents: {x: 0.55, y: 0.35}
+        RotationDegrees: 0
+        Damage: 10
+        StoppedByGeometry: 1
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 12
+        BaseDuration: 8
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: slash_high_2
+      RequiresExecutableTarget: 0
+    - Id: slash_high_2
+      RequiredStance: 0
+      StartupTicks: 5
+      ActiveTicks: 5
+      RecoveryTicks: 16
+      HitBoxes:
+      - Offset: {x: 0.85, y: 1}
+        HalfExtents: {x: 0.65, y: 0.45}
+        RotationDegrees: -15
+        Damage: 14
+        StoppedByGeometry: 1
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 18
+        BaseDuration: 6
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
+    - Id: thrust_low
+      RequiredStance: 1
+      StartupTicks: 5
+      ActiveTicks: 4
+      RecoveryTicks: 14
+      HitBoxes:
+      - Offset: {x: 0.75, y: 0.35}
+        HalfExtents: {x: 0.6, y: 0.25}
+        RotationDegrees: 0
+        Damage: 9
+        StoppedByGeometry: 1
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 13
+        BaseDuration: 6
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
