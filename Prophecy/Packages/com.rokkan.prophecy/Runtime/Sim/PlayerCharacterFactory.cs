@@ -1,5 +1,6 @@
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
+using Rokkan.Prophecy.Sim.Combat;
 
 namespace Rokkan.Prophecy.Sim
 {
@@ -21,13 +22,21 @@ namespace Rokkan.Prophecy.Sim
     /// </summary>
     public static class PlayerCharacterFactory
     {
+        /// <param name="combat">The moveset. Defaults are used when null, so a movement test needs
+        /// no combat asset and still builds the same character the game does.</param>
+        /// <param name="combatWorld">Who else is in the fight. Null is legitimate and common — a
+        /// character with nothing to hit still swings, takes the lock and runs its timeline; the
+        /// hits simply land on nobody.</param>
         public static CharacterSim Create(
             CollisionWorld world,
             MovementTuningData tuning,
             MovementSpace space = MovementSpace.SideScroll,
-            AbilityLoadoutData loadout = null)
+            AbilityLoadoutData loadout = null,
+            CombatTuningData combat = null,
+            ICombatWorld combatWorld = null)
         {
             if (tuning == null) tuning = new MovementTuningData();
+            if (combat == null) combat = new CombatTuningData();
 
             var sim = new CharacterSim(world);
             sim.State.Space = space;
@@ -53,6 +62,9 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new LedgeHang(tuning));
             sim.Add(new LedgePullUp(tuning));
             sim.Add(new LadderClimb(tuning));
+
+            // Combat.
+            sim.Add(new AttackModule(combat, combatWorld));
 
             // Combat-adjacent movement.
             sim.Add(new DownThrust(tuning));

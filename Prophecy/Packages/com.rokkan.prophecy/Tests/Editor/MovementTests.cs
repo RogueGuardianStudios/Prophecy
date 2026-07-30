@@ -413,6 +413,12 @@ namespace Rokkan.Prophecy.Tests
             Step(sim, new InputFrame(new Vector2(0f, -1f), attack: ButtonState.Press));
             Assert.IsFalse(thrust.IsActive, "there is nothing below you to stab when you are standing on it");
 
+            // That press is not wasted any more — it throws the crouching attack, which commits
+            // the character. Wait the swing out before testing the airborne trigger, or the jump
+            // below is refused by a lock that has nothing to do with the down-thrust.
+            for (int i = 0; i < 120 && !sim.Can(LockFlags.Jump); i++) Step(sim, Hold());
+            Assert.IsTrue(sim.Can(LockFlags.Jump), "the grounded attack never released the character");
+
             Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
             Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Holding), 5);
 

@@ -28,6 +28,22 @@ namespace Rokkan.Prophecy.Sim
 
         public MovementSpace Space = MovementSpace.SideScroll;
 
+        /// <summary>
+        /// Who this character is in a fight. An integer rather than an object reference because
+        /// hit resolution runs inside the tick and must stay headless — and because it is what a
+        /// hit-dedup set keys on and what a save file could store.
+        ///
+        /// <para>Lives here rather than on the attack module so that the character's hurtbox and
+        /// the character's attacks cannot disagree about who they belong to.</para>
+        /// </summary>
+        public int CombatId;
+
+        /// <summary>
+        /// Faction. Attacks skip their own team; zero is neutral and hit by everyone, which is
+        /// what a breakable crate wants.
+        /// </summary>
+        public int Team;
+
         /// <summary>Body size while standing.</summary>
         public Vector2 StandSize = new Vector2(1f, 2f);
 

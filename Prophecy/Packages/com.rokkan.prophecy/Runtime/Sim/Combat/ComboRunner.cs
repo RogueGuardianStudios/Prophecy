@@ -37,6 +37,17 @@ namespace Rokkan.Prophecy.Sim.Combat
 
         public AttackTimeline Timeline => _timeline;
 
+        /// <summary>
+        /// How long a press is remembered. Settable so it stays a live tuning number — the buffer
+        /// is one of the values most likely to be re-felt, and rebuilding the runner to change it
+        /// would drop the chain state along with it.
+        /// </summary>
+        public int BufferTicks
+        {
+            get => _bufferTicks;
+            set => _bufferTicks = value < 0 ? 0 : value;
+        }
+
         public bool IsAttacking => _timeline.IsArmed;
 
         /// <summary>The attack currently running, or null.</summary>

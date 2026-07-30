@@ -21,12 +21,30 @@ namespace Rokkan.Prophecy.Sim.Abilities
     {
         public const int Gravity = 0;
 
+        /// <summary>
+        /// <b>First of the input-driven modules, ahead of the attack that reads its result.</b>
+        /// Stance is what chooses between the high and the low attack, so a stance settled after
+        /// the attack was picked would hand the player a chest-height slash on the tick they
+        /// pressed down and attack together — the one input where getting it wrong is most
+        /// obvious. It depends on nothing that runs before it, only on grounded state, which the
+        /// sim refreshes at the top of every tick.
+        /// </summary>
+        public const int Crouch = 2;
+
+        /// <summary>
+        /// <b>Between stance and locomotion, and that placement is the whole point.</b> After
+        /// <see cref="Crouch"/> so a swing is chosen from this tick's stance rather than last
+        /// tick's; before <see cref="GroundMove"/> and the jumps so that the tick an attack
+        /// releases its lock is a tick the character can already move on. Running after them
+        /// instead would hand control back one tick late, which at 60 Hz is the difference between
+        /// a swing that ends and one that feels sticky.
+        /// </summary>
+        public const int Attack = 5;
+
         public const int GroundMove = 10;
         public const int TopDownMove = 15;
 
-        public const int Crouch = 20;
-
-        /// <summary>Straight after Crouch: dropping through a platform is what holding down
+        /// <summary>After <see cref="Crouch"/>: dropping through a platform is what holding down
         /// escalates to, so it needs to see the stance that holding down just produced.</summary>
         public const int DropThrough = 22;
 

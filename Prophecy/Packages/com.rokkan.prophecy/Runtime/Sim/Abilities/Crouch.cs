@@ -37,7 +37,15 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             if (!state.Grounded) return;
 
-            bool wantsCrouch = input.Move.y <= -_tuning.CrouchInputThreshold && sim.Can(LockFlags.Move);
+            // Stance is frozen while another action owns the body, rather than being read as
+            // "down was released". Folding the lock into the crouch test instead would stand the
+            // character up on the second tick of their own crouching attack — the swing suppresses
+            // Move, which is indistinguishable from letting go of the stick. Stance gates which
+            // half of the moveset is live, so it must not change underneath an attack that was
+            // chosen from it.
+            if (!sim.Can(LockFlags.Move)) return;
+
+            bool wantsCrouch = input.Move.y <= -_tuning.CrouchInputThreshold;
 
             if (wantsCrouch)
             {

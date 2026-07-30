@@ -36,5 +36,6 @@ namespace Rokkan.Prophecy.Sim
         Interact = 16,
         FallLand = 17,
         DropThrough = 18,
+        Attack = 19,
     }
 }
