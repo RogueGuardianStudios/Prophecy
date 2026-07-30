@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
 
@@ -389,6 +390,78 @@ namespace Rokkan.Prophecy.Tests
 
             Assert.AreEqual(1, ((Dummy)state.Combatants[1]).Hits,
                 "contact should resolve against the tick's snapshot, not a freshly built box");
+        }
+
+        // ---------------------------------------------------------------- joining a fight
+
+        [Test]
+        public void ACombatantJoinsAFightThatDidNotExistWhenItEnabled()
+        {
+            // The build-order case, which the editor's daily flow hides. The player lives in
+            // Bootstrap, which loads first and never unloads, so its OnEnable fires with no
+            // director anywhere; it used to give up permanently and never become hittable. It
+            // could still deal damage, because the host re-points its combat world every tick —
+            // so the failure was silent and one-sided.
+            var go = new GameObject("late joiner");
+
+            try
+            {
+                var director = go.AddComponent<CombatDirector>();
+                var combatant = new GameObject("player").AddComponent<Combatant>();
+
+                try
+                {
+                    Assert.AreEqual(0, director.State.Combatants.Count,
+                        "nothing should be registered before the fight is joined");
+
+                    combatant.JoinFight(director);
+
+                    Assert.AreEqual(1, director.State.Combatants.Count,
+                        "a combatant handed a director must join it whenever that happens");
+                    Assert.AreNotEqual(0, combatant.CombatId, "and must be given an id to be routed by");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(combatant.gameObject);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void JoiningAFightTwiceIsNotAnError()
+        {
+            // Both OnEnable and the director's sweep call this, and which runs first depends on
+            // scene load order. Idempotence is what makes that not matter.
+            var go = new GameObject("director");
+
+            try
+            {
+                var director = go.AddComponent<CombatDirector>();
+                var combatant = new GameObject("dummy").AddComponent<Combatant>();
+
+                try
+                {
+                    combatant.JoinFight(director);
+                    int id = combatant.CombatId;
+
+                    combatant.JoinFight(director);
+
+                    Assert.AreEqual(1, director.State.Combatants.Count, "must not register twice");
+                    Assert.AreEqual(id, combatant.CombatId, "and must not be handed a second id");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(combatant.gameObject);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         [Test]

@@ -82,6 +82,15 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>The swing being run, for the overlay.</summary>
         public AttackTimeline Timeline => _timeline;
 
+        /// <summary>
+        /// The direction this attacker is actually swinging, frozen when the swing was armed.
+        ///
+        /// <para>Exposed so the overlay can draw the box that exists rather than one it inferred.
+        /// Facing is decided once, at wind-up, and deliberately does not track the player after
+        /// that — walking through an attacker mid-swing is supposed to beat it.</para>
+        /// </summary>
+        public int ResolvedFacing => _resolvedFacing;
+
         public AttackDefinition Attack => _attack;
 
         public bool IsSwinging => _timeline.IsArmed;

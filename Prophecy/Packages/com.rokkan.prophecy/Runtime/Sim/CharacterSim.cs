@@ -415,6 +415,7 @@ namespace Rokkan.Prophecy.Sim
             State.Velocity = Vector2.zero;
             State.LastGroundedTick = long.MinValue;
             State.AirRefreshTick = long.MinValue;
+            State.JumpConsumedTick = long.MinValue;
             State.DropThrough = false;
             State.Attachment = AttachmentKind.None;
             State.AttachmentAnchor = Vector2.zero;

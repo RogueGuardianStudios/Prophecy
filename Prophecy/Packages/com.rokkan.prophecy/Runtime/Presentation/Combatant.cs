@@ -142,7 +142,26 @@ namespace Rokkan.Prophecy.Presentation
 
         private void OnEnable()
         {
-            var director = CombatDirector.Instance;
+            // May be null, and routinely is. The player lives in Bootstrap, which loads first and
+            // never unloads, so this runs long before any arena — and every fight after the first
+            // arrives with a scene load too. The director sweeps for us in its Start; see JoinFight.
+            JoinFight(CombatDirector.Instance);
+        }
+
+        /// <summary>
+        /// Join <paramref name="director"/>'s fight, if there is one. Safe to call repeatedly —
+        /// both the director and the fight refuse a combatant that is already in.
+        ///
+        /// <para><b>Why this is not just <c>OnEnable</c>.</b> It used to be, and a null director
+        /// meant giving up permanently. That worked in the editor, where you press Play from an
+        /// arena and its director wakes before Bootstrap loads on top — and it meant that in a
+        /// build, where Bootstrap is the first scene and the world arrives later, the player
+        /// enabled with no director in existence and never joined any fight at all. They could
+        /// still deal damage, because <c>PlayerCharacterHost</c> re-points its combat world every
+        /// tick, so the failure was silent and one-sided: hits went out, nothing came back.</para>
+        /// </summary>
+        public void JoinFight(CombatDirector director)
+        {
             if (director == null) return;
 
             _space = director.Space;

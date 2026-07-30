@@ -49,7 +49,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 _requestedTick = info.Tick;
 
             HasPendingRequest = _requestedTick != long.MinValue &&
-                                info.Tick - _requestedTick <= _tuning.JumpBufferTicks;
+                                info.Tick - _requestedTick <= _tuning.InteractBufferTicks;
 
             if (!HasPendingRequest)
                 _requestedTick = long.MinValue;

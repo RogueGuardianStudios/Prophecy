@@ -259,6 +259,11 @@ namespace Rokkan.Prophecy.Sim
         [Tooltip("Reach of the interact probe, in metres from the body.")]
         public float InteractRange = 1.2f;
 
+        [Tooltip("Ticks an interact press stays live while looking for something to talk to. Its " +
+                 "own number rather than the jump buffer's, which it used to borrow — retuning " +
+                 "how forgiving a jump is should not quietly change how forgiving a door is.")]
+        public int InteractBufferTicks = 8;
+
         // ------------------------------------------------------------------ derived
 
         /// <summary>

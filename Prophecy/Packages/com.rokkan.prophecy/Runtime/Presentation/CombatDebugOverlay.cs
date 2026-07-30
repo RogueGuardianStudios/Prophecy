@@ -420,7 +420,12 @@ namespace Rokkan.Prophecy.Presentation
 
                 var timeline = attacker.Timeline;
                 var feet = SpaceMapping.ToPlane(attacker.transform.position, space);
-                int facing = attacker.transform.position.x > _host.Sim.State.Position.x ? -1 : 1;
+
+                // The attacker's own frozen facing, not "which side is the player on". Those agree
+                // until you walk through an attacker mid-swing, at which point the drawn box used
+                // to mirror-flip while the real one stayed put — the overlay lying about the exact
+                // thing it exists to be truthful about.
+                int facing = attacker.ResolvedFacing;
 
                 for (int i = 0; i < definition.HitBoxes.Length; i++)
                 {

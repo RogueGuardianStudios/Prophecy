@@ -71,14 +71,24 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             if (sim.World.OverlapsAnySolid(state.BodyAt(destination))) return;
 
+            // Claiming the character for the climb, and ending the attachment, is what tells the
+            // hang to let go — without this module ever naming it.
+            //
+            // ForceLock, and the result checked. TryLock could never succeed here: the hang holds
+            // at Movement and a takeover needs *strictly* higher priority, so the claim was refused
+            // every single time and the return value was being discarded. The climb then ran with
+            // no lock at all from the tick the hang released, which let DoubleJump — which ticks
+            // before both of these — arm mid-pull-up and eat an air jump against a lerp that
+            // overwrites velocity anyway. A pull-up out of a hang is not a contested choice, so it
+            // takes the character outright; ForceLock still refuses anything above Movement, which
+            // is what stops a hit-react being climbed out of.
+            if (!sim.ForceLock(this, LockFlags.Move | LockFlags.Jump, LockPriority.Movement)) return;
+
             _climbing = true;
             _startTick = info.Tick;
             _from = state.Position;
             _to = destination;
 
-            // Claiming the character for the climb, and ending the attachment, is what tells the
-            // hang to let go — without this module ever naming it.
-            sim.TryLock(this, LockFlags.Move | LockFlags.Jump, LockPriority.Movement);
             state.Attachment = AttachmentKind.None;
         }
 

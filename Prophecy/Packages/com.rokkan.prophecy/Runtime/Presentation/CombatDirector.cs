@@ -63,7 +63,38 @@ namespace Rokkan.Prophecy.Presentation
         private void Start()
         {
             _registeredWith = SimClockDriver.RegisterWithScene(_clockDriver, this, this);
+
+            AdoptCombatantsAlreadyInTheWorld();
             State.RebuildHurtboxes();
+        }
+
+        /// <summary>
+        /// Register every combatant that already exists, because most of them do.
+        ///
+        /// <para><b>Registration cannot be left to <c>OnEnable</c>.</b> Two kinds of combatant
+        /// enable when no director exists to hear them. The player is in Bootstrap, which loads
+        /// first and never unloads, so it enables before the first arena and stays enabled through
+        /// every transition afterwards — its <c>OnEnable</c> fires exactly once, in an empty world.
+        /// And a scene's own combatants race this component's <c>Awake</c>, since Unity does not
+        /// order objects within a scene load.</para>
+        ///
+        /// <para>In <c>Start</c> rather than <c>Awake</c>: by then every object in the incoming
+        /// scene has woken, so this sees all of them. Once per scene load, not per tick.</para>
+        /// </summary>
+        private void AdoptCombatantsAlreadyInTheWorld()
+        {
+            var existing = FindObjectsByType<Combatant>(FindObjectsInactive.Exclude,
+                                                        FindObjectsSortMode.None);
+
+            for (int i = 0; i < existing.Length; i++)
+                existing[i].JoinFight(this);
+
+            // The same reason PlayerCharacterHost warns about baking zero solids: the failure this
+            // method exists to prevent is silent, and a fight with nobody in it looks exactly like
+            // a fight nobody has walked into yet.
+            if (State.Combatants.Count == 0)
+                Debug.LogWarning($"{name}: no combatants joined this fight. Nothing here can be hit " +
+                                 "— check that the scene's Combatant components are enabled.", this);
         }
 
         private void OnDestroy()

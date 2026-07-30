@@ -68,6 +68,22 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public long AirRefreshTick = long.MinValue;
 
+        /// <summary>
+        /// The tick on which a jump press was spent by something that ticks early. Later jump
+        /// modules skip a press already claimed.
+        ///
+        /// <para><b>Why a stamp and not a wall probe.</b> The air jump used to defer next to a
+        /// wall, on the assumption that the wall jump would take the press — but that assumption is
+        /// a reference to another module in disguise, and it is wrong for any loadout with the air
+        /// jump unlocked and the wall jump not. In that combination the press was eaten by nobody:
+        /// the wall jump was not registered, and the air jump stood aside for it anyway. With
+        /// progression as the stated core mechanism, that combination will exist.</para>
+        ///
+        /// <para>Same shape as <see cref="AirRefreshTick"/>, and the same reason: the modules stay
+        /// ignorant of each other and the fact travels through state.</para>
+        /// </summary>
+        public long JumpConsumedTick = long.MinValue;
+
         /// <summary>True while the player is deliberately dropping through a one-way platform.</summary>
         public bool DropThrough;
 

@@ -69,7 +69,12 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (info.Tick - _airborneSinceTick < _tuning.AirJumpArmTicks) return;
             if (!sim.Can(LockFlags.Jump)) return;
 
-            if (TouchingAnyWall(sim)) return;
+            // Not "is there a wall" — "has someone already spent this press". The wall jump ticks
+            // first and stamps the tick when it takes one. If it is not in this loadout it never
+            // stamps, and the air jump works next to a wall, which is correct.
+            if (state.JumpConsumedTick == info.Tick) return;
+
+            state.JumpConsumedTick = info.Tick;
 
             state.Velocity.y = _tuning.AirJumpVelocity;
             state.Stance = Stance.Air;
@@ -83,11 +88,5 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _refreshSeen = long.MinValue;
         }
 
-        private bool TouchingAnyWall(CharacterSim sim)
-        {
-            var body = sim.State.Body;
-            return sim.World.HasWall(body, 1, _tuning.WallProbeDistance) ||
-                   sim.World.HasWall(body, -1, _tuning.WallProbeDistance);
-        }
     }
 }

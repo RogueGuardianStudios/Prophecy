@@ -627,6 +627,28 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void InteractForgiveness_DoesNotMoveWhenTheJumpBufferIs()
+        {
+            // Interact borrowed JumpBufferTicks, so retuning how forgiving a jump is silently
+            // changed how forgiving a door is. Two unrelated feel numbers sharing one field is a
+            // tuning surface that lies about what it controls.
+            var tuning = Tuning();
+            tuning.InteractBufferTicks = 8;
+            tuning.JumpBufferTicks = 40;
+
+            var sim = Player(tuning);
+            var interact = sim.Get<Interact>();
+
+            Step(sim, new InputFrame(Vector2.zero, interact: ButtonState.Press));
+            Assert.IsTrue(interact.HasPendingRequest, "the press should be live immediately");
+
+            Step(sim, tuning.InteractBufferTicks + 2);
+
+            Assert.IsFalse(interact.HasPendingRequest,
+                "the request should have expired on the interact buffer, not the jump one");
+        }
+
+        [Test]
         public void TheWholeMovesetIsRegistered_WithUnbuiltAbilitiesDisabled()
         {
             var sim = Player(Tuning());

@@ -18,7 +18,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **395 passing, 0 failed, 0 skipped** (~3.6 s) |
+| Tests | **401 passing, 0 failed, 0 skipped** (~4.3 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -39,11 +39,13 @@ a92437a  Respawn on death, so combat can be lost and then tried again
 3df8c7e  Record the netcode decision: co-op PvE, host authority, HopeFell first
 7260df9  Own the hit geometry, add a broadphase, move the fight out of presentation
 b80980e  Bound the scans the broadphase pass missed
+44c7561  Refresh the handoff, and make its test numbers self-maintaining
+(this)   Fix five defects a review found, and cover them
 ```
 
-The last two are one piece of work in two parts, and the split is the useful bit: the first added
-the broadphase and every damage path went through it, which was true and still left four full walks
-of the roster in the places nobody counts. See §10.
+`7260df9` and `b80980e` are one piece of work in two parts, and the split is the useful bit: the
+first added the broadphase and every damage path went through it, which was true and still left four
+full walks of the roster in the places nobody counts. See §10.
 
 ### Three repos are in play
 
@@ -109,17 +111,17 @@ this list, because counting `[Test]` attributes by hand gets it wrong (a `[TestC
 several tests, and the old numbers here had drifted):
 
 ```
-combat      DefenceTests 39, AttackModuleTests 26, DodgeTests 23, DownThrustCombatTests 21,
-            CombatScaleTests 19, AttackTimelineTests 18, ProjectileTests 17, HitResolverTests 16,
-            ComboRunnerTests 14, CombatWindowTests 14                             = 207
-movement    MovementTests 32, TraversalAbilityTests 29, CharacterSimTests 23,
-            CollisionWorldTests 22, OcclusionTests 11, InputLatchTests 7          = 124
+combat      DefenceTests 39, AttackModuleTests 26, DodgeTests 23, CombatScaleTests 21,
+            DownThrustCombatTests 21, AttackTimelineTests 18, ProjectileTests 17,
+            HitResolverTests 16, ComboRunnerTests 14, CombatWindowTests 14        = 209
+movement    MovementTests 33, TraversalAbilityTests 32, CharacterSimTests 23,
+            CollisionWorldTests 22, OcclusionTests 11, InputLatchTests 7          = 128
 contract    SimArchitectureGateTests 6, PackageWiringTests 4                      =  10
 shared      SimClockTests 14, RGS_RandomTests 9, RandomStreamTests 7, and four more of 6
             (DeterministicMath, FoundationType, GoldenVector, RandomSource)       =  54
 ```
 
-**341 Prophecy + 54 shared = 395.** The shared ones run here because `com.rgs.core` is in
+**347 Prophecy + 54 shared = 401.** The shared ones run here because `com.rgs.core` is in
 `testables` — if that count ever drops to zero, that is the manifest entry, not a deleted test.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
@@ -383,10 +385,18 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
     deliberate at-most-one-tick lag — the alternative makes the answer depend on which character
     registered first — but it is a real tick of lenience the player never sees and it should be
     remembered before parry windows are tuned tight.
-12. **`HurtboxSet.Query` is not re-entrant.** One dedup stamp per set, three callers sharing it.
+12. **The build-order registration hole is fixed but only proven headlessly.** `Combatant` used to
+    give up permanently if no `CombatDirector` existed when it enabled, which in a build is always
+    — Bootstrap is first and the world arrives later, so the player never became hittable while
+    still being able to deal damage. `CombatDirector.Start` now sweeps for combatants already in
+    the world, and `Combatant.JoinFight` is idempotent. Two EditMode tests cover the mechanism;
+    **the end-to-end scene path was not confirmed in play mode** — the console bridge would not
+    surface runtime logs during the attempt. Press Play from `Bootstrap`, warp to the arena, and
+    check the player takes a hit before trusting it.
+13. **`HurtboxSet.Query` is not re-entrant.** One dedup stamp per set, three callers sharing it.
     Each currently reads its results into its own list before doing anything that could query
     again; the next caller has to keep that true. Documented on the method.
-13. **`TrainingAttacker` picks a facing within 16 m and no further.** A bounded search replaced a
+14. **`TrainingAttacker` picks a facing within 16 m and no further.** A bounded search replaced a
     scan of every hurtbox in the level (§10). Correct for an arena; when enemies get real
     perception this number goes away with the class.
 
@@ -676,3 +686,15 @@ None block M4; all cost money if discovered late.
 7. **The Seven Tenets may dilute the prophecy** — two reveals of identical shape blunt each other.
 8. **The health economy and finishers must be decided together.** Kill-to-heal only pulls if health
    is otherwise scarce; if potions or Flame-Art healing exist, finishers stop driving anything.
+9. **Can a parry cancel your own attack's recovery?** Three places disagree and one of them is the
+   code. `AttackModule`'s doc says the arbiter gives "parry-cancels-recovery for free";
+   `LockPriority.Reaction`'s doc says "Dodge/parry — may cancel an attack"; but `Block` locks at
+   `Defend` (20) and a takeover needs strictly more than the attack's 30, so it never can. The
+   dodge does, because `DodgeStep` kept `Reaction` (40). This was not a decision — parry had its
+   own module at `Reaction` until it was folded into `Block` for the one-button merge (`5b8355c`)
+   and inherited the guard's priority.
+
+   **Deferred deliberately, 2026-07-30**, because it decides how committal an attack is and that is
+   not judgeable against a dummy on a timer. The fix, when it is made, has to split the press from
+   the hold — locking at `Reaction` for the whole guard would mean you could never start a swing
+   out of a raised one, which is worse than the bug. Whatever is chosen, **make all three agree**.

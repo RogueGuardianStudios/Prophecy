@@ -53,6 +53,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
             state.Facing = -wall;
             state.Stance = Stance.Air;
 
+            // Spend the press, so the air jump — which ticks after this — knows it is gone rather
+            // than inferring it from the wall being there.
+            state.JumpConsumedTick = info.Tick;
+
             if (_tuning.WallJumpControlLockTicks > 0 &&
                 sim.TryLock(this, LockFlags.Move, LockPriority.Movement))
             {

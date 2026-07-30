@@ -274,6 +274,81 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void AnAirJumpNextToAWall_StillWorksWhenTheWallJumpIsNotUnlocked()
+        {
+            // The air jump used to stand aside whenever a wall was within probe distance, on the
+            // assumption that the wall jump would take the press. With progression as the core
+            // mechanism this loadout will exist, and the press was going to nobody: no wall jump
+            // registered, and the air jump deferring to it anyway.
+            var tuning = Tuning();
+            var loadout = new AbilityLoadoutData();
+            loadout.Set(AbilityId.WallJump, false);
+            loadout.Set(AbilityId.WallSlide, false);
+
+            var world = WalledShaft();
+            var sim = Player(tuning, world, new Vector2(2f - tuning.BodyWidth * 0.5f - 0.05f, 8f), loadout);
+
+            Step(sim, tuning.AirJumpArmTicks + 2);
+
+            var doubleJump = sim.Get<DoubleJump>();
+            Assert.AreEqual(tuning.AirJumps, doubleJump.Remaining, "should not have spent anything yet");
+
+            Step(sim, new InputFrame(new Vector2(1f, 0f), jump: ButtonState.Press));
+
+            Assert.AreEqual(tuning.AirJumps - 1, doubleJump.Remaining,
+                "the air jump is the only thing that can answer this press, so it must");
+            Assert.Greater(sim.State.Velocity.y, 0f, "and it must actually go up");
+        }
+
+        [Test]
+        public void APullUpOwnsTheCharacterForItsWholeClimb()
+        {
+            // The claim used to be made with TryLock against the hang's equal-priority hold, which
+            // can never succeed, and the result was discarded. The climb then ran unlocked from the
+            // tick the hang let go.
+            var tuning = Tuning();
+            var sim = HangingOnLedge(tuning);
+
+            Step(sim, Hold(0f, 1f));
+
+            for (int i = 0; i < tuning.LedgePullUpTicks - 1; i++)
+            {
+                Assert.IsFalse(sim.Can(LockFlags.Jump),
+                    $"tick {i} of the climb had no lock on it");
+                Step(sim, Hold(0f, 1f));
+            }
+        }
+
+        [Test]
+        public void AJumpPressedDuringAPullUp_DoesNotBurnTheAirJump()
+        {
+            // What the missing lock actually cost: DoubleJump ticks before both ledge modules, so
+            // an unlocked climb let it arm and spend an air jump against a lerp that overwrites
+            // velocity — the jump was silently consumed and did nothing.
+            //
+            // The press has to land late in the climb, and that is not a detail. DoubleJump zeroes
+            // its arm delay while the ledge is held, so it only re-arms AirJumpArmTicks (8) after
+            // the attachment clears — inside a LedgePullUpTicks (12) climb that leaves a window of
+            // about three ticks at the end. Pressing early passes against the broken code too,
+            // which is how this test read before it was checked against it.
+            var tuning = Tuning();
+            Assert.Greater(tuning.LedgePullUpTicks, tuning.AirJumpArmTicks + 1,
+                "if the climb ever gets shorter than the arm delay this test stops proving anything");
+
+            var sim = HangingOnLedge(tuning);
+            var doubleJump = sim.Get<DoubleJump>();
+
+            Step(sim, Hold(0f, 1f));                                  // the climb starts
+            Step(sim, Hold(0f, 1f), tuning.AirJumpArmTicks + 1);      // into the armed window
+
+            int before = doubleJump.Remaining;
+            Step(sim, new InputFrame(new Vector2(0f, 1f), jump: ButtonState.Press));
+
+            Assert.AreEqual(before, doubleJump.Remaining,
+                "a jump press mid-climb must be refused, not eaten");
+        }
+
+        [Test]
         public void LedgeHang_StillWorksWithPullUpSwitchedOff()
         {
             // The point of them being separate abilities: hanging without climbing is a real,
