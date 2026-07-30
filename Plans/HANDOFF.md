@@ -1,8 +1,10 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
-**Resume at:** M4 — enemies. Every combat system now exists and is reachable in the arena; what is
-missing is something to use them against that is not a dummy on a timer.
+**Written:** 2026-07-30, the session that built M4's combat spine, the arena, defence, and then
+made the whole thing scale.
+**Resume at:** M4 — enemies. Every combat system now exists, is reachable in the arena, and holds
+up at a hundred bodies. What is missing is something to use them against that is not a dummy on a
+timer.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -35,8 +37,13 @@ a92437a  Respawn on death, so combat can be lost and then tried again
 3e01cf7  Hold the dive, and give combat things that are not swords
 5b8355c  One button for guard and parry; contact damage; a visible wind-up
 3df8c7e  Record the netcode decision: co-op PvE, host authority, HopeFell first
-(this)   Own the hit geometry, add a broadphase, move the fight out of presentation
+7260df9  Own the hit geometry, add a broadphase, move the fight out of presentation
+b80980e  Bound the scans the broadphase pass missed
 ```
+
+The last two are one piece of work in two parts, and the split is the useful bit: the first added
+the broadphase and every damage path went through it, which was true and still left four full walks
+of the roster in the places nobody counts. See §10.
 
 ### Three repos are in play
 
@@ -79,26 +86,41 @@ Projectile.cs         ProjectileDefinition + ProjectileSystem: one type for bolt
 
 ```
 Runtime/Sim/Abilities/AttackModule.cs   the join: lock, timeline, resolve, publish cancel window
-Runtime/Sim/Abilities/Block.cs          held guard; stance picks the height; the block gate
-Runtime/Sim/Abilities/Parry.cs          a timed action on its own AttackTimeline; the parry gate
-Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored, speed derived
 Runtime/Sim/Abilities/Block.cs          guard AND parry on one button — when you pressed decides which
+Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored, speed derived
 Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; the i-frame gate
 Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
-Runtime/Presentation/CombatDirector.cs  scene combat world; rebuilds hurtboxes once per tick
+Runtime/AssemblyInfo.cs                 InternalsVisibleTo the test assembly — see §10
+Runtime/Presentation/CombatDirector.cs  thin: owns a CombatState, ticks it, drives the visual half
 Runtime/Presentation/Combatant.cs       hittable: a dummy, or a front for a simulated character
 Runtime/Presentation/TrainingAttacker.cs a dummy that swings back, or casts, on a tick cycle
 Runtime/Presentation/ArenaStations.cs   number-key warp between stations (editor scaffolding)
 Runtime/Presentation/CombatDebugOverlay F2: frame data a tick at a time, defence state, GL volumes
 Editor/Build/GrayBoxArenaBuilder.cs     generates GrayBox_Arena from the authored reach
 Assets/_Prophecy/Data/CombatTuning.asset       the live moveset and defence numbers
-Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
+Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 12 stations, 10 warp points
 ```
 
-Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
-`ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
-`DownThrustCombatTests` 21, `DodgeTests` 21, `ProjectileTests` 17, `CombatScaleTests` 19
-→ **395 total**.
+There is **no `Parry.cs`** — parry was folded into `Block` when the two became one button, and a
+separate module would have had to reach across to ask whether the other one was holding.
+
+Tests, per fixture, as the runner reports them — `Prophecy > Tests > Run EditMode Tests` now writes
+this list, because counting `[Test]` attributes by hand gets it wrong (a `[TestCase]` method is
+several tests, and the old numbers here had drifted):
+
+```
+combat      DefenceTests 39, AttackModuleTests 26, DodgeTests 23, DownThrustCombatTests 21,
+            CombatScaleTests 19, AttackTimelineTests 18, ProjectileTests 17, HitResolverTests 16,
+            ComboRunnerTests 14, CombatWindowTests 14                             = 207
+movement    MovementTests 32, TraversalAbilityTests 29, CharacterSimTests 23,
+            CollisionWorldTests 22, OcclusionTests 11, InputLatchTests 7          = 124
+contract    SimArchitectureGateTests 6, PackageWiringTests 4                      =  10
+shared      SimClockTests 14, RGS_RandomTests 9, RandomStreamTests 7, and four more of 6
+            (DeterministicMath, FoundationType, GoldenVector, RandomSource)       =  54
+```
+
+**341 Prophecy + 54 shared = 395.** The shared ones run here because `com.rgs.core` is in
+`testables` — if that count ever drops to zero, that is the manifest entry, not a deleted test.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
 and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
@@ -304,7 +326,9 @@ specifiers — pre-format with `string.Format`.
 
 **Generators** (`Prophecy > Build > …`): `Create Missing Data Assets`, `Generate Input Actions`,
 `Generate GrayBox_Traversal`, `Generate GrayBox_Arena`. All idempotent, all also `-executeMethod`
-targets. **Tests**: `Prophecy > Tests > Run EditMode Tests` writes `Logs/test-results.txt`.
+targets. **Tests**: `Prophecy > Tests > Run EditMode Tests` writes `Logs/test-results.txt` — totals,
+any failures, and a per-fixture breakdown (added 2026-07-30, so §2's numbers can be refreshed by
+reading a file instead of counting attributes).
 
 ---
 
@@ -328,37 +352,43 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 
 ## 7. Known gaps
 
-1. **No dodge.** `DodgeStep` is still a stub, so nothing the player does grants i-frames
-   voluntarily — the only i-frames in the game are the ones that follow being hit. The gate and the
-   `ScalableWindow` for it already exist; the module does not.
-2. **No air dodge.** Grounded only, because it changes what jumping commits you to and that is a
+*(The old list had grown two competing numberings and still opened with "no dodge", which has been
+built since. Renumbered and re-checked against the code on 2026-07-30.)*
+
+1. **No air dodge.** Grounded only, because it changes what jumping commits you to and that is a
    feel decision worth making deliberately rather than inheriting.
-3. **The down-thrust's hit box ignores its own window.** `AttackHitBox` carries `OpenTick`/
+2. **The down-thrust's hit box ignores its own window.** `AttackHitBox` carries `OpenTick`/
    `CloseTick` because every other volume needs them, but the dive lasts until it connects or
    lands, so no tick count could describe it. The fields sit unused and are documented as such —
    worth revisiting if a second unbounded volume ever appears.
-2. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
-3. **No overworld scene exists yet.**
-4. **`AttackModule.Modifiers` is settable but nothing feeds it.** No gear system exists, so every
+3. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
+4. **No overworld scene exists yet.**
+5. **`AttackModule.Modifiers` is settable but nothing feeds it.** No gear system exists, so every
    scalable window currently resolves at its authored length. The seam is there; the source is not.
 6. **`Interact` produces a request and a probe box that nothing consumes.**
 7. **F1 and F2 overlays ship visible**, gray-box loadout has everything on — release checklist.
 8. **Hit geometry is deterministic within an architecture, unproven across.** `HitResolver` is
    our own separating-axis test over `DeterministicMath`, so there is no PhysX left to vary — but
    x86-64 and ARM have not been compared. Harmless for co-op PvE (§10); it would matter for replays.
-10. **`RequiredStance` is enforced on start but not on chain links.** Crouching mid-combo does not
-    stop a stand-only follow-up from firing.
-11. **Death is a respawn, and that is a placeholder.** Running out of health puts the player back
+9. **`RequiredStance` is enforced on start but not on chain links.** Crouching mid-combo does not
+   stop a stand-only follow-up from firing.
+10. **Death is a respawn, and that is a placeholder.** Running out of health puts the player back
     at the spawn point restored, exactly as falling off the level does. Nothing plays, nothing is
     lost, no encounter ends. It exists so combat can be lost and retried while tuning; the real
     rule is a design decision nobody has made, and it belongs with the Protector fights alongside
     the health-economy question the finisher model already raised. `SceneDescriptor.RespawnOnDeath`
     is the switch to turn off when there is a real one.
-12. **Defensive state is read as of the defender's last completed tick.** A hit is resolved during
+11. **Defensive state is read as of the defender's last completed tick.** A hit is resolved during
     the *attacker's* tick, so a guard raised on the same tick the blow lands is not yet up. It is a
     deliberate at-most-one-tick lag — the alternative makes the answer depend on which character
     registered first — but it is a real tick of lenience the player never sees and it should be
     remembered before parry windows are tuned tight.
+12. **`HurtboxSet.Query` is not re-entrant.** One dedup stamp per set, three callers sharing it.
+    Each currently reads its results into its own list before doing anything that could query
+    again; the next caller has to keep that true. Documented on the method.
+13. **`TrainingAttacker` picks a facing within 16 m and no further.** A bounded search replaced a
+    scan of every hurtbox in the level (§10). Correct for an arena; when enemies get real
+    perception this number goes away with the class.
 
 ---
 
@@ -398,9 +428,12 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 - **Losing.** Running out of health respawns the player at the scene's spawn point with every stat
   restored, sharing `SceneDirector.Respawn` with the kill plane so the two cannot drift.
   Scaffolding, not design — a defensive system you cannot lose to is one you cannot test.
-
 - **The held down-thrust**, the answer matrix, and volumes that outlive their swing: projectiles
   and area attacks on one type, spawned from an authored tick of any attack.
+- **Scale, and the geometry to go with it.** `ImmediatePhysics` replaced by our own separating-axis
+  test, a broadphase in front of every damage path, and the fight itself moved out of presentation
+  into a plain-C# `CombatState`. Not scope creep — a hundred targets and four co-op players is the
+  brief, and `CombatState` is the thing a host would replicate. §10.
 
 ### Next
 
@@ -418,6 +451,10 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
    checklist. The placeholder is fine for tuning and wrong for shipping.
 4. **Feel.** None of the combat numbers have been played. See §6.
 
+None of these is blocked on anything. Enemies is the one that unblocks the other three: finishers
+need a staggered state to consume, a death rule needs an encounter to end, and feel cannot be judged
+against a dummy that never moves.
+
 ---
 
 ## 9. The arena demo — how to play it
@@ -427,8 +464,12 @@ Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothin
 
 **Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` guard**,
 **`Ctrl` dodge**. Guard and parry are the same button: a hit in the first few ticks after the press
-is a **parry**, after that it is a **block**. (`L` is still bound to a now-unused Parry action.) Airborne, hold `S` and press `J` for the **down-thrust** — and
-*keep holding* `J` to stay in it through every bounce. `F1` movement overlay, `F2` combat overlay.
+is a **parry**, after that it is a **block**. Airborne, hold `S` and press `J` for the
+**down-thrust** — and *keep holding* `J` to stay in it through every bounce. `F1` movement overlay,
+`F2` combat overlay.
+
+`L` is still bound to a Parry action that no module reads. Harmless, and left in place because the
+binding costs nothing and removing it means regenerating the `.inputactions` asset.
 
 **Number keys 1-0 warp between stations**, restoring health on arrival. The arena is 130 m long and
 the stations that fight back are at the far end; without this, testing a parry meant a long walk
@@ -443,7 +484,8 @@ both — plus hurtboxes, the armed attack's boxes (bright when live), and the co
 Game view via `GL` rather than gizmos. Combat timing is invisible otherwise: a swing that misses
 can miss four different ways and they look identical at speed.
 
-**Six stations, left to right, every distance derived from the authored hit boxes:**
+**Twelve stations, left to right, every distance derived from the authored hit boxes.** Number
+keys warp to ten of them — 2/3 and 11/12 share a marker because they are a pace apart:
 
 | Station | What it asks |
 |---|---|
@@ -453,7 +495,7 @@ can miss four different ways and they look identical at speed.
 | 4 `Cover` | inside the hit box, behind a grate — `StoppedByGeometry` refuses it |
 | 5 `Chain` | 240 HP, enough to survive the opener so the follow-up has a target |
 | 6 `Ledge` | a lane up, so vertical reach gets checked too |
-| 7 `High` | swings back, high — hold `K` standing, or `L` on the beat |
+| 7 `High` | swings back, high — hold `K` standing, or tap `K` on the beat to parry |
 | 8 `Low` | swings back, low — the standing guard does not answer it; crouch first, then guard |
 | 9 `Unblockable` | swings back and no guard answers it at all — move, or parry |
 | 10 `Pogo` | a ledge and three tough targets: dive, bounce, and hold to keep pogoing |
@@ -492,8 +534,6 @@ full 18 through that same raised guard. Same geometry, same reach, one authored 
 Regenerate with `Prophecy > Build > Generate GrayBox_Arena` after any change to `CombatTuning` —
 the stations are sized from the moveset, so retuning reach without regenerating leaves the arena
 asking the wrong questions.
-
----
 
 ---
 
@@ -605,13 +645,20 @@ built until HopeFell needs it.
 
 ### Sequencing
 
-Multiplayer is HopeFell's, and HopeFell has not started. So none of the netcode work is urgent —
-but items 5 and 7 get more expensive with every module added, and the combat system will have to be
-promoted out of `com.rokkan.prophecy` into a shared package before HopeFell can use it at all.
-**That promotion is the moment to fix 5 and 7**, not before and not much after.
+All seven are done, so the sequencing question they raised is settled: the two that got more
+expensive with every module added — authored ids and getting the fight out of presentation — were
+the reason to do this now rather than at promotion time, and they are the two that would have been
+worst to retrofit.
 
-The performance items (1-4, 6) are not urgent either: nothing currently spawns more than a dozen
-targets. They become urgent the first time something does.
+What is left is genuinely deferrable. Client prediction and replication cannot be designed against
+a game with no enemies in it, and the promotion of combat into a shared package should happen when
+HopeFell needs it, not in anticipation. Doing either now would be guessing at requirements that
+enemies are about to supply.
+
+The one thing worth holding onto: **`CombatState` is the replication boundary.** It is plain C#, it
+holds the registry, the projectiles, the contact cooldowns and the hit routing, and it is ticked by
+one call. When a host has to serialise a fight, that object is the answer — keep it that way, and
+resist putting anything into `CombatDirector` that a headless host would need.
 
 ---
 

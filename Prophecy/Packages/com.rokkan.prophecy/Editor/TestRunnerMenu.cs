@@ -45,6 +45,8 @@ namespace Rokkan.Prophecy.Editor
         private sealed class SummaryWriter : ICallbacks
         {
             private readonly StringBuilder _failures = new StringBuilder();
+            private readonly System.Collections.Generic.Dictionary<string, int> _perFixture =
+                new System.Collections.Generic.Dictionary<string, int>();
             private int _passed, _failed, _skipped, _inconclusive;
 
             public void RunStarted(ITestAdaptor testsToRun) { }
@@ -55,6 +57,12 @@ namespace Rokkan.Prophecy.Editor
             {
                 // Only count leaf tests; suites aggregate their children and would double-count.
                 if (result.Test.IsSuite) return;
+
+                // Per-fixture totals, because the handoff quotes them and counting `[Test]`
+                // attributes by hand gets it wrong — a `[TestCase]` method is several tests.
+                string fixture = FixtureOf(result.Test.FullName);
+                _perFixture.TryGetValue(fixture, out int count);
+                _perFixture[fixture] = count + 1;
 
                 switch (result.TestStatus)
                 {
@@ -92,6 +100,17 @@ namespace Rokkan.Prophecy.Editor
                     sb.Append(_failures);
                 }
 
+                if (_perFixture.Count > 0)
+                {
+                    var fixtures = new System.Collections.Generic.List<string>(_perFixture.Keys);
+                    fixtures.Sort();
+
+                    sb.AppendLine();
+                    sb.AppendLine("--- per fixture ---");
+                    foreach (var fixture in fixtures)
+                        sb.AppendLine($"{_perFixture[fixture],4}  {fixture}");
+                }
+
                 var path = ResultPath;
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 File.WriteAllText(path, sb.ToString());
@@ -100,6 +119,26 @@ namespace Rokkan.Prophecy.Editor
                     Debug.Log($"[Prophecy] Tests GREEN — {_passed} passed. Summary: {path}");
                 else
                     Debug.LogError($"[Prophecy] Tests RED — {_failed} failed, {_passed} passed. Summary: {path}");
+            }
+
+            /// <summary>
+            /// The fixture name out of a full test name — "Rokkan.Prophecy.Tests.DodgeTests.Foo"
+            /// becomes "DodgeTests". Parameterised cases carry an argument list, which is dropped
+            /// so every case of a `[TestCase]` method lands in the same bucket.
+            /// </summary>
+            private static string FixtureOf(string fullName)
+            {
+                if (string.IsNullOrEmpty(fullName)) return "(unknown)";
+
+                int parenthesis = fullName.IndexOf('(');
+                if (parenthesis >= 0) fullName = fullName.Substring(0, parenthesis);
+
+                int last = fullName.LastIndexOf('.');
+                if (last <= 0) return fullName;
+
+                int previous = fullName.LastIndexOf('.', last - 1);
+                return previous < 0 ? fullName.Substring(0, last)
+                                    : fullName.Substring(previous + 1, last - previous - 1);
             }
 
             private static string FirstLine(string s)
