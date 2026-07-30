@@ -1,8 +1,8 @@
 # Prophecy — session handoff
 
 **Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
-**Resume at:** M4 — the down-thrust's damage half, then finishers. Combat is a two-way
-conversation now; what is missing is the reward for winning one.
+**Resume at:** M4 — a dodge, then death, then finishers. Combat is a two-way conversation and the
+down-thrust chains; what is missing is the reward for winning an exchange.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **317 passing, 0 failed, 0 skipped** (~3.1 s) |
+| Tests | **330 passing, 0 failed, 0 skipped** (~3.4 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -28,7 +28,8 @@ To put the work on `main`: `git checkout main && git merge --ff-only baseline/un
 c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 738818e  Wire attacks into CharacterSim: AttackModule, CombatTuning, the target seam
 1aa5586  Add the combat arena: a demo you can swing in, and the overlay to read it
-(this)   Answer the attack: block, parry, i-frames and hit-react, all in ticks
+7c661a5  Answer the attack: block, parry, i-frames and hit-react, all in ticks
+(this)   Give the down-thrust its blade, and let it bounce itself
 ```
 
 ### Three repos are in play
@@ -62,6 +63,7 @@ ICombatWorld.cs       the target seam: hurtboxes in, HitEvents out, HitResults b
 CombatTuningData.cs   the moveset, stance entry points, buffer length, defence numbers, Validate()
 Damage.cs             HitOutcome, HitResult, IDamageGate + GateOrder, PendingStun
 Vitals.cs             health, owned by CharacterSim so a test can kill something
+HitSweep.cs           swing one volume, dedup per box/target/action, notice being parried
 ```
 
 ### Combat — the rest
@@ -82,11 +84,13 @@ Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 ```
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
-`ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30 → **317 total**.
+`ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30,
+`DownThrustCombatTests` 13 → **330 total**.
 
 **Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
 and that is all. No dodge (`DodgeStep` is still a stub, so i-frames currently have no voluntary
-source). No animation system. No overworld scene. `DownThrust.Bounce()` is still never called.
+source). No animation system. No overworld scene. Death is a number reaching zero and nothing
+else.
 
 ---
 
@@ -148,6 +152,17 @@ Added this session:
 28. **Ducking under a high attack needs no rule.** A simulated hurtbox is built from `BodySize`,
     which is already the crouch height when crouched, so the geometry misses on its own. Only
     *blocking* needs the authored `AttackHeight`.
+29. **The down-thrust swings its own blade.** The bounce sat unreferenced for two milestones
+    because every obvious caller was a module reaching into another one. The way out was that there
+    was never a second module involved: a down-thrust is *one action with a movement half and a
+    damage half*, so it resolves its own hit and bounces itself. When a reaction seems to need a
+    cross-reference, check first whether the two things are actually one thing.
+30. **`ICombatWorld` lives on `CharacterSim`, not per module.** It is the same answer for every
+    module that swings, and it changes when a scene loads — one place to re-point rather than one
+    per module, and a new attacking module gets it for free.
+31. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
+    struck, and whether the target was hurt is the target's business. Phasing through i-frames is
+    not a connection, or the dive becomes a way to hover over anything recently hit.
 
 ---
 
@@ -204,7 +219,10 @@ New this session:
     one frame, held state cannot. Two arena checks "passed" by never blocking at all before this was
     spotted. To verify held input, remove the capture component and push an `InputFrame` straight
     into the sim; everything below the capture layer is what is under test anyway.
-23. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
+23. **Three copies of a dedup rule is three chances for them to disagree.** The attack module, the
+    training attacker and the down-thrust all need the same five steps around a hit. The third copy
+    was the moment to extract `HitSweep`; it should have been the second.
+24. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
     `Parry.TryStart` armed and advanced so the action's tick zero is the tick the button was pressed
     — then fell through to the shared `Advance` below it. The parry window opened at elapsed 1
     instead of 2, which is a different move from the one that was authored. Caught only because the
@@ -249,13 +267,13 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 1. **No dodge.** `DodgeStep` is still a stub, so nothing the player does grants i-frames
    voluntarily — the only i-frames in the game are the ones that follow being hit. The gate and the
    `ScalableWindow` for it already exist; the module does not.
+2. **The down-thrust's hit box ignores its own window.** `AttackHitBox` carries `OpenTick`/
+   `CloseTick` because every other volume needs them, but the dive lasts until it connects or
+   lands, so no tick count could describe it. The fields sit unused and are documented as such —
+   worth revisiting if a second unbounded volume ever appears.
 2. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
 3. **No overworld scene exists yet.**
-4. **`DownThrust.Bounce()` is never called.** Wiring it means one module reacting to another
-   module's hit, which needs a decision about where that reaction lives — the arbiter, shared
-   state, or a sim-level event. It is the first real test of the no-cross-references rule under
-   combat.
-5. **`AttackModule.Modifiers` is settable but nothing feeds it.** No gear system exists, so every
+4. **`AttackModule.Modifiers` is settable but nothing feeds it.** No gear system exists, so every
    scalable window currently resolves at its authored length. The seam is there; the source is not.
 6. **`Interact` produces a request and a probe box that nothing consumes.**
 7. **F1 and F2 overlays ship visible**, gray-box loadout has everything on — release checklist.
@@ -303,15 +321,16 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   same timeline and resolver the player uses, on a fixed tick cycle. Three of them in the arena
   demand three different answers.
 
+- **The down-thrust's damage half**, and the bounce it drives. It resolves its own hit through the
+  shared `HitSweep` and bounces itself, which is the answer to the cross-reference question that
+  had kept `Bounce()` unreferenced since M2.
+
 ### Next
 
-1. **Down-thrust damage**, which forces gap 4 to be answered: wiring `Bounce()` means one module
-   reacting to another module's hit, and where that reaction lives is the first real test of the
-   no-cross-references rule under combat.
-2. **A dodge** — `DodgeStep` is the last stub with a gate already waiting for it, and it is the
+1. **A dodge** — `DodgeStep` is the last stub with a gate already waiting for it, and it is the
    only voluntary source of i-frames.
-3. **Death**, which is currently a number going to zero and nothing else (gap 11).
-4. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
+2. **Death**, which is currently a number going to zero and nothing else (gap 12).
+3. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
    executable/staggered state on enemies, and a parried attacker is now exactly that state waiting
    to be named. The last-kill camera shot is nearly free in Cinemachine (a second camera at higher
@@ -328,7 +347,8 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothing else to set up.
 
 **Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` block (hold)**,
-**`L` parry**. `F1` movement overlay, `F2` combat overlay.
+**`L` parry**. Airborne, hold `S` and press `J` for the **down-thrust**. `F1` movement overlay,
+`F2` combat overlay.
 
 The **F2 overlay** is the point of the demo. It draws the current attack's frame data one cell per
 tick — phases on the top row, hit/cancel/i-frame/parry windows on the bottom, playhead through
@@ -349,6 +369,7 @@ can miss four different ways and they look identical at speed.
 | 7 `High` | swings back, high — hold `K` standing, or `L` on the beat |
 | 8 `Low` | swings back, low — the standing guard does not answer it; crouch first, then guard |
 | 9 `Unblockable` | swings back and no guard answers it at all — move, or parry |
+| 10 `Pogo` | a ledge and three tough targets: dive, bounce, and try to chain along the row |
 
 Stations 7–9 run on a 176-tick cycle (34 startup, 6 active, 26 recovery, 110 rest) with staggered
 openings so they do not fire in unison. 34 ticks of wind-up is a little over half a second — long
@@ -362,6 +383,11 @@ difference is the part that is hard to feel.
 four-tick window; the standing slash left the squat dummy untouched while a same-tick crouch-plus-
 attack landed `thrust_low` on it; and the cover dummy took nothing through the grate but took 10
 from the same attack at the same distance on the near side.
+
+The down-thrust was verified the same way: dropped onto the first pogo target with down held and
+attack latched, it took **400 damage — twenty-five bounces at 16 each** — while the two targets
+beside it took nothing. Each bounce re-armed the dive and re-hit the same target, which is the
+dedup set resetting per action and the Zelda II pogo both working.
 
 Defence was verified the same way. Standing still, the high telegraph landed 12 a swing on a
 176-tick beat. With the guard up, the same attack became `Blocked` for 3 — and the guard survived

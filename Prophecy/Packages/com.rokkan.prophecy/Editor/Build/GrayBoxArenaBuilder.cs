@@ -168,7 +168,7 @@ namespace Rokkan.Prophecy.Editor.Build
 
             float cursor = -12f;
 
-            cursor = Ground(geometry, "Ground", cursor, 92f);
+            cursor = Ground(geometry, "Ground", cursor, 112f);
 
             // Station 1 — the basic hit. A full-body dummy both attacks reach, so the first swing
             // in the arena always connects and "is combat on at all" is never the question.
@@ -214,6 +214,11 @@ namespace Rokkan.Prophecy.Editor.Build
 
             Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any, unblockable: true, delay: 60,
                       damage: 18, tuning: tuning);
+
+            // Station 10 — the down-thrust. A launch ledge and a row of targets under it, spaced so
+            // one bounce carries into the next. Nothing else in the arena asks whether the dive is
+            // worth doing rather than merely working.
+            PogoStation(geometry, targets, tuning, 78f, reach);
 
             // A wall to stop the run-out, so nobody walks into the void wondering where the arena went.
             Box(geometry, "Wall_East", new Vector2(cursor - 2f, 0f), new Vector2(cursor, 8f));
@@ -337,6 +342,31 @@ namespace Rokkan.Prophecy.Editor.Build
             box.FindPropertyRelative("StoppedByGeometry").boolValue = false;
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// A ledge to leap from and a row of targets beneath it.
+        ///
+        /// <para>Spacing is the question this station asks. The dive is vertical, so crossing the
+        /// row means the bounce has to carry far enough sideways to reach the next target before
+        /// gravity wins — which makes the gap a direct readout of whether
+        /// <c>DownThrustBounceSpeed</c> and air control are in proportion. A row you cannot chain
+        /// is not broken, it is a number that wants changing, and this is where that shows.</para>
+        /// </summary>
+        private static void PogoStation(Transform geometry, Transform targets, MovementTuning tuning,
+                                        float x, Reach reach)
+        {
+            float ledgeTop = tuning.Data.LaneHeight;
+
+            Box(geometry, "Pogo_Ledge", new Vector2(x, 0f), new Vector2(x + 5f, ledgeTop));
+
+            // Generous health: the point is bouncing repeatedly, and a target that dies on the
+            // second hit ends the exercise before it has taught anything.
+            for (int i = 0; i < 3; i++)
+            {
+                Station(targets, $"10_Pogo_{i + 1}", x + 8f + i * 3.2f, reach,
+                        size: new Vector2(0.9f, 1.2f), centreY: 0.6f, health: 400);
+            }
         }
 
         private static void CoverStation(Transform geometry, Transform targets, float x, Reach reach)

@@ -59,8 +59,7 @@ namespace Rokkan.Prophecy.Presentation
 
         private Combatant _self;
         private readonly AttackTimeline _timeline = new AttackTimeline();
-        private readonly List<int> _hits = new List<int>();
-        private readonly HashSet<long> _spent = new HashSet<long>();
+        private readonly HitSweep _sweep = new HitSweep();
 
         private SimClockDriver _registeredWith;
         private long _nextArmTick = long.MinValue;
@@ -116,7 +115,7 @@ namespace Rokkan.Prophecy.Presentation
 
                 if (_faceNearestTarget) FaceNearest(director);
 
-                _spent.Clear();
+                _sweep.Begin();
                 _timeline.Arm(_attack);
                 _timeline.Advance();
                 return;
@@ -175,29 +174,17 @@ namespace Rokkan.Prophecy.Presentation
             {
                 if (!_timeline.IsHitBoxLive(i)) continue;
 
-                var box = _timeline.GetHitBox(i);
-                if (HitResolver.Resolve(box, attacker, targets, null, _hits) == 0) continue;
+                var result = _sweep.Sweep(i, _timeline.GetHitBox(i), attacker, director, null,
+                                          info.Tick, _attack.Id);
 
-                for (int h = 0; h < _hits.Count; h++)
-                {
-                    var target = targets[_hits[h]];
+                if (!result.Punished) continue;
 
-                    long key = ((long)i << 32) | (uint)target.OwnerId;
-                    if (!_spent.Add(key)) continue;
-
-                    var answer = director.OnHit(new HitEvent(
-                        attacker.Id, target.OwnerId, box.Damage, _resolvedFacing,
-                        info.Tick, _attack.Id, i, box.Height, box.Unblockable));
-
-                    if (answer.AttackerStunTicks <= 0) continue;
-
-                    // Parried. The swing dies here and the next one is pushed back by the stun,
-                    // which is the reward the player just earned — the opening is the point, not
-                    // the damage they did not take.
-                    _timeline.Disarm();
-                    _nextArmTick = info.Tick + answer.AttackerStunTicks + Mathf.Max(1, _restTicks);
-                    return;
-                }
+                // Parried. The swing dies here and the next one is pushed back by the stun, which
+                // is the reward the player just earned — the opening is the point, not the damage
+                // they did not take.
+                _timeline.Disarm();
+                _nextArmTick = info.Tick + result.AttackerStunTicks + Mathf.Max(1, _restTicks);
+                return;
             }
         }
     }

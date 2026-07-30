@@ -40,6 +40,7 @@ namespace Rokkan.Prophecy.Sim
 
             var sim = new CharacterSim(world);
             sim.State.Space = space;
+            sim.CombatWorld = combatWorld;
             tuning.ApplyBody(sim.State);
 
             // Locomotion.
@@ -65,7 +66,7 @@ namespace Rokkan.Prophecy.Sim
 
             // Combat. Offence, then the three answers to it — the last of which is not an answer
             // at all but the consequence of failing to make one.
-            sim.Add(new AttackModule(combat, combatWorld));
+            sim.Add(new AttackModule(combat));
             sim.Add(new Block(combat));
             sim.Add(new Parry(combat));
             sim.Add(new HitReact(combat));
@@ -74,8 +75,9 @@ namespace Rokkan.Prophecy.Sim
             sim.Vitals.Reset();
             sim.HitStunTicks = combat.HitStunTicks;
 
-            // Combat-adjacent movement.
-            sim.Add(new DownThrust(tuning));
+            // Combat-adjacent movement. The down-thrust takes the combat tuning too: it swings its
+            // own blade, which is what lets it bounce itself off what it hits.
+            sim.Add(new DownThrust(tuning, combat));
             sim.Add(new Interact(tuning));
 
             // Declared, not yet built. See PlannedAbilities.

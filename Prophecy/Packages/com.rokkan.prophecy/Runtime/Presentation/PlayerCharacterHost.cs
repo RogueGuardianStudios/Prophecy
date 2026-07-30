@@ -59,7 +59,6 @@ namespace Rokkan.Prophecy.Presentation
         private bool _bakeOnStart = true;
 
         private SimClockDriver _registeredWith;
-        private AttackModule _attack;
 
         /// <summary>The simulated character. Read by presentation; never written to.</summary>
         public CharacterSim Sim { get; private set; }
@@ -98,8 +97,6 @@ namespace Rokkan.Prophecy.Presentation
                 _loadout != null ? _loadout.Data : null,
                 _combatTuning != null ? _combatTuning.Data : null,
                 CombatDirector.Instance);
-
-            _attack = Sim.Get<AttackModule>();
         }
 
         private void Start()
@@ -142,9 +139,10 @@ namespace Rokkan.Prophecy.Presentation
             // Re-pointed rather than fixed at construction: this character is a persistent prefab
             // and the fight it is in arrives with a scene load, then again after every transition.
             // A reference compare per tick is cheaper than the class of bug where the player swings
-            // at an arena that loaded after they did.
-            if (_attack != null && !ReferenceEquals(_attack.World, CombatDirector.Instance))
-                _attack.World = CombatDirector.Instance;
+            // at an arena that loaded after they did. On the character rather than per module, so
+            // every module that swings gets it — the down-thrust included.
+            if (!ReferenceEquals(Sim.CombatWorld, CombatDirector.Instance))
+                Sim.CombatWorld = CombatDirector.Instance;
 
             if (_input != null)
                 Sim.SetInput(_input.ConsumeFrame());

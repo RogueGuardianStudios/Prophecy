@@ -124,6 +124,26 @@ namespace Rokkan.Prophecy.Sim.Combat
             },
         };
 
+        // ------------------------------------------------------------------ down-thrust
+
+        [Header("Down-thrust")]
+        [Tooltip("The blade under the feet during a dive. Its window is not consulted: the dive " +
+                 "lasts until it connects or lands, so the volume is live for exactly as long as " +
+                 "the move is, and no tick count could say that.")]
+        public AttackHitBox DownThrustBox = new AttackHitBox
+        {
+            OpenTick = 0,
+            CloseTick = 1,
+            Offset = new Vector2(0f, -0.20f),
+            HalfExtents = new Vector2(0.45f, 0.35f),
+            Damage = 16,
+            Height = AttackHeight.Any,
+        };
+
+        [Tooltip("Id the down-thrust reports its hits under. Shows up in the hit log and, later, " +
+                 "in anything that cares which move killed something.")]
+        public string DownThrustAttackId = "down_thrust";
+
         // ------------------------------------------------------------------ health
 
         [Header("Health")]
@@ -310,6 +330,12 @@ namespace Rokkan.Prophecy.Sim.Combat
 
             if (AttackBufferTicks < 0)
                 problems.AppendLine("the attack buffer cannot be negative");
+
+            // The window is not checked, because the down-thrust does not consult it — but a volume
+            // with no size is a dive that can never connect and therefore never bounce, which looks
+            // exactly like the bounce being broken.
+            if (DownThrustBox.HalfExtents.x <= 0f || DownThrustBox.HalfExtents.y <= 0f)
+                problems.AppendLine("the down-thrust box has no size, so the dive can never connect");
 
             return problems.Length == 0 ? null : problems.ToString().TrimEnd();
         }

@@ -1,4 +1,5 @@
 using RGS.Core.Sim;
+using Rokkan.Prophecy.Sim.Combat;
 
 namespace Rokkan.Prophecy.Sim.Abilities
 {
@@ -6,11 +7,18 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// The down-thrust: jump, hold down, attack, and stab through the floor beneath you.
     /// Design bible §6.1 calls it non-negotiable — it is <i>the</i> Zelda II move.
     ///
-    /// <para><b>This is the movement half only.</b> The dive, the commitment lock and the bounce
-    /// live here because they are locomotion; the blade, the hitbox and the damage arrive with
-    /// combat in M4/M5 and will drive <see cref="Bounce"/> from the hit response. Building the
-    /// motion now is what lets the gray box test whether falling on things is fun before any
-    /// enemy exists to fall on.</para>
+    /// <para><b>It swings its own blade, and that is the whole answer to who calls the bounce.</b>
+    /// The bounce sat here unreferenced for two milestones because every obvious caller was a
+    /// module reaching into another module — the attack module telling the down-thrust it had
+    /// connected, or the down-thrust asking the attack module what it hit. Both break the rule the
+    /// architecture is built on. The way out is that there was never a second module involved: a
+    /// down-thrust is one action with a movement half and a damage half, so it resolves its own hit
+    /// through the shared <see cref="HitSweep"/> and bounces itself. Nothing references anything.</para>
+    ///
+    /// <para><b>The dive is not a timeline.</b> Every other attack is a fixed number of ticks; this
+    /// one lasts until it hits something or reaches the ground, so its volume has no window and is
+    /// simply live for as long as the dive is. That is why it is an <see cref="AttackHitBox"/>
+    /// swung directly rather than an <c>AttackDefinition</c> on a timeline.</para>
     ///
     /// <para>The dive velocity is <b>re-asserted every tick</b> rather than set once. Gravity runs
     /// first in the tick order and would otherwise accelerate the dive past its authored speed
@@ -27,14 +35,20 @@ namespace Rokkan.Prophecy.Sim.Abilities
         private const LockFlags DiveLock = LockFlags.Move | LockFlags.Turn | LockFlags.Jump | LockFlags.Attack;
 
         private readonly MovementTuningData _tuning;
+        private readonly CombatTuningData _combat;
+        private readonly HitSweep _sweep = new HitSweep();
 
         private bool _active;
         private long _startTick;
 
-        public DownThrust(MovementTuningData tuning)
+        public DownThrust(MovementTuningData tuning, CombatTuningData combat = null)
         {
             _tuning = tuning;
+            _combat = combat;
         }
+
+        /// <summary>Tick of the most recent bounce. <c>long.MinValue</c> if never. Overlay.</summary>
+        public long LastBounceTick { get; private set; } = long.MinValue;
 
         public override AbilityId Id => AbilityId.DownThrust;
         public override int Order => ModuleOrder.DownThrust;
@@ -61,15 +75,19 @@ namespace Rokkan.Prophecy.Sim.Abilities
         }
 
         /// <summary>
-        /// End the dive with an upward pop. Called by the combat layer when the thrust connects —
-        /// the bounce is what makes the move chainable down a column of enemies, and it is the
-        /// reason connecting feels different from simply landing.
+        /// End the dive with an upward pop. Driven by this module's own hit landing — the bounce is
+        /// what makes the move chainable down a column of enemies, and it is the reason connecting
+        /// feels different from simply landing.
+        ///
+        /// <para>Public because a scripted moment may want to grant one, not because anything else
+        /// is expected to notice a hit on this module's behalf.</para>
         /// </summary>
-        public void Bounce(CharacterSim sim)
+        public void Bounce(CharacterSim sim, long tick = long.MinValue)
         {
             if (!_active) return;
 
             sim.State.Velocity.y = _tuning.DownThrustBounceSpeed;
+            LastBounceTick = tick;
             Stop(sim);
         }
 
@@ -87,6 +105,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _active = true;
             _startTick = info.Tick;
             state.Velocity.y = -_tuning.DownThrustSpeed;
+
+            // A fresh dive, so everything under it is hittable again — including whatever the last
+            // one bounced off, which is exactly the column of enemies the move exists to descend.
+            _sweep.Begin();
         }
 
         private void Continue(CharacterSim sim, in SimTickInfo info)
@@ -104,6 +126,43 @@ namespace Rokkan.Prophecy.Sim.Abilities
             state.Velocity.y = -_tuning.DownThrustSpeed;
 
             sim.SetCancelWindow(this, info.Tick - _startTick >= _tuning.DownThrustMinTicks);
+
+            Strike(sim, in info);
+        }
+
+        /// <summary>
+        /// Swing the blade under the feet. Resolved after the dive velocity is re-asserted, so a
+        /// bounce set here is the last word on this tick's vertical motion rather than something
+        /// the dive immediately overwrites.
+        /// </summary>
+        private void Strike(CharacterSim sim, in SimTickInfo info)
+        {
+            if (_combat == null || sim.CombatWorld == null) return;
+
+            var box = _combat.DownThrustBox;
+            if (box.HalfExtents.x <= 0f || box.HalfExtents.y <= 0f) return;
+
+            var state = sim.State;
+            var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
+                                             state.Facing, state.Team);
+
+            // No cover query: the blade is directly underfoot, and a wall between the character and
+            // a target they are standing on top of is not a situation the geometry can produce.
+            var result = _sweep.Sweep(0, box, attacker, sim.CombatWorld, null,
+                                      info.Tick, _combat.DownThrustAttackId);
+
+            if (result.Punished)
+            {
+                // Parried out of the air. No bounce — the reward for reading a dive is that the
+                // diver keeps falling, with nothing left to do about it.
+                sim.Stun(result.AttackerStunTicks, -state.Facing, info.Tick, result.LastOutcome);
+                Stop(sim);
+                return;
+            }
+
+            // Blocked counts. Something solid was struck, and the pop off it is what makes the
+            // move chainable; whether the target was hurt by it is the target's business.
+            if (result.Connected > 0) Bounce(sim, info.Tick);
         }
 
         private void Stop(CharacterSim sim)

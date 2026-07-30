@@ -40,26 +40,15 @@ namespace Rokkan.Prophecy.Sim.Abilities
             LockFlags.Move | LockFlags.Turn | LockFlags.Jump | LockFlags.Attack;
 
         private readonly CombatTuningData _combat;
-
-        private readonly List<int> _hits = new List<int>();
-        private readonly HashSet<long> _spent = new HashSet<long>();
+        private readonly HitSweep _sweep = new HitSweep();
 
         private ComboRunner _runner;
         private IReadOnlyDictionary<string, AttackDefinition> _runnerMoveset;
 
-        public AttackModule(CombatTuningData combat, ICombatWorld world = null)
+        public AttackModule(CombatTuningData combat)
         {
             _combat = combat;
-            World = world;
         }
-
-        /// <summary>
-        /// Who this character can hit. Settable rather than fixed at construction because the
-        /// character outlives the scene: the player is a persistent prefab and the fight it is in
-        /// arrives later, and again after every transition. Null is legitimate — the swing still
-        /// commits and runs, it simply lands on nobody.
-        /// </summary>
-        public ICombatWorld World { get; set; }
 
         public override AbilityId Id => AbilityId.Attack;
         public override int Order => ModuleOrder.Attack;
@@ -104,7 +93,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (!_runner.IsAttacking) return;
 
             // A new link starts a fresh action, so whoever the opener hit is hittable again.
-            if (_runner.Advance(info.Tick, Modifiers)) _spent.Clear();
+            if (_runner.Advance(info.Tick, Modifiers)) _sweep.Begin();
 
             if (!_runner.IsAttacking)
             {
@@ -120,8 +109,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public override void Reset()
         {
             _runner?.End();
-            _spent.Clear();
-            _hits.Clear();
+            _sweep.Begin();
         }
 
         // ------------------------------------------------------------------ starting
@@ -151,13 +139,13 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 return;
             }
 
-            _spent.Clear();
+            _sweep.Begin();
         }
 
         private void Finish(CharacterSim sim)
         {
             sim.ReleaseLock(this);
-            _spent.Clear();
+            _sweep.Begin();
         }
 
         /// <summary>Interrupted by something with a stronger claim. The lock is already theirs, so
@@ -165,21 +153,16 @@ namespace Rokkan.Prophecy.Sim.Abilities
         private void Abandon()
         {
             _runner.End();
-            _spent.Clear();
+            _sweep.Begin();
         }
 
         // ------------------------------------------------------------------ hits
 
         private void ResolveHits(CharacterSim sim, in SimTickInfo info)
         {
-            if (World == null) return;
-
             var timeline = _runner.Timeline;
             int boxes = timeline.HitBoxCount;
             if (boxes == 0) return;
-
-            var targets = World.Hurtboxes;
-            if (targets == null || targets.Count == 0) return;
 
             var state = sim.State;
             var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
@@ -192,27 +175,14 @@ namespace Rokkan.Prophecy.Sim.Abilities
             {
                 if (!timeline.IsHitBoxLive(i)) continue;
 
-                var box = timeline.GetHitBox(i);
-                if (HitResolver.Resolve(box, attacker, targets, sim.World, _hits) == 0) continue;
+                var result = _sweep.Sweep(i, timeline.GetHitBox(i), attacker,
+                                          sim.CombatWorld, sim.World, info.Tick, attackId);
 
-                for (int h = 0; h < _hits.Count; h++)
-                {
-                    var target = targets[_hits[h]];
+                if (!result.Punished) continue;
 
-                    if (!_spent.Add(SpendKey(i, target.OwnerId))) continue;
-
-                    var answer = World.OnHit(new HitEvent(
-                        attacker.Id, target.OwnerId, box.Damage, state.Facing,
-                        info.Tick, attackId, i, box.Height, box.Unblockable));
-
-                    if (answer.AttackerStunTicks <= 0) continue;
-
-                    // Parried. Knocked back the way we came, and the rest of this tick's targets
-                    // are abandoned — a swing that has been turned should not keep connecting with
-                    // the people standing behind the person who turned it.
-                    sim.Stun(answer.AttackerStunTicks, -state.Facing, info.Tick, answer.Outcome);
-                    return;
-                }
+                // Parried. Knocked back the way we came.
+                sim.Stun(result.AttackerStunTicks, -state.Facing, info.Tick, result.LastOutcome);
+                return;
             }
         }
 
@@ -230,11 +200,6 @@ namespace Rokkan.Prophecy.Sim.Abilities
             return new HitResult(HitOutcome.Invulnerable);
         }
 
-        /// <summary>Box index and target id packed into one key. Explicit packing rather than a
-        /// hash, so two different pairs can never collide and silently eat a hit.</summary>
-        private static long SpendKey(int boxIndex, int ownerId) =>
-            ((long)boxIndex << 32) | (uint)ownerId;
-
         // ------------------------------------------------------------------ moveset
 
         /// <summary>
@@ -251,7 +216,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             _runner = new ComboRunner(moveset, _combat.AttackBufferTicks);
             _runnerMoveset = moveset;
-            _spent.Clear();
+            _sweep.Begin();
         }
     }
 }

@@ -52,6 +52,17 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public int HitStunTicks = 18;
 
+        /// <summary>
+        /// The fight this character is in — who they can hit and where their hits go. Null is
+        /// legitimate: a character with nobody to hit still swings and still commits.
+        ///
+        /// <para>On the character rather than on each attacking module, because it is the same
+        /// answer for all of them and because it changes: the player is a persistent prefab and the
+        /// arena arrives with a scene load. One place to re-point beats one per module, and a new
+        /// module that swings gets it for free.</para>
+        /// </summary>
+        public Combat.ICombatWorld CombatWorld { get; set; }
+
         /// <summary>The tick currently being simulated. Modules stamp timers against this.</summary>
         public long CurrentTick { get; private set; }
 
