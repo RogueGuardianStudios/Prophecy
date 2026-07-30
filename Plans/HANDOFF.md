@@ -491,7 +491,96 @@ asking the wrong questions.
 
 ---
 
-## 10. Open design questions (raised, still unanswered)
+---
+
+## 10. Scale and multiplayer — decided 2026-07-30
+
+**Co-op PvE only. No PvP, no competitive integrity requirement. Multiplayer lands in HopeFell
+first.** That answer decides a lot, so it is written down rather than left to be re-derived.
+
+### What it rules out, and why that is a relief
+
+**No deterministic lockstep, and no rollback.** Both demand bit-exact determinism across peers *and*
+cheap snapshot/restore of the whole sim at 60 Hz. Rollback is also in direct tension with the other
+requirement here: 100 entities re-simulated eight frames deep is 800 entity-ticks inside one
+rendered frame, every time a prediction misses. Wanting both 100+ enemies and 4-player rollback is a
+scope decision, not an optimisation — and it is now moot.
+
+So: **`CharacterSim` does not need to be snapshot-able**, and cross-platform bit-determinism is not
+a requirement. Two of the three blockers from the original audit are gone.
+
+### The model
+
+**Host authority, client prediction, and the client authoritative over its own defensive state.**
+
+The last part is the load-bearing bit. The parry window is **8 ticks — 133 ms**. At 60 ms one-way
+latency the host would be judging a parry against state the client saw four ticks ago, out of a
+window eight ticks wide, and it would feel broken. Letting the client assert "I was guarding on
+tick N" and having the host apply it removes the problem entirely. It is trivially cheatable and
+that does not matter in co-op.
+
+The telegraph startup is 34 ticks — 567 ms — so the *read* has enormous slack. Only the window is
+tight, and only the window needs this treatment.
+
+The existing shape suits it well: `InputFrame` is already what you would send, the tick is fixed,
+and `HitResult` coming back from the gate chain is already the right channel for "here is what I
+made of that hit".
+
+### Still required
+
+1. **Broadphase.** Nothing has one. `HitResolver.Resolve` tests every live box against every
+   hurtbox, and each live projectile runs a full sweep of its own — 50 bolts against 100 targets is
+   5,000 pairs a tick. An x-sorted sweep or a uniform grid.
+2. **`CombatDirector.ResolveContact` is O(n²) every tick, unconditionally.** 100 combatants is
+   10,000 overlap tests a tick, 600k a second.
+3. **The contact cooldown key collides.** `source.CombatId * 1000 + victim.CombatId` gives 3000 for
+   both (1, 2000) and (2, 1000). Correct below ~1000 ids and silently *skips a hit* above it. Pack
+   it into a `long` the way `HitSweep` already does.
+4. **`CombatDirector.OnHit` is a linear id search** through every combatant, per hit. Dictionary.
+5. **`Combatant` ids come from a `static int _nextId++`** — instantiation-order dependent, so two
+   peers can disagree about which entity is 47. Network-stable ids are needed even under authority,
+   because the host has to name entities to clients.
+6. **Per-combatant `Update()` and `SetPropertyBlock` every frame.** 100 of each.
+7. **Combat state lives in presentation** — dummy health on `Combatant`, projectiles owned by the
+   director, both MonoBehaviours. The host must simulate authoritatively and clients must predict,
+   so this wants to be sim-side. `ICombatWorld` already makes it movable.
+
+### Replace `ImmediatePhysics` with our own OBB overlap
+
+**Do this regardless.** It was chosen over hand-rolled AABBs for one reason — rotation, which an
+AABB cannot express — and that reason is answerable in about fifty lines: separating-axis on two
+rotated rectangles is four axis tests. `com.rgs.core` already ships `DeterministicMath` with
+bit-exact `Sin`/`Cos`/`Atan2` and golden-vector tests, so the rotation is deterministic by
+construction.
+
+It is strictly better on every axis that matters here:
+
+- **Faster**, and allocation-free — it removes the six `Allocator.Temp` arrays per `Resolve` call,
+  which at 50 projectiles is ~300 allocations a tick
+- **Keeps the sim headless** with no native interop
+- **Removes the console-porting risk** in the release checklist: `ImmediatePhysics` is validated on
+  Windows only and no console playback engines are installed
+- Gives determinism for free, which costs nothing to have and would be expensive to retrofit if the
+  answer above ever changes
+
+**Unity raycasts and trigger colliders are the wrong direction** and were considered and rejected:
+still PhysX so no determinism gained, require a live `PhysicsScene` so the headless contract and
+`SimArchitectureGateTests` both break, and they resolve on the physics timestep rather than the
+fixed tick — which is the mistake HopeFell already paid for once with animation events.
+
+### Sequencing
+
+Multiplayer is HopeFell's, and HopeFell has not started. So none of the netcode work is urgent —
+but items 5 and 7 get more expensive with every module added, and the combat system will have to be
+promoted out of `com.rokkan.prophecy` into a shared package before HopeFell can use it at all.
+**That promotion is the moment to fix 5 and 7**, not before and not much after.
+
+The performance items (1-4, 6) are not urgent either: nothing currently spawns more than a dozen
+targets. They become urgent the first time something does.
+
+---
+
+## 11. Open design questions (raised, still unanswered)
 
 None block M4; all cost money if discovered late.
 

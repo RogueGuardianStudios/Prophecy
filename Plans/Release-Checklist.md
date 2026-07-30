@@ -127,9 +127,12 @@ editor.
 
 **Separately:** `RepeatedCallsAreIdentical` proves same-binary repeatability, **not** cross-platform
 determinism — Switch 2 is ARM, the others x86-64, and PhysX contact generation is floating point.
-Harmless for single-player. If replays, ghost data or deterministic netcode ever become a goal,
-hit resolution must move back to arithmetic we control. Movement is unaffected either way: it
-never touches PhysX.
+Harmless for co-op PvE, which is what the netcode decision of 2026-07-30 settled on (HANDOFF §10).
+
+**Better answer, and it retires this entry entirely:** replace `ImmediatePhysics` with our own
+separating-axis test for two rotated rectangles — four axis tests, and `com.rgs.core` already ships
+bit-exact `Sin`/`Cos` for the rotation. Faster, allocation-free, keeps the sim headless, and
+removes the console-porting risk rather than scheduling a check for it. Tracked in HANDOFF §10.
 
 ### The sim must still run headless
 
