@@ -29,7 +29,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// into a side-scroll scene, which is Zelda II's structure and the reason
     /// <see cref="CharacterSim"/> forces <see cref="Stance.Stand"/> in top-down.</para>
     /// </summary>
-    public sealed class AttackModule : AbilityModule
+    public sealed class AttackModule : AbilityModule, IDamageGate
     {
         /// <summary>
         /// Same flags the down-thrust commits with: a swing takes away movement, turning and
@@ -64,6 +64,8 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public override AbilityId Id => AbilityId.Attack;
         public override int Order => ModuleOrder.Attack;
         public override MovementSpace ValidIn => MovementSpace.SideScroll;
+
+        public int GateOrder => Combat.GateOrder.IFrames;
 
         /// <summary>
         /// Stat scaling applied to the next attack armed. Set by whatever owns equipment; windows
@@ -199,11 +201,33 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
                     if (!_spent.Add(SpendKey(i, target.OwnerId))) continue;
 
-                    World.OnHit(new HitEvent(
+                    var answer = World.OnHit(new HitEvent(
                         attacker.Id, target.OwnerId, box.Damage, state.Facing,
-                        info.Tick, attackId, i));
+                        info.Tick, attackId, i, box.Height, box.Unblockable));
+
+                    if (answer.AttackerStunTicks <= 0) continue;
+
+                    // Parried. Knocked back the way we came, and the rest of this tick's targets
+                    // are abandoned — a swing that has been turned should not keep connecting with
+                    // the people standing behind the person who turned it.
+                    sim.Stun(answer.AttackerStunTicks, -state.Facing, info.Tick, answer.Outcome);
+                    return;
                 }
             }
+        }
+
+        // ------------------------------------------------------------------ the gate
+
+        /// <summary>
+        /// I-frames authored on the attack currently running. A dodge is mostly this; most attacks
+        /// have none, and an unarmed character has none at all.
+        /// </summary>
+        public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
+        {
+            if (_runner == null || !_runner.IsAttacking) return HitResult.Continue;
+            if (!_runner.Timeline.IsInvulnerable) return HitResult.Continue;
+
+            return new HitResult(HitOutcome.Invulnerable);
         }
 
         /// <summary>Box index and target id packed into one key. Explicit packing rather than a

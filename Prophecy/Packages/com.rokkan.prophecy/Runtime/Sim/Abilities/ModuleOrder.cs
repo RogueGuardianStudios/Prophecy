@@ -32,6 +32,13 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int Crouch = 2;
 
         /// <summary>
+        /// <b>Ahead of everything voluntary.</b> A hit-react takes the character away from whatever
+        /// they were doing, and running after the attack module would let an interrupted swing
+        /// resolve one more tick of hits out of a body that had already lost control.
+        /// </summary>
+        public const int HitReact = 3;
+
+        /// <summary>
         /// <b>Between stance and locomotion, and that placement is the whole point.</b> After
         /// <see cref="Crouch"/> so a swing is chosen from this tick's stance rather than last
         /// tick's; before <see cref="GroundMove"/> and the jumps so that the tick an attack
@@ -40,6 +47,19 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// a swing that ends and one that feels sticky.
         /// </summary>
         public const int Attack = 5;
+
+        /// <summary>
+        /// <b>Before <see cref="Block"/>, which is the whole reason for the number.</b> A parry
+        /// raised out of a guard takes the lock first, so the guard sees it lost on the same tick
+        /// and lowers immediately. The other way round leaves both flags true for a tick — the
+        /// gate chain would still resolve it correctly, but a shield that is briefly up and
+        /// down at once is exactly the sort of thing that is true until it is load-bearing.
+        /// </summary>
+        public const int Parry = 6;
+
+        /// <summary>After <see cref="Crouch"/> for the same reason the attack is: stance decides
+        /// whether the guard answers high or low, so it has to be settled first.</summary>
+        public const int Block = 7;
 
         public const int GroundMove = 10;
         public const int TopDownMove = 15;

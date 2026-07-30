@@ -1,8 +1,8 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-30, the session that built M4's combat spine and the arena demo.
-**Resume at:** M4 — defence in ticks (block, parry, i-frames, hit-react). Attacks land; nothing
-answers them yet.
+**Written:** 2026-07-30, the session that built M4's combat spine, the arena, and defence.
+**Resume at:** M4 — the down-thrust's damage half, then finishers. Combat is a two-way
+conversation now; what is missing is the reward for winning one.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -16,7 +16,7 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **282 passing, 0 failed, 0 skipped** (~3.0 s) |
+| Tests | **317 passing, 0 failed, 0 skipped** (~3.1 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
@@ -27,7 +27,8 @@ To put the work on `main`: `git checkout main && git merge --ff-only baseline/un
 339a7f3  Add the combat timing spine: TickRange, ScalableWindow, AttackTimeline
 c435894  Resolve hits and run combos: HitResolver, Hurtbox, ComboRunner
 738818e  Wire attacks into CharacterSim: AttackModule, CombatTuning, the target seam
-         (+ the arena demo — see §9)
+1aa5586  Add the combat arena: a demo you can swing in, and the overlay to read it
+(this)   Answer the attack: block, parry, i-frames and hit-react, all in ticks
 ```
 
 ### Three repos are in play
@@ -57,29 +58,35 @@ AttackTimeline.cs     arms once, resolves windows at Arm, reports what is true t
 HitResolver.cs        batched ImmediatePhysics overlap + CollisionWorld.IsOccluded for cover
 Hurtbox.cs            Hurtbox + Attacker, plain structs keyed on an integer id
 ComboRunner.cs        chain links gated on the cancel window, with input buffering
-ICombatWorld.cs       the target seam: hurtboxes in, HitEvents out
-CombatTuningData.cs   the moveset, stance entry points, buffer length, Validate()
+ICombatWorld.cs       the target seam: hurtboxes in, HitEvents out, HitResults back
+CombatTuningData.cs   the moveset, stance entry points, buffer length, defence numbers, Validate()
+Damage.cs             HitOutcome, HitResult, IDamageGate + GateOrder, PendingStun
+Vitals.cs             health, owned by CharacterSim so a test can kill something
 ```
 
 ### Combat — the rest
 
 ```
 Runtime/Sim/Abilities/AttackModule.cs   the join: lock, timeline, resolve, publish cancel window
+Runtime/Sim/Abilities/Block.cs          held guard; stance picks the height; the block gate
+Runtime/Sim/Abilities/Parry.cs          a timed action on its own AttackTimeline; the parry gate
+Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; the i-frame gate
 Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
 Runtime/Presentation/CombatDirector.cs  scene combat world; rebuilds hurtboxes once per tick
-Runtime/Presentation/Combatant.cs       anything hittable: hurtbox, health, flash, knockback
-Runtime/Presentation/CombatDebugOverlay F2: frame data drawn a tick at a time, plus GL volumes
+Runtime/Presentation/Combatant.cs       hittable: a dummy, or a front for a simulated character
+Runtime/Presentation/TrainingAttacker.cs a dummy that swings back on a tick cycle
+Runtime/Presentation/CombatDebugOverlay F2: frame data a tick at a time, defence state, GL volumes
 Editor/Build/GrayBoxArenaBuilder.cs     generates GrayBox_Arena from the authored reach
-Assets/_Prophecy/Data/CombatTuning.asset       the live moveset
-Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 6 stations
+Assets/_Prophecy/Data/CombatTuning.asset       the live moveset and defence numbers
+Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 9 stations
 ```
 
 Tests: `CombatWindowTests` 14, `AttackTimelineTests` 18, `HitResolverTests` 16,
-`ComboRunnerTests` 14, `AttackModuleTests` 25 → **282 total**.
+`ComboRunnerTests` 14, `AttackModuleTests` 26, `DefenceTests` 30 → **317 total**.
 
-**Not yet built:** no defence of any kind — no block, parry, i-frame gate or hit-react. Nothing
-hits the player back. No enemies, no AI, no encounter concept. No animation system. No overworld
-scene. `DownThrust.Bounce()` is still never called.
+**Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
+and that is all. No dodge (`DodgeStep` is still a stub, so i-frames currently have no voluntary
+source). No animation system. No overworld scene. `DownThrust.Bounce()` is still never called.
 
 ---
 
@@ -115,6 +122,32 @@ Added this session:
     prefab and the fight it is in arrives with a scene load.
 21. **One hit per box, per target, per action** — keyed on the box index, not the attack, so a
     multi-hit move's second sweep connects again. Cleared on every chain link.
+22. **Defence is an ordered gate chain, first-wins: i-frames, then parry, then block.** Each answer
+    is a rule that may claim an incoming hit or pass it on, rather than a branch in one place. A new
+    defensive answer — a counter, a guard-break, an elemental ward — slots in without editing the
+    ones already there. Same argument as ability modules never referencing each other, applied to
+    the receiving end.
+23. **The defender's answer goes back to the attacker.** `OnHit` returns a `HitResult`, and a parry
+    reports the stun the attacker should take. A defensive system that only subtracts damage makes
+    parrying a slightly better block; the opening is the mechanic. The attacker stuns *itself* from
+    its own hit's return value, so nobody reaches across at anyone.
+24. **Stance picks the guard, exactly as it picks the attack.** Standing answers high, crouching
+    answers low, and the block lock freezes stance while it is held — so committing to a height is
+    the decision and switching costs the time it takes to drop the shield. A guard that answers
+    everything is a button that makes you invincible.
+25. **Unblockable is a per-hit-box flag.** Without it, holding the guard is the correct play against
+    every blockable attack in the game and the telegraph is not worth reading.
+26. **Blocking shoves, it does not stun.** Parking a stun would hand the character to hit-react,
+    which force-locks — and taking the lock takes the guard down, which is guard-break by accident
+    on every blocked hit. A guard already suppresses moving and attacking, so blockstun would be a
+    duration in which nothing further is prevented.
+27. **`ForceLock` exists for things that are not a choice.** `TryLock`'s "higher priority *and* an
+    open cancel window" is what makes an attack a commitment, and a hit-react obeying it would never
+    interrupt the swing it is a reaction to. Being hit, being parried, dying and scene transitions
+    force; everything voluntary does not.
+28. **Ducking under a high attack needs no rule.** A simulated hurtbox is built from `BodySize`,
+    which is already the crouch height when crouched, so the geometry misses on its own. Only
+    *blocking* needs the authored `AttackHeight`.
 
 ---
 
@@ -152,7 +185,30 @@ New this session:
     moves.
 20. **Comparing a double accumulator against `SimConstants.FixedDeltaSeconds` drifts.** The float
     constant is a hair above `1.0/60.0`, so a 60 fps frame falls just short of a tick and the
-    baseline run retires 89 ticks instead of 90. Derive both from `TicksPerSecond`.
+    baseline run retires 89 ticks instead of 90. Derive both from `TicksPerSecond`. Related: an
+    fps-invariance test must compare a fixed number of *ticks*, not a fixed number of frames — how
+    many ticks a wall-clock second turns into can differ by one at the tail, and that is the
+    clock's arithmetic rather than anything about combat.
+21. **Unity does not serialize readonly fields, and says nothing about it.** Hit windows were a
+    `TickRange` field on `AttackHitBox`; `TickRange` is a `readonly struct` with readonly fields, so
+    every window round-tripped through the asset as `[0..0)` — which reads as "no window". The
+    project looked fine only because the freshly-created in-memory instance kept its field
+    initializers; on the next clean Editor launch **no attack in the game would ever have
+    connected**. Authored data is now primitives (`OpenTick`/`CloseTick`) with `TickRange` derived,
+    and `AttackModuleTests.TheMovesetSurvivesUnitysSerializer` asserts a real round trip. Any
+    `[Serializable]` type with readonly fields is the same bug waiting.
+22. **`PlayerInputCapture` clears every latch on focus loss, so tooling cannot hold a button.**
+    `OnApplicationFocus(false)` → `ClearLatches()` is correct for a real player, whose buttons may
+    have been released while nothing was watching. But an Editor driven over MCP never has focus, so
+    *held* state is permanently zero — press edges survive because they are set and consumed inside
+    one frame, held state cannot. Two arena checks "passed" by never blocking at all before this was
+    spotted. To verify held input, remove the capture component and push an `InputFrame` straight
+    into the sim; everything below the capture layer is what is under test anyway.
+23. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
+    `Parry.TryStart` armed and advanced so the action's tick zero is the tick the button was pressed
+    — then fell through to the shared `Advance` below it. The parry window opened at elapsed 1
+    instead of 2, which is a different move from the one that was authored. Caught only because the
+    window is asserted tick by tick rather than at its edges.
 
 ---
 
@@ -177,6 +233,12 @@ combat numbers are one step behind that: they were **derived, never felt at all*
 enough to read as a telegraph, recovery long enough that a whiff costs something, and the cancel
 window opens partway through recovery — but no one has played it yet.
 
+Defence is newer still and even less felt. The numbers most likely to be wrong, in order: the
+**parry window** (6 ticks — 0.1 s, which is tight for a first pass), the **telegraph startup**
+(34 ticks, the number that decides whether a fight is fair), **`ParryStunTicks`** (40 — the entire
+reward for a correct read, and the difference between a parry that buys nothing and one that ends
+a fight), and **`BlockedDamageFraction`** (0.25, the clock a turtle is on).
+
 The whole point of `CombatTuning.asset` is that these move. Do not build anything that depends on
 an exact current value surviving; derive from the asset the way `GrayBoxArenaBuilder` does.
 
@@ -184,8 +246,9 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 
 ## 7. Known gaps
 
-1. **Nothing hits the player.** The player has no `Combatant`, no health, and no hurtbox in the
-   world. Attacks are one-way until defence lands.
+1. **No dodge.** `DodgeStep` is still a stub, so nothing the player does grants i-frames
+   voluntarily — the only i-frames in the game are the ones that follow being hit. The gate and the
+   `ScalableWindow` for it already exist; the module does not.
 2. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
 3. **No overworld scene exists yet.**
 4. **`DownThrust.Bounce()` is never called.** Wiring it means one module reacting to another
@@ -202,6 +265,14 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
    lockstep. Movement never touches PhysX, so the 30/60/144 guarantee is unaffected.
 10. **`RequiredStance` is enforced on start but not on chain links.** Crouching mid-combo does not
     stop a stand-only follow-up from firing.
+11. **Death is a health value and nothing else.** `Vitals.IsAlive` goes false, the hurtbox stops
+    being published and hits are `Ignored` — but nothing locks the character, plays anything, or
+    ends the encounter. The player can be killed and will simply keep walking.
+12. **Defensive state is read as of the defender's last completed tick.** A hit is resolved during
+    the *attacker's* tick, so a guard raised on the same tick the blow lands is not yet up. It is a
+    deliberate at-most-one-tick lag — the alternative makes the answer depend on which character
+    registered first — but it is a real tick of lenience the player never sees and it should be
+    remembered before parry windows are tuned tight.
 
 ---
 
@@ -222,24 +293,32 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 - **The acceptance test**: identical combat at 30, 60 and 144 fps, driven through the real capture
   path — button sampled per rendered frame and latched, accumulator releasing whole ticks.
 - **The arena demo** (§9), verified end to end in play mode.
+- **Defence, all in ticks** — block by stance, parry as a window on its own timeline, i-frames as a
+  damage gate, knockback and hit-react at `LockPriority.HitReact`, all behind a first-wins gate
+  chain. **This is exactly where HopeFell stopped** — their parry was `0.2f` seconds accumulated in
+  `Update()` — so there was nothing to port and every reason not to reach for seconds.
+- **The player as a target**: health on the sim, a hurtbox that follows the simulated body and
+  shrinks when it crouches, and hits routed through the gates.
+- **Something that swings back.** `TrainingAttacker` runs an ordinary `AttackDefinition` on the
+  same timeline and resolver the player uses, on a fixed tick cycle. Three of them in the arena
+  demand three different answers.
 
 ### Next
 
-1. **Defence, all in ticks** — block by stance, parry as a defence-resolution window, i-frames as a
-   damage gate, knockback, hit-react at `LockPriority.HitReact`. The timeline already publishes
-   `IsInvulnerable` and `IsParrying`; nothing consumes them. **This is where HopeFell stopped — do
-   not inherit its seconds.**
-2. **The player as a `Combatant`** — health, a hurtbox, and a damage gate chain. Worth taking
-   HopeFell's `IDamageGate`/`DamageGateResult`/`DamageContext` first-wins shape.
-3. **One telegraph dummy** demanding the four Ashmoor answers: jump the overhead slam, block the
-   lesser hits, crouch the low gore, parry the ember-burst. The arena is the place to put it.
-4. **Down-thrust damage**, which forces gap 4 to be answered.
-5. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
+1. **Down-thrust damage**, which forces gap 4 to be answered: wiring `Bounce()` means one module
+   reacting to another module's hit, and where that reaction lives is the first real test of the
+   no-cross-references rule under combat.
+2. **A dodge** — `DodgeStep` is the last stub with a gate already waiting for it, and it is the
+   only voluntary source of i-frames.
+3. **Death**, which is currently a number going to zero and nothing else (gap 11).
+4. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
-   executable/staggered state on enemies. The last-kill camera shot is nearly free in Cinemachine
-   (a second camera at higher priority) but needs an encounter concept that does not exist.
+   executable/staggered state on enemies, and a parried attacker is now exactly that state waiting
+   to be named. The last-kill camera shot is nearly free in Cinemachine (a second camera at higher
+   priority) but needs an encounter concept that does not exist.
    **The slow-motion trap stands: scale the clock's input, never `FixedDeltaSeconds`, or every
    authored window in the game silently rescales.**
+5. **Feel.** None of the combat numbers have been played. See §6.
 
 ---
 
@@ -248,8 +327,8 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
 **Open `Assets/_Prophecy/Scenes/GrayBox_Arena.unity` and press Play.** `BootstrapLoader` pulls
 Bootstrap in on top and the `SceneDirector` adopts the arena, so there is nothing else to set up.
 
-**Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**. `F1` movement overlay, `F2`
-combat overlay.
+**Controls:** `A`/`D` move, `S` crouch, `Space` jump, **`J` attack**, **`K` block (hold)**,
+**`L` parry**. `F1` movement overlay, `F2` combat overlay.
 
 The **F2 overlay** is the point of the demo. It draws the current attack's frame data one cell per
 tick — phases on the top row, hit/cancel/i-frame/parry windows on the bottom, playhead through
@@ -267,6 +346,13 @@ can miss four different ways and they look identical at speed.
 | 4 `Cover` | inside the hit box, behind a grate — `StoppedByGeometry` refuses it |
 | 5 `Chain` | 240 HP, enough to survive the opener so the follow-up has a target |
 | 6 `Ledge` | a lane up, so vertical reach gets checked too |
+| 7 `High` | swings back, high — hold `K` standing, or `L` on the beat |
+| 8 `Low` | swings back, low — the standing guard does not answer it; crouch first, then guard |
+| 9 `Unblockable` | swings back and no guard answers it at all — move, or parry |
+
+Stations 7–9 run on a 176-tick cycle (34 startup, 6 active, 26 recovery, 110 rest) with staggered
+openings so they do not fire in unison. 34 ticks of wind-up is a little over half a second — long
+enough to read, and the first number to change when the fight feels unfair.
 
 The floor stripe at each station is the **connect band** — the range of foot positions from which
 the standing slash reaches that target. Reach is one number; where you can stand is two, and the
@@ -276,6 +362,11 @@ difference is the part that is hard to feel.
 four-tick window; the standing slash left the squat dummy untouched while a same-tick crouch-plus-
 attack landed `thrust_low` on it; and the cover dummy took nothing through the grate but took 10
 from the same attack at the same distance on the near side.
+
+Defence was verified the same way. Standing still, the high telegraph landed 12 a swing on a
+176-tick beat. With the guard up, the same attack became `Blocked` for 3 — and the guard survived
+each one. Then, without changing anything but the station, the unblockable telegraph landed its
+full 18 through that same raised guard. Same geometry, same reach, one authored flag different.
 
 Regenerate with `Prophecy > Build > Generate GrayBox_Arena` after any change to `CombatTuning` —
 the stations are sized from the moveset, so retuning reach without regenerating leaves the arena

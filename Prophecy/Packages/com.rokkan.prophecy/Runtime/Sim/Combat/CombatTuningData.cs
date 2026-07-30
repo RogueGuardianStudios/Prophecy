@@ -67,7 +67,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                 {
                     new AttackHitBox
                     {
-                        Window = new TickRange(6, 10),
+                        OpenTick = 6, CloseTick = 10,
                         Offset = new Vector2(0.70f, 1.10f),
                         HalfExtents = new Vector2(0.55f, 0.35f),
                         Damage = 10,
@@ -89,7 +89,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                 {
                     new AttackHitBox
                     {
-                        Window = new TickRange(5, 10),
+                        OpenTick = 5, CloseTick = 10,
                         Offset = new Vector2(0.85f, 1.00f),
                         HalfExtents = new Vector2(0.65f, 0.45f),
                         RotationDegrees = -15f,
@@ -113,7 +113,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                 {
                     new AttackHitBox
                     {
-                        Window = new TickRange(5, 9),
+                        OpenTick = 5, CloseTick = 9,
                         Offset = new Vector2(0.75f, 0.35f),
                         HalfExtents = new Vector2(0.60f, 0.25f),
                         Damage = 9,
@@ -123,6 +123,71 @@ namespace Rokkan.Prophecy.Sim.Combat
                 CancelWindow = new ScalableWindow(13, 6),
             },
         };
+
+        // ------------------------------------------------------------------ health
+
+        [Header("Health")]
+        public int MaxHealth = 100;
+
+        // ------------------------------------------------------------------ blocking
+
+        [Header("Blocking")]
+        [Tooltip("Fraction of damage that gets through a good block. Zero makes holding the " +
+                 "shield strictly correct against anything blockable; chip damage is what keeps " +
+                 "a turtle on a timer.")]
+        [Range(0f, 1f)]
+        public float BlockedDamageFraction = 0.25f;
+
+        [Tooltip("Metres per second the defender slides backwards on a blocked hit. This is the " +
+                 "pressure a blocked hit applies — there is no blockstun, because a guard already " +
+                 "suppresses moving and attacking and taking the lock for it would drop the guard.")]
+        public float BlockPushbackSpeed = 2.5f;
+
+        // ------------------------------------------------------------------ parry
+
+        [Header("Parry")]
+        [Tooltip("The parry action itself: startup, the window, and the recovery that punishes a " +
+                 "mistimed one. Authored as an attack with no hit boxes, because the shape is the " +
+                 "same and one timeline is enough.")]
+        public AttackDefinition ParryAction = new AttackDefinition
+        {
+            Id = "parry",
+            RequiredStance = Stance.Stand,
+            StartupTicks = 2,
+            ActiveTicks = 6,
+            RecoveryTicks = 20,
+            HitBoxes = new AttackHitBox[0],
+
+            // Opens the tick the guard is up and stays open through the active phase. The whole
+            // move is 28 ticks and only 6 of them save you, so a panicked parry is a punish.
+            ParryWindow = new ScalableWindow(2, 6, minTicks: 2, maxTicks: 20),
+
+            // Nothing to chain into, but the window still matters: it is what lets a parry be
+            // cancelled out of once it is clear it whiffed.
+            CancelWindow = new ScalableWindow(22, 6),
+        };
+
+        [Tooltip("Ticks the ATTACKER is stunned by a successful parry. This number is the entire " +
+                 "reward — too short and a correct read buys nothing, too long and one parry ends " +
+                 "the fight.")]
+        public int ParryStunTicks = 40;
+
+        // ------------------------------------------------------------------ hit react
+
+        [Header("Hit react")]
+        [Tooltip("Ticks of lost control on a clean hit.")]
+        public int HitStunTicks = 18;
+
+        [Tooltip("Metres per second the victim is knocked back.")]
+        public float KnockbackSpeed = 4f;
+
+        [Tooltip("Upward metres per second added to knockback, so a hit pops you off the floor " +
+                 "slightly and reads as impact rather than a slide.")]
+        public float KnockbackLift = 2f;
+
+        [Tooltip("Ticks of invulnerability after a clean hit, so a multi-hit attack cannot chain " +
+                 "the player to death with no chance to answer.")]
+        public int HitInvulnerabilityTicks = 20;
 
         // ------------------------------------------------------------------ lookup
 

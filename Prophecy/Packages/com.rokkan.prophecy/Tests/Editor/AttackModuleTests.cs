@@ -41,9 +41,17 @@ namespace Rokkan.Prophecy.Tests
             public readonly List<Hurtbox> Targets = new List<Hurtbox>();
             public readonly List<HitEvent> Hits = new List<HitEvent>();
 
+            /// <summary>What every hit is answered with. Defaults to a clean landing; a test that
+            /// cares about the attacker's fate points it at something else.</summary>
+            public HitResult Answer = new HitResult(HitOutcome.Landed);
+
             public IReadOnlyList<Hurtbox> Hurtboxes => Targets;
 
-            public void OnHit(in HitEvent hit) => Hits.Add(hit);
+            public HitResult OnHit(in HitEvent hit)
+            {
+                Hits.Add(hit);
+                return Answer;
+            }
         }
 
         // ---------------------------------------------------------------- harness
@@ -437,6 +445,55 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheMovesetSurvivesUnitysSerializer()
+        {
+            // This caught a real one. Hit windows were a TickRange field, and Unity does not
+            // serialize readonly fields — so every window round-tripped as [0..0), which reads as
+            // "no window". Nothing was logged; the asset simply loaded inert on the next fresh
+            // Editor launch and no attack in the game would ever have connected.
+            //
+            // Asserting through the actual serializer is the only way to see it: in memory the
+            // field initializers make everything look fine.
+            var authored = ScriptableObject.CreateInstance<Rokkan.Prophecy.Core.CombatTuning>();
+            var reloaded = ScriptableObject.CreateInstance<Rokkan.Prophecy.Core.CombatTuning>();
+
+            try
+            {
+                UnityEditor.EditorJsonUtility.FromJsonOverwrite(
+                    UnityEditor.EditorJsonUtility.ToJson(authored), reloaded);
+
+                Assert.IsNull(reloaded.Data.Validate(),
+                    "the moveset does not survive a round trip through Unity's serializer");
+
+                for (int a = 0; a < authored.Data.Attacks.Length; a++)
+                {
+                    var before = authored.Data.Attacks[a];
+                    var after = reloaded.Data.Attacks[a];
+
+                    Assert.AreEqual(before.Id, after.Id);
+
+                    for (int b = 0; b < before.HitBoxes.Length; b++)
+                    {
+                        Assert.AreEqual(before.HitBoxes[b].Window, after.HitBoxes[b].Window,
+                            $"{before.Id} hit box {b} lost its window");
+                        Assert.AreEqual(before.HitBoxes[b].Damage, after.HitBoxes[b].Damage);
+                    }
+
+                    Assert.AreEqual(before.CancelWindow.BaseRange, after.CancelWindow.BaseRange);
+                }
+
+                Assert.AreEqual(authored.Data.ParryAction.ParryWindow.BaseRange,
+                                reloaded.Data.ParryAction.ParryWindow.BaseRange,
+                                "the parry window lost its shape");
+            }
+            finally
+            {
+                Object.DestroyImmediate(authored);
+                Object.DestroyImmediate(reloaded);
+            }
+        }
+
+        [Test]
         public void AnEntryPointRequiringADifferentStanceIsReported()
         {
             // Silent in play — the press simply does nothing — so it has to be loud here.
@@ -476,7 +533,7 @@ namespace Rokkan.Prophecy.Tests
                 {
                     new AttackHitBox
                     {
-                        Window = new TickRange(4, 7),
+                        OpenTick = 4, CloseTick = 7,
                         Offset = new Vector2(0.7f, 1.2f),
                         HalfExtents = new Vector2(0.5f, 0.7f),
                         Damage = 21,

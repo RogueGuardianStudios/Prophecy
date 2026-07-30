@@ -38,9 +38,23 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Which plane combatants are placed on. Side-scroll maps to world XY.")]
         private MovementSpace _space = MovementSpace.SideScroll;
 
+        /// <summary>A hit and what the defender made of it. The overlay wants both — "10 damage"
+        /// and "10 damage, blocked" are different stories and only the pair tells either.</summary>
+        public readonly struct LoggedHit
+        {
+            public readonly HitEvent Hit;
+            public readonly HitResult Result;
+
+            public LoggedHit(in HitEvent hit, in HitResult result)
+            {
+                Hit = hit;
+                Result = result;
+            }
+        }
+
         private readonly List<Combatant> _combatants = new List<Combatant>();
         private readonly List<Hurtbox> _hurtboxes = new List<Hurtbox>();
-        private readonly List<HitEvent> _hitLog = new List<HitEvent>();
+        private readonly List<LoggedHit> _hitLog = new List<LoggedHit>();
 
         private SimClockDriver _registeredWith;
 
@@ -54,8 +68,8 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Everyone currently registered. Read by the overlay.</summary>
         public IReadOnlyList<Combatant> Combatants => _combatants;
 
-        /// <summary>Most recent hits, newest last. Demo diagnostics.</summary>
-        public IReadOnlyList<HitEvent> HitLog => _hitLog;
+        /// <summary>Most recent hits and their outcomes, newest last. Demo diagnostics.</summary>
+        public IReadOnlyList<LoggedHit> HitLog => _hitLog;
 
         private void Awake()
         {
@@ -122,19 +136,27 @@ namespace Rokkan.Prophecy.Presentation
 
         // ---------------------------------------------------------------- hits
 
-        public void OnHit(in HitEvent hit)
+        public HitResult OnHit(in HitEvent hit)
         {
-            _hitLog.Add(hit);
-            if (_hitLog.Count > HitLogLength) _hitLog.RemoveAt(0);
-
             for (int i = 0; i < _combatants.Count; i++)
             {
                 var combatant = _combatants[i];
                 if (combatant == null || combatant.CombatId != hit.TargetId) continue;
 
-                combatant.ReceiveHit(in hit);
-                return;
+                var result = combatant.ReceiveHit(in hit);
+                Record(in hit, in result);
+                return result;
             }
+
+            // The target vanished between the hurtbox snapshot and the hit — died, was unloaded.
+            // Not an error, and the attacker still needs an answer.
+            return HitResult.Ignored;
+        }
+
+        private void Record(in HitEvent hit, in HitResult result)
+        {
+            _hitLog.Add(new LoggedHit(hit, result));
+            if (_hitLog.Count > HitLogLength) _hitLog.RemoveAt(0);
         }
     }
 }

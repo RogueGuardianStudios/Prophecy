@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim.Collision;
+using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Sim
@@ -28,11 +29,28 @@ namespace Rokkan.Prophecy.Sim
     public sealed class CharacterSim : ISimSystem
     {
         private readonly List<AbilityModule> _modules = new List<AbilityModule>();
+        private readonly List<IDamageGate> _gates = new List<IDamageGate>();
         private ActionLock _lock = ActionLock.None;
         private InputFrame _input = InputFrame.Empty;
+        private PendingStun _pendingStun;
 
         public CharacterState State { get; } = new CharacterState();
         public CollisionWorld World { get; }
+
+        /// <summary>Health. Owned here so a headless test can kill a character and assert what
+        /// follows.</summary>
+        public Vitals Vitals { get; } = new Vitals();
+
+        /// <summary>
+        /// Ticks of stun an <i>unanswered</i> hit costs. Stamped from tuning when the character is
+        /// built, the same way <see cref="Vitals.MaxHealth"/> is.
+        ///
+        /// <para>Here rather than on the hit-react module because this is the fallback: gates that
+        /// answer a hit park their own stun, with their own number — a block staggers less than a
+        /// clean hit, and that difference belongs to the block. This is only what happens when
+        /// nothing answered at all.</para>
+        /// </summary>
+        public int HitStunTicks = 18;
 
         /// <summary>The tick currently being simulated. Modules stamp timers against this.</summary>
         public long CurrentTick { get; private set; }
@@ -58,6 +76,17 @@ namespace Rokkan.Prophecy.Sim
             int i = 0;
             while (i < _modules.Count && _modules[i].Order <= module.Order) i++;
             _modules.Insert(i, module);
+
+            // Gate precedence is its own ordering and deliberately not the tick order. When a hit
+            // is answered has nothing to do with when a module runs, and tying them together would
+            // mean a tick-order change silently letting a block outrank invulnerability.
+            if (module is IDamageGate gate)
+            {
+                int g = 0;
+                while (g < _gates.Count && _gates[g].GateOrder <= gate.GateOrder) g++;
+                _gates.Insert(g, gate);
+            }
+
             return module;
         }
 
@@ -68,7 +97,76 @@ namespace Rokkan.Prophecy.Sim
             return null;
         }
 
-        public bool Remove(AbilityModule module) => _modules.Remove(module);
+        public bool Remove(AbilityModule module)
+        {
+            if (module is IDamageGate gate) _gates.Remove(gate);
+            return _modules.Remove(module);
+        }
+
+        // ---------------------------------------------------------------- taking hits
+
+        /// <summary>
+        /// Answer an incoming hit: walk the damage gates in precedence order, and if none of them
+        /// claims it, take the damage.
+        ///
+        /// <para>Called from the <i>attacker's</i> tick, so the defensive state it reads is as of
+        /// this character's most recent completed tick. That is a deliberate at-most-one-tick lag
+        /// rather than a bug: blocking is held for many ticks so it never notices, and a parry
+        /// window lagging by a fixed tick is still a fixed window. Resolving it any other way would
+        /// make the answer depend on which character happened to register first.</para>
+        /// </summary>
+        public HitResult ReceiveHit(in HitEvent hit)
+        {
+            if (!Vitals.IsAlive) return HitResult.Ignored;
+
+            for (int i = 0; i < _gates.Count; i++)
+            {
+                var answer = _gates[i].Evaluate(this, in hit);
+                if (answer.Outcome == HitOutcome.Continue) continue;
+
+                // A gate that lets damage through in reduced form — a block — still deals it.
+                if (answer.DamageApplied > 0)
+                {
+                    int applied = Vitals.ApplyDamage(answer.DamageApplied, hit.Tick);
+                    return new HitResult(answer.Outcome, applied, answer.AttackerStunTicks);
+                }
+
+                return answer;
+            }
+
+            int landed = Vitals.ApplyDamage(hit.Damage, hit.Tick);
+            Stun(HitStunTicks, hit.Facing, hit.Tick, HitOutcome.Landed);
+
+            return new HitResult(HitOutcome.Landed, landed);
+        }
+
+        /// <summary>
+        /// Park a stun for the hit-react module to pick up on its next tick. Called by whatever
+        /// decided the character should lose control — a gate, a parry answer, a script.
+        ///
+        /// <para>The longest pending stun wins rather than the latest. Two hits landing on the same
+        /// tick should not leave the character reacting to the weaker one.</para>
+        /// </summary>
+        public void Stun(int ticks, int direction, long tick, HitOutcome cause = HitOutcome.Landed)
+        {
+            if (ticks <= 0) return;
+            if (_pendingStun.IsSet && _pendingStun.Ticks >= ticks) return;
+
+            _pendingStun = new PendingStun(ticks, direction, tick, cause);
+        }
+
+        /// <summary>Take the pending stun, if there is one. Clears it.</summary>
+        public bool TryConsumeStun(out PendingStun stun)
+        {
+            stun = _pendingStun;
+            if (!stun.IsSet) return false;
+
+            _pendingStun = default;
+            return true;
+        }
+
+        /// <summary>True while a stun is waiting to be picked up. Debug overlay.</summary>
+        public bool HasPendingStun => _pendingStun.IsSet;
 
         // ---------------------------------------------------------------- input
 
@@ -109,6 +207,27 @@ namespace Rokkan.Prophecy.Sim
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Claim the character regardless of the holder's cancel window.
+        ///
+        /// <para><b>For things that are not a choice</b> — being hit, being parried, dying, a scene
+        /// transition. <see cref="TryLock"/>'s "higher priority AND an open cancel window" is what
+        /// makes an attack a commitment, and every voluntary action must go through it. But a
+        /// hit-react that waited for the cancel window would never interrupt the swing it is a
+        /// reaction to, which is the one thing it exists to do.</para>
+        ///
+        /// <para>Still refuses a strictly higher-priority holder, so a cutscene cannot be stomped
+        /// by a stray hit.</para>
+        /// </summary>
+        public bool ForceLock(object owner, LockFlags flags, int priority)
+        {
+            if (owner == null) return false;
+            if (_lock.IsHeld && _lock.Priority > priority) return false;
+
+            _lock = new ActionLock(owner, flags, priority);
+            return true;
         }
 
         /// <summary>Release the lock. Only the owner may; anyone else is ignored, so a stale
@@ -272,6 +391,7 @@ namespace Rokkan.Prophecy.Sim
             if (facing != 0) State.Facing = facing < 0 ? -1 : 1;
 
             _lock = ActionLock.None;
+            _pendingStun = default;
             for (int i = 0; i < _modules.Count; i++) _modules[i].Reset();
 
             RefreshGrounded();

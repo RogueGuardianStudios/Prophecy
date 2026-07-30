@@ -29,8 +29,16 @@ namespace Rokkan.Prophecy.Sim.Combat
         public readonly string AttackId;
         public readonly int HitBoxIndex;
 
+        /// <summary>Which block answers it. Carried on the event because the defender's gates need
+        /// it and they have no way to reach back to the attack definition.</summary>
+        public readonly AttackHeight Height;
+
+        /// <summary>No block answers this one.</summary>
+        public readonly bool Unblockable;
+
         public HitEvent(int attackerId, int targetId, int damage, int facing, long tick,
-                        string attackId, int hitBoxIndex)
+                        string attackId, int hitBoxIndex,
+                        AttackHeight height = AttackHeight.Any, bool unblockable = false)
         {
             AttackerId = attackerId;
             TargetId = targetId;
@@ -39,6 +47,8 @@ namespace Rokkan.Prophecy.Sim.Combat
             Tick = tick;
             AttackId = attackId;
             HitBoxIndex = hitBoxIndex;
+            Height = height;
+            Unblockable = unblockable;
         }
     }
 
@@ -65,7 +75,13 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// </summary>
         IReadOnlyList<Hurtbox> Hurtboxes { get; }
 
-        /// <summary>A hit connected. Apply it, gate it, or ignore it.</summary>
-        void OnHit(in HitEvent hit);
+        /// <summary>
+        /// A hit connected. Apply it, gate it, or ignore it — and say what happened.
+        ///
+        /// <para>The answer goes back to the attacker because a parry has to cost them something.
+        /// Returning <see cref="HitResult.Ignored"/> when nothing was there is correct and
+        /// common.</para>
+        /// </summary>
+        HitResult OnHit(in HitEvent hit);
     }
 }

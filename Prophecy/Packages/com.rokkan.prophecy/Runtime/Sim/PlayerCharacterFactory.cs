@@ -63,8 +63,16 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new LedgePullUp(tuning));
             sim.Add(new LadderClimb(tuning));
 
-            // Combat.
+            // Combat. Offence, then the three answers to it — the last of which is not an answer
+            // at all but the consequence of failing to make one.
             sim.Add(new AttackModule(combat, combatWorld));
+            sim.Add(new Block(combat));
+            sim.Add(new Parry(combat));
+            sim.Add(new HitReact(combat));
+
+            sim.Vitals.MaxHealth = combat.MaxHealth;
+            sim.Vitals.Reset();
+            sim.HitStunTicks = combat.HitStunTicks;
 
             // Combat-adjacent movement.
             sim.Add(new DownThrust(tuning));

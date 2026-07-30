@@ -37,5 +37,8 @@ namespace Rokkan.Prophecy.Sim
         FallLand = 17,
         DropThrough = 18,
         Attack = 19,
+        Block = 20,
+        Parry = 21,
+        HitReact = 22,
     }
 }

@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 308160872128486491}
   - component: {fileID: 2152798882108509657}
   - component: {fileID: 5939699066483528838}
+  - component: {fileID: 7725784112182026087}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -179,3 +180,27 @@ MonoBehaviour:
   _turnSpeed: 900
   _resizeProxyOnCrouch: 1
   _resizeSmoothing: 0.06
+--- !u!114 &7725784112182026087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7114091694157674541}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc3cb08f900afaf48873fb40855f78a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.Combatant
+  _team: 1
+  _simHost: {fileID: 308160872128486491}
+  _size: {x: 0.9, y: 1.8}
+  _offset: {x: 0, y: 0.9}
+  _maxHealth: 60
+  _reviveSeconds: 0
+  _flashColour: {r: 1, g: 0.35, b: 0.25, a: 1}
+  _blockColour: {r: 0.55, g: 0.8, b: 1, a: 1}
+  _parryColour: {r: 1, g: 0.95, b: 0.5, a: 1}
+  _flashSeconds: 0.12
+  _knockback: 0.25
+  _knockbackRecoverySeconds: 0.35

@@ -30,7 +30,7 @@ namespace Rokkan.Prophecy.Tests
         {
             return new AttackHitBox
             {
-                Window = new TickRange(0, 3),
+                OpenTick = 0, CloseTick = 3,
                 Offset = offset,
                 HalfExtents = halfExtents,
                 RotationDegrees = rotation,

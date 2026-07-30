@@ -24,10 +24,14 @@ MonoBehaviour:
       ActiveTicks: 4
       RecoveryTicks: 12
       HitBoxes:
-      - Offset: {x: 0.7, y: 1.1}
+      - OpenTick: 6
+        CloseTick: 10
+        Offset: {x: 0.7, y: 1.1}
         HalfExtents: {x: 0.55, y: 0.35}
         RotationDegrees: 0
         Damage: 10
+        Height: 0
+        Unblockable: 0
         StoppedByGeometry: 1
       IFrames:
         BaseStart: 0
@@ -52,10 +56,14 @@ MonoBehaviour:
       ActiveTicks: 5
       RecoveryTicks: 16
       HitBoxes:
-      - Offset: {x: 0.85, y: 1}
+      - OpenTick: 5
+        CloseTick: 10
+        Offset: {x: 0.85, y: 1}
         HalfExtents: {x: 0.65, y: 0.45}
         RotationDegrees: -15
         Damage: 14
+        Height: 0
+        Unblockable: 0
         StoppedByGeometry: 1
       IFrames:
         BaseStart: 0
@@ -80,10 +88,14 @@ MonoBehaviour:
       ActiveTicks: 4
       RecoveryTicks: 14
       HitBoxes:
-      - Offset: {x: 0.75, y: 0.35}
+      - OpenTick: 5
+        CloseTick: 9
+        Offset: {x: 0.75, y: 0.35}
         HalfExtents: {x: 0.6, y: 0.25}
         RotationDegrees: 0
         Damage: 9
+        Height: 0
+        Unblockable: 0
         StoppedByGeometry: 1
       IFrames:
         BaseStart: 0
@@ -102,3 +114,36 @@ MonoBehaviour:
         MaxTicks: 60
       ChainsInto: 
       RequiresExecutableTarget: 0
+    MaxHealth: 100
+    BlockedDamageFraction: 0.25
+    BlockStunTicks: 6
+    BlockPushbackSpeed: 2.5
+    ParryAction:
+      Id: parry
+      RequiredStance: 0
+      StartupTicks: 2
+      ActiveTicks: 6
+      RecoveryTicks: 20
+      HitBoxes: []
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 2
+        BaseDuration: 6
+        MinTicks: 2
+        MaxTicks: 20
+      CancelWindow:
+        BaseStart: 22
+        BaseDuration: 6
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
+    ParryStunTicks: 40
+    HitStunTicks: 18
+    KnockbackSpeed: 4
+    KnockbackLift: 2
+    HitInvulnerabilityTicks: 20

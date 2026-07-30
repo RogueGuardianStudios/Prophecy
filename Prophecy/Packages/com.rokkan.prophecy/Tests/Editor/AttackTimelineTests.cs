@@ -27,7 +27,7 @@ namespace Rokkan.Prophecy.Tests
                 {
                     new AttackHitBox
                     {
-                        Window = new TickRange(9, 12),
+                        OpenTick = 9, CloseTick = 12,
                         Offset = new Vector2(0.8f, 1f),
                         HalfExtents = new Vector2(0.6f, 0.4f),
                         Damage = 10,
@@ -140,9 +140,9 @@ namespace Rokkan.Prophecy.Tests
                 RecoveryTicks = 12,
                 HitBoxes = new[]
                 {
-                    new AttackHitBox { Window = new TickRange(6, 9), HalfExtents = Vector2.one * 0.5f, Damage = 5 },
-                    new AttackHitBox { Window = new TickRange(12, 15), HalfExtents = Vector2.one * 0.5f, Damage = 5 },
-                    new AttackHitBox { Window = new TickRange(18, 21), HalfExtents = Vector2.one * 0.5f, Damage = 5 },
+                    new AttackHitBox { OpenTick = 6, CloseTick = 9, HalfExtents = Vector2.one * 0.5f, Damage = 5 },
+                    new AttackHitBox { OpenTick = 12, CloseTick = 15, HalfExtents = Vector2.one * 0.5f, Damage = 5 },
+                    new AttackHitBox { OpenTick = 18, CloseTick = 21, HalfExtents = Vector2.one * 0.5f, Damage = 5 },
                 },
             };
 
@@ -168,7 +168,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var box = new AttackHitBox
             {
-                Window = new TickRange(0, 2),
+                OpenTick = 0, CloseTick = 2,
                 Offset = new Vector2(0.8f, 1f),
                 HalfExtents = new Vector2(0.5f, 0.3f),
                 RotationDegrees = 20f,
@@ -289,7 +289,8 @@ namespace Rokkan.Prophecy.Tests
         {
             // A silent dud otherwise: the box never opens and nothing says why.
             var definition = Slash();
-            definition.HitBoxes[0].Window = new TickRange(20, 30);
+            definition.HitBoxes[0].OpenTick = 20;
+            definition.HitBoxes[0].CloseTick = 30;
 
             StringAssert.Contains("runs past the end", definition.Validate());
         }

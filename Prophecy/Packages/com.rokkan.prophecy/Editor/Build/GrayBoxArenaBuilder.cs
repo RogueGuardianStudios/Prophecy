@@ -168,7 +168,7 @@ namespace Rokkan.Prophecy.Editor.Build
 
             float cursor = -12f;
 
-            cursor = Ground(geometry, "Ground", cursor, 74f);
+            cursor = Ground(geometry, "Ground", cursor, 92f);
 
             // Station 1 — the basic hit. A full-body dummy both attacks reach, so the first swing
             // in the arena always connects and "is combat on at all" is never the question.
@@ -203,6 +203,17 @@ namespace Rokkan.Prophecy.Editor.Build
             // Station 6 — height. A dummy on a ledge one lane up: reachable from the platform,
             // not from the floor, so vertical spacing gets checked against real reach too.
             LedgeStation(geometry, targets, tuning, 41f, reach);
+
+            // Stations 7-9 — the things that swing back. Each demands exactly one answer, because a
+            // telegraph you can survive two ways teaches nothing about either.
+            Telegraph(targets, "7_High", 52f, AttackHeight.High, unblockable: false, delay: 0,
+                      damage: 12, tuning: tuning);
+
+            Telegraph(targets, "8_Low", 60f, AttackHeight.Low, unblockable: false, delay: 30,
+                      damage: 10, tuning: tuning);
+
+            Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any, unblockable: true, delay: 60,
+                      damage: 18, tuning: tuning);
 
             // A wall to stop the run-out, so nobody walks into the void wondering where the arena went.
             Box(geometry, "Wall_East", new Vector2(cursor - 2f, 0f), new Vector2(cursor, 8f));
@@ -258,6 +269,74 @@ namespace Rokkan.Prophecy.Editor.Build
             if (furthest <= nearest) return;
 
             Marker(parent, "ReachBand", nearest, furthest);
+        }
+
+        /// <summary>
+        /// A dummy that swings back on a fixed rhythm, demanding one specific answer.
+        ///
+        /// <para>The wind-up is long on purpose — a telegraph you cannot read is just damage on a
+        /// timer, and the number that decides whether a fight is fair is how many ticks the player
+        /// gets between "it is starting" and "it is too late". The hit box is sized and placed from
+        /// the height it is asking about, so a low sweep really does pass under a standing guard
+        /// and a high one really does sail over a crouch.</para>
+        ///
+        /// <para>Each attacker opens on a different delay so three of them in one arena do not
+        /// fire in unison and turn a reading exercise into a scramble.</para>
+        /// </summary>
+        private static void Telegraph(Transform parent, string name, float x, AttackHeight height,
+                                      bool unblockable, int delay, int damage, MovementTuning tuning)
+        {
+            var root = new GameObject($"Attacker_{name}");
+            root.transform.SetParent(parent, false);
+            root.transform.position = new Vector3(x, 0f, 0f);
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(0.9f, 1.8f, 0.9f);
+            body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+            Object.DestroyImmediate(body.GetComponent<Collider>());
+
+            var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_team", 2);
+            SetPrivate(combatant, "_size", new Vector2(0.9f, 1.8f));
+            SetPrivate(combatant, "_offset", new Vector2(0f, 0.9f));
+            SetPrivate(combatant, "_maxHealth", 200);
+
+            // Heights measured against the player's own body, so a low sweep is genuinely below
+            // what a standing guard covers rather than nominally so.
+            float stand = tuning.Data.StandHeight;
+            float centreY = height == AttackHeight.Low ? stand * 0.20f : stand * 0.65f;
+            float halfY = height == AttackHeight.Low ? stand * 0.18f : stand * 0.28f;
+
+            var attacker = root.AddComponent<TrainingAttacker>();
+            SetPrivate(attacker, "_restTicks", 110);
+            SetPrivate(attacker, "_openingDelayTicks", delay);
+            SetPrivate(attacker, "_faceNearestTarget", true);
+
+            var serialized = new SerializedObject(attacker);
+            var definition = serialized.FindProperty("_attack");
+
+            definition.FindPropertyRelative("Id").stringValue = $"telegraph_{name}";
+            definition.FindPropertyRelative("StartupTicks").intValue = 34;
+            definition.FindPropertyRelative("ActiveTicks").intValue = 6;
+            definition.FindPropertyRelative("RecoveryTicks").intValue = 26;
+
+            var boxes = definition.FindPropertyRelative("HitBoxes");
+            boxes.arraySize = 1;
+
+            var box = boxes.GetArrayElementAtIndex(0);
+            box.FindPropertyRelative("OpenTick").intValue = 34;
+            box.FindPropertyRelative("CloseTick").intValue = 40;
+            box.FindPropertyRelative("Offset").vector2Value = new Vector2(1.05f, centreY);
+            box.FindPropertyRelative("HalfExtents").vector2Value = new Vector2(0.75f, halfY);
+            box.FindPropertyRelative("RotationDegrees").floatValue = 0f;
+            box.FindPropertyRelative("Damage").intValue = damage;
+            box.FindPropertyRelative("Height").enumValueFlag = (int)height;
+            box.FindPropertyRelative("Unblockable").boolValue = unblockable;
+            box.FindPropertyRelative("StoppedByGeometry").boolValue = false;
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void CoverStation(Transform geometry, Transform targets, float x, Reach reach)

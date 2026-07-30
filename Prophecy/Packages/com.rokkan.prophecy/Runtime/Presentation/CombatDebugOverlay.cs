@@ -59,6 +59,10 @@ namespace Rokkan.Prophecy.Presentation
         private Texture2D _cell;
 
         private AttackModule _attack;
+        private Block _block;
+        private Parry _parry;
+        private HitReact _hitReact;
+        private TrainingAttacker[] _attackers;
         private Material _lines;
 
         private readonly StringBuilder _text = new StringBuilder(512);
@@ -86,7 +90,17 @@ namespace Rokkan.Prophecy.Presentation
 
         private void Start()
         {
-            if (_host != null && _host.Sim != null) _attack = _host.Sim.Get<AttackModule>();
+            ResolveModules();
+        }
+
+        private void ResolveModules()
+        {
+            if (_host == null || _host.Sim == null) return;
+
+            _attack = _host.Sim.Get<AttackModule>();
+            _block = _host.Sim.Get<Block>();
+            _parry = _host.Sim.Get<Parry>();
+            _hitReact = _host.Sim.Get<HitReact>();
         }
 
         private void OnDestroy()
@@ -103,10 +117,15 @@ namespace Rokkan.Prophecy.Presentation
             // Late resolution: the host builds its sim in Awake, but a scene loaded additively can
             // put the host in after this component. Cheap, and it stops the overlay being blank
             // for the one setup most likely to need it.
-            if (_attack == null && _host != null && _host.Sim != null)
-                _attack = _host.Sim.Get<AttackModule>();
+            if (_attack == null) ResolveModules();
 
-            if (_director == null) _director = CombatDirector.Instance;
+            // Re-found when the arena changes, because the attackers belong to the scene rather
+            // than to Bootstrap and a transition replaces the whole set.
+            if (!ReferenceEquals(_director, CombatDirector.Instance))
+            {
+                _director = CombatDirector.Instance;
+                _attackers = FindObjectsByType<TrainingAttacker>(FindObjectsSortMode.None);
+            }
         }
 
         // ---------------------------------------------------------------- text
@@ -165,13 +184,15 @@ namespace Rokkan.Prophecy.Presentation
                                  $"   {(timeline.IsCancellable ? "<b>CANCELLABLE</b>" : "committed")}");
             }
 
+            AppendDefence(sim);
+
             if (_director != null)
             {
                 _text.AppendLine();
                 _text.AppendLine($"targets  {_director.Hurtboxes.Count} live");
 
                 var combatants = _director.Combatants;
-                for (int i = 0; i < combatants.Count && i < 6; i++)
+                for (int i = 0; i < combatants.Count && i < 7; i++)
                 {
                     var c = combatants[i];
                     if (c == null) continue;
@@ -184,11 +205,72 @@ namespace Rokkan.Prophecy.Presentation
                 if (log.Count > 0)
                 {
                     _text.AppendLine();
-                    _text.AppendLine("last hits (tick / target / dmg / attack)");
+                    _text.AppendLine("last hits (tick / target / dmg / outcome)");
 
-                    for (int i = log.Count - 1; i >= 0 && i >= log.Count - 4; i--)
-                        _text.AppendLine($"  {log[i].Tick,6}  #{log[i].TargetId}  {log[i].Damage,3}  {log[i].AttackId}");
+                    for (int i = log.Count - 1; i >= 0 && i >= log.Count - 5; i--)
+                    {
+                        var entry = log[i];
+                        _text.AppendLine(
+                            $"  {entry.Hit.Tick,6}  #{entry.Hit.TargetId}  {entry.Result.DamageApplied,3}  " +
+                            $"{Describe(entry.Result.Outcome)}  {entry.Hit.AttackId}");
+                    }
                 }
+            }
+        }
+
+        /// <summary>
+        /// The defensive picture, which is the half that is hardest to infer from watching. Whether
+        /// the guard answers the height coming at you, whether the parry window is open right now,
+        /// and how many ticks of hit-stun are left are each the difference between "the system is
+        /// broken" and "you were early".
+        /// </summary>
+        private void AppendDefence(CharacterSim sim)
+        {
+            _text.AppendLine();
+            _text.AppendLine($"health   {sim.Vitals.Health}/{sim.Vitals.MaxHealth}" +
+                             $"{(sim.Vitals.IsAlive ? "" : "   DEAD")}");
+
+            if (_block != null)
+            {
+                _text.AppendLine(_block.IsGuarding
+                    ? $"guard    <b>UP</b> answering {_block.Guarding}"
+                    : "guard    down");
+            }
+
+            if (_parry != null)
+            {
+                if (!_parry.IsActive)
+                {
+                    _text.AppendLine("parry    ready");
+                }
+                else
+                {
+                    var timeline = _parry.Timeline;
+                    _text.AppendLine($"parry    {timeline.CurrentPhase} {timeline.ElapsedTicks}/" +
+                                     $"{_parry.Timeline.Definition.TotalTicks}" +
+                                     $"{(_parry.WindowOpen ? "   <b>WINDOW OPEN</b>" : "")}");
+                }
+            }
+
+            if (_hitReact != null)
+            {
+                int stun = _hitReact.TicksRemaining(sim.CurrentTick);
+                int iframes = _hitReact.InvulnerableTicksRemaining(sim.CurrentTick);
+
+                if (stun > 0) _text.AppendLine($"stunned  {stun,2} ticks   ({_hitReact.Cause})");
+                if (iframes > 0) _text.AppendLine($"iframes  {iframes,2} ticks");
+            }
+        }
+
+        private static string Describe(HitOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case HitOutcome.Landed: return "hit    ";
+                case HitOutcome.Blocked: return "BLOCK  ";
+                case HitOutcome.Parried: return "PARRY  ";
+                case HitOutcome.Invulnerable: return "iframe ";
+                default: return "ignored";
             }
         }
 
@@ -285,9 +367,43 @@ namespace Rokkan.Prophecy.Presentation
             }
 
             DrawAttackVolumes(space, depth);
+            DrawIncomingVolumes(space, depth);
 
             GL.End();
             GL.PopMatrix();
+        }
+
+        /// <summary>
+        /// The attacks aimed at <i>you</i>, which is the half that matters once defence exists.
+        /// Drawn dim through the wind-up and bright the tick they become dangerous, so the
+        /// telegraph is something you can watch rather than something you time by ear.
+        /// </summary>
+        private void DrawIncomingVolumes(MovementSpace space, float depth)
+        {
+            if (_attackers == null) return;
+
+            for (int a = 0; a < _attackers.Length; a++)
+            {
+                var attacker = _attackers[a];
+                if (attacker == null || !attacker.IsSwinging) continue;
+
+                var definition = attacker.Attack;
+                if (definition?.HitBoxes == null) continue;
+
+                var timeline = attacker.Timeline;
+                var feet = SpaceMapping.ToPlane(attacker.transform.position, space);
+                int facing = attacker.transform.position.x > _host.Sim.State.Position.x ? -1 : 1;
+
+                for (int i = 0; i < definition.HitBoxes.Length; i++)
+                {
+                    var box = definition.HitBoxes[i];
+                    bool live = timeline.IsHitBoxLive(i);
+
+                    DrawBox(box.ResolveCentre(feet, facing), box.HalfExtents,
+                            box.ResolveRotation(facing),
+                            live ? _liveBoxColour : _armedBoxColour, space, depth);
+                }
+            }
         }
 
         private void DrawAttackVolumes(MovementSpace space, float depth)
