@@ -137,7 +137,7 @@ Carried forward and still true: **feel first**; **sim owns its own `CollisionWor
 timing in ticks, never animation events**; **one action lock, not a stack**; **position is the
 feet, overlap is strict, coyote counts ticks**; **three scenes, not four**; **progression is an
 `AbilityLoadout` asset**; **levels are composed in lanes**; **Cinemachine, Follow only, no Aim**;
-**hitboxes are sim-side, not trigger colliders**; **hit geometry is ours, by separating axis**; **cover
+**hitboxes are sim-side, not trigger colliders**; **hit geometry is ours, by separating axis**; **animation is a view of the sim and decides nothing** (`Plans/Animation-Contract.md`); **cover
 is decided per attack**; **one definition of solid, two questions**.
 
 Added this session:
@@ -241,6 +241,20 @@ Added this session:
 38. **Blocked counts as connected; invulnerable does not.** A down-thrust pops off anything solid it
     struck, and whether the target was hurt is the target's business. Phasing through i-frames is
     not a connection, or the dive becomes a way to hover over anything recently hit.
+
+---
+
+### Added 2026-07-31
+
+24. **Animation is a view of the simulation and decides nothing.** No root motion, no
+    `AnimatorController` state machine (the sim already arbitrates — a controller graph would be a
+    second state machine describing the same thing), and no gameplay vocabulary in
+    `ClipEventChannel`. Full reasoning and the interaction-injection contract:
+    **`Plans/Animation-Contract.md`**.
+25. **An interactable supplies the clip the player performs on it**, plus an anchor. The sim owns
+    the lock, the move to that anchor, and the duration in ticks. The clip never decides that an
+    interaction finished — that is the animation-event mistake in a different hat. Contract doc,
+    §3.
 
 ---
 

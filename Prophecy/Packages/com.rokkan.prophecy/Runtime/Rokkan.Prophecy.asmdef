@@ -4,6 +4,7 @@
     "references": [
         "RGS.Core",
         "Rokkan.Core",
+        "Rokkan.Animation",
         "Unity.InputSystem",
         "Unity.Cinemachine"
     ],

@@ -48,7 +48,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6719013076225717744}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -103,6 +103,7 @@ GameObject:
   - component: {fileID: 2152798882108509657}
   - component: {fileID: 5939699066483528838}
   - component: {fileID: 7725784112182026087}
+  - component: {fileID: 8755180388361531219}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -124,6 +125,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7136474489844759871}
+  - {fileID: 5022847097114102091}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &308160872128486491
@@ -178,7 +180,7 @@ MonoBehaviour:
   _host: {fileID: 308160872128486491}
   _body: {fileID: 7136474489844759871}
   _turnSpeed: 900
-  _resizeProxyOnCrouch: 1
+  _resizeProxyOnCrouch: 0
   _resizeSmoothing: 0.06
 --- !u!114 &7725784112182026087
 MonoBehaviour:
@@ -208,3 +210,120 @@ MonoBehaviour:
   _flashSeconds: 0.12
   _knockback: 0.25
   _knockbackRecoverySeconds: 0.35
+--- !u!114 &8755180388361531219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7114091694157674541}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b39a0677d2d41d419bc2252e470fd3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterAnimator
+  _host: {fileID: 308160872128486491}
+  _set: {fileID: 11400000, guid: fa44520663e54dd4797f0705b9b08200, type: 2}
+  _animation: {fileID: 4242821085579799703}
+  _moveThreshold: 0.15
+  _runThreshold: 4.5
+--- !u!1001 &4773258908098358944
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 7253505261169095523}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.8495945
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.8495945
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.8495945
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_Name
+      value: HeroModel
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4242821085579799703}
+  m_SourcePrefab: {fileID: 100100000, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+--- !u!4 &5022847097114102091 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+  m_PrefabInstance: {fileID: 4773258908098358944}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &5692387742477374449 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+  m_PrefabInstance: {fileID: 4773258908098358944}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4242821085579799703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5692387742477374449}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 541f5a00690421a4d939c8b5ad41ca28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Animation::Rokkan.Animation.AnimationSystem
+  _animator: {fileID: 0}
+  _blendSeconds: 0.08
