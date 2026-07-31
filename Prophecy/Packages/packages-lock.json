@@ -6,6 +6,12 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.rokkan.animation": {
+      "version": "file:../../../../Packages/com.rokkan.animation",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.rokkan.core": {
       "version": "file:../../../../Packages/com.rokkan.core",
       "depth": 0,

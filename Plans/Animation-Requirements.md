@@ -23,7 +23,7 @@ correctly:
 
 | Check | Result |
 |---|---|
-| Skin clusters / bones / bind pose | 24 / 48 / 1 — matches a known-good Meshy rig exactly |
+| Skin clusters / bones / bind pose | 24 / 48 / 1 |
 | Import rig type | `animationType: 3` (**Humanoid**), `avatarSetup: 1` (create from this model) |
 | Rig import errors | none |
 | All 15 required humanoid bones | present |
@@ -53,6 +53,10 @@ off-axis joint.
 
 One harmless import warning to ignore: the FBX carries an empty placeholder clip
 (`Armature|Armature|clip0|baselayer`, 0 frames). It is Meshy's export scaffolding, not a rig fault.
+
+*(The counts above were taken against a known-good rigged Meshy export as a control, which reported
+the same profile. That control — the Emerald Guardian test generation — has since been deleted
+along with the other superseded imports, so the comparison is recorded here rather than repeatable.)*
 
 ---
 
@@ -137,21 +141,40 @@ pack resembles it.
 Conversely, most of the 963 clips are irrelevant: the locomotion pack is dominated by eight-way
 strafe sets for a camera-relative 3D controller, and Prophecy moves along one axis.
 
-### Three things to decide before any of it is copied
+### What was copied, 2026-07-31
 
-1. **Licence.** Synty's EULA grants use in "Products under your direct control" — Prophecy
-   qualifies — but forbids sharing outside your team, and explicitly forbids use "with Generative
-   AI Programs". The Hero is a Meshy generation. Retargeting a Synty clip onto an AI-generated
-   mesh is not obviously the thing that clause prohibits, but it is close enough to be worth your
-   reading rather than my assumption.
-2. **Repo weight.** 712 MB of licensed binaries committed into the Prophecy git repo is close to
-   irreversible and would dwarf the ~109-file clean baseline. A curated subset — perhaps 25 clips
-   — covers everything on this list that Synty can cover at all.
-3. **Retarget target.** Copied clips carry `avatarSetup: 2` (copy-from-other) and reference the
-   Synty source avatar by GUID, so a partial copy needs that rig asset alongside the clips or the
-   humanoid setup breaks on import.
+A curated subset, not the library: **25 clips and 2 rigs, 11 MB**, in
+`Assets/_Prophecy/Animation/Synty/`. The full packs are 963 clips and 712 MB, most of it eight-way
+strafe sets for a camera-relative 3D controller that Prophecy has no use for.
 
-**Nothing has been copied.** That decision is yours.
+```
+_Rig/        PolygonSyntyCharacter.fbx              (locomotion source avatar)
+             PolygonSyntyCharacter_SwordCombat.fbx  (combat source avatar)
+Locomotion/  Idle_Standing, Idle_Crouching, Walk_FwdStrafeF,
+             Run_FwdStrafeF, Sprint_F, Crouch_FwdStrafeF
+InAir/       Jump_Idle, InAir_FallShort, InAir_FallLarge,
+             Land_Idle{Soft,Medium,Hard}
+Combat/      Attack_LightCombo01{A,B}, Attack_HeavyStab01,
+             Block_{Begin,Loop,End}, Parry_F,
+             Hit_{F,B}_React, Hit_F_Stagger,
+             Dodge_B, DodgeRoll_F, Death_F_01
+```
+
+**Non-RootMotion variants throughout.** The sim owns position, so a clip that carried displacement
+would be fighting it — see `IClipInjector`. Synty ships both variants of most clips and only the
+plain ones were taken.
+
+**Two rigs, which is the trap in a partial copy.** Locomotion clips reference
+`bfa42ba6…` and combat clips reference `68a29e70…` — two different source avatars that happen to
+share the filename `PolygonSyntyCharacter.fbx`. Copying only the first left every combat clip
+pointing at an avatar that did not exist here. Both are now present, renamed on disk so they can
+coexist, with their original `.meta` files so the GUIDs the clips reference still resolve. Verified:
+all 25 clips resolve to a rig inside this repo, and the importer logs no avatar errors.
+
+`SYNTY-LICENSE.MD` sits beside them. **The generative-AI clause is still worth your reading** — the
+EULA forbids use "with Generative AI Programs" and the Hero is a Meshy generation. Retargeting a
+purchased clip onto an AI-generated mesh is not obviously what that clause is aimed at, but it is
+close enough that it should be your call and not an assumption buried in a commit.
 
 ---
 
