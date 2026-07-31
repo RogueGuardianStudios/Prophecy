@@ -109,6 +109,9 @@ namespace Rokkan.Prophecy.Presentation
                 _history.Insert(0, (_current, _currentSeconds));
                 if (_history.Count > HistoryLength) _history.RemoveAt(_history.Count - 1);
 
+#if UNITY_EDITOR
+                RecordTransition(_current, _currentSeconds, next, in inputs);
+#endif
                 _currentSeconds = 0f;
                 _current = next;
             }
@@ -117,6 +120,88 @@ namespace Rokkan.Prophecy.Presentation
                 _currentSeconds += Time.deltaTime;
             }
         }
+
+
+#if UNITY_EDITOR
+        // ---------------------------------------------------------------- flicker log
+        //
+        // Editor-only by construction rather than by a flag someone has to remember to turn off,
+        // so there is nothing here to leave switched on in a build.
+
+        [Header("Diagnostics (editor only)")]
+        [SerializeField, Tooltip("Record every state change to Logs/body-state-log.txt. The file " +
+                                 "rewrites whenever a state lasts less than two frames, so a flicker " +
+                                 "is captured the moment it happens rather than needing to be caught.")]
+        private bool _logStateChanges = true;
+
+        [SerializeField, Tooltip("A state shorter than this is treated as a flicker. ~2 frames at 60 fps.")]
+        private float _flickerSeconds = 0.034f;
+
+        private readonly List<string> _log = new List<string>();
+        private int _flickerCount;
+        private int _fallWhileGroundedCount;
+
+        private static string LogPath => System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath)!.FullName, "Logs", "body-state-log.txt");
+
+        private void RecordTransition(BodyState from, float seconds, BodyState to,
+                                      in BodyStateInputs inputs)
+        {
+            if (!_logStateChanges) return;
+
+            bool flicker = seconds < _flickerSeconds && _log.Count > 0;
+            if (flicker) _flickerCount++;
+
+            // The question the whole log exists to answer. While grounded the resolver cannot
+            // return Fall, so if this ever counts above zero the fault is in the simulation's
+            // Grounded flag and not in the animation at all.
+            bool impossible = from == BodyState.Fall && inputs.Grounded;
+            if (impossible) _fallWhileGroundedCount++;
+
+            _log.Add(string.Format(
+                "{0,6} {1,-14} {2,7:F1}ms -> {3,-14} grounded={4,-5} vel=({5,6:F2},{6,6:F2}) " +
+                "facing={7,2} stance={8,-6} attach={9}{10}{11}",
+                Time.frameCount, from, seconds * 1000f, to, inputs.Grounded,
+                inputs.Velocity.x, inputs.Velocity.y,
+                _host.Sim.State.Facing, inputs.Stance, inputs.Attachment,
+                flicker ? "  <-- FLICKER" : "",
+                impossible ? "  <-- FALL WHILE GROUNDED" : ""));
+
+            if (flicker || impossible) Flush();
+        }
+
+        private void OnDisable()
+        {
+            if (_logStateChanges && _log.Count > 0) Flush();
+        }
+
+        private void Flush()
+        {
+            var text = new System.Text.StringBuilder();
+            text.AppendLine("Prophecy body-state log");
+            text.AppendLine($"transitions : {_log.Count}");
+            text.AppendLine($"flickers    : {_flickerCount}  (state shorter than {_flickerSeconds * 1000f:F0}ms)");
+            text.AppendLine($"impossible  : {_fallWhileGroundedCount}  (Fall resolved while grounded — " +
+                            "non-zero means the sim's Grounded is flickering, not the animation)");
+            text.AppendLine();
+            text.AppendLine(" frame state              held    next           context");
+            text.AppendLine(new string('-', 118));
+
+            // Newest last, so the tail of the file is the most recent thing that happened.
+            int start = Mathf.Max(0, _log.Count - 400);
+            for (int i = start; i < _log.Count; i++) text.AppendLine(_log[i]);
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(LogPath)!);
+                System.IO.File.WriteAllText(LogPath, text.ToString());
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Prophecy] Could not write the body-state log: {e.Message}", this);
+            }
+        }
+#endif
 
         /// <summary>
         /// Collect what the resolver needs. Every module is queried through <c>Get&lt;T&gt;</c>
