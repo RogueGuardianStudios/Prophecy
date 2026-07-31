@@ -64,6 +64,7 @@ namespace Rokkan.Prophecy.Presentation
         private DodgeStep _dodge;
         private HitReact _hitReact;
         private TrainingAttacker[] _attackers;
+        private CharacterAnimator _animator;
         private ArenaStations _stations;
         private Material _lines;
 
@@ -128,6 +129,7 @@ namespace Rokkan.Prophecy.Presentation
             {
                 _director = CombatDirector.Instance;
                 _attackers = FindObjectsByType<TrainingAttacker>(FindObjectsSortMode.None);
+                _animator = FindAnyObjectByType<CharacterAnimator>();
                 _stations = FindAnyObjectByType<ArenaStations>();
             }
         }
@@ -206,6 +208,8 @@ namespace Rokkan.Prophecy.Presentation
             if (_director != null)
             {
                 _text.AppendLine();
+                AppendBodyState();
+
                 _text.AppendLine($"targets  {_director.Hurtboxes.Count} live" +
                                  $"   in the air {_director.Projectiles.Count}");
 
@@ -307,6 +311,38 @@ namespace Rokkan.Prophecy.Presentation
         /// One cell per authored tick: phases on the top row, windows on the bottom, playhead
         /// through both. This is the frame data, drawn.
         /// </summary>
+        /// <summary>
+        /// What the body is doing, and what it was doing before that.
+        ///
+        /// <para>The history is the useful half. A pose that is wrong for one or two frames cannot
+        /// be caught by pausing and cannot fail a test — but it leaves a trace here, and a state
+        /// that lasted 0.02 s between two that lasted a second is unmistakable once written down.</para>
+        /// </summary>
+        private void AppendBodyState()
+        {
+            if (_animator == null) return;
+
+            _text.Append($"body     <b>{_animator.Current}</b>");
+
+            var history = _animator.History;
+            if (history != null && history.Count > 0)
+            {
+                _text.Append("   was:");
+
+                int shown = Mathf.Min(4, history.Count);
+                for (int i = 0; i < shown; i++)
+                {
+                    // Flag anything that lasted less than about two frames at 60 fps — that is the
+                    // shape of a flicker, and it is the thing being hunted.
+                    bool blink = history[i].Seconds < 0.034f;
+                    string mark = blink ? "!" : "";
+                    _text.Append($" {mark}{history[i].State}({history[i].Seconds * 1000f:F0}ms)");
+                }
+            }
+
+            _text.AppendLine();
+        }
+
         private void DrawTimelineStrip(Rect area)
         {
             var definition = _attack.Current;

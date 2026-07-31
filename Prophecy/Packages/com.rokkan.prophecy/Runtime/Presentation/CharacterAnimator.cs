@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Rokkan.Animation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
@@ -58,6 +59,22 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>The state showing right now. For the overlay and for tests.</summary>
         public BodyState Current => _current;
 
+        /// <summary>
+        /// The last few states, newest first, with how long each lasted in seconds.
+        ///
+        /// <para>Here because a one-or-two-frame wrong pose is invisible to every other kind of
+        /// check: it does not throw, no test fails, and it is gone before you can pause. Seeing the
+        /// sequence written down is the difference between diagnosing it and guessing at it.</para>
+        /// </summary>
+        public IReadOnlyList<(BodyState State, float Seconds)> History => _history;
+
+        private readonly List<(BodyState State, float Seconds)> _history =
+            new List<(BodyState, float)>();
+
+        private const int HistoryLength = 8;
+
+        private float _currentSeconds;
+
         private void Awake()
         {
             if (_host == null) _host = GetComponentInParent<PlayerCharacterHost>();
@@ -86,7 +103,19 @@ namespace Rokkan.Prophecy.Presentation
             _started = true;
 
             _animation.PlayState(entry.Clip, entry.Loop, speed, blend);
-            _current = next;
+
+            if (next != _current)
+            {
+                _history.Insert(0, (_current, _currentSeconds));
+                if (_history.Count > HistoryLength) _history.RemoveAt(_history.Count - 1);
+
+                _currentSeconds = 0f;
+                _current = next;
+            }
+            else
+            {
+                _currentSeconds += Time.deltaTime;
+            }
         }
 
         /// <summary>
