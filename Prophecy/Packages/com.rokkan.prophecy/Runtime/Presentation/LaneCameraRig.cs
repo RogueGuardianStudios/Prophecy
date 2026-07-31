@@ -81,10 +81,15 @@ namespace Rokkan.Prophecy.Presentation
         private float _fallLookRamp = 0.4f;
 
         [Header("Dead zone & damping")]
-        [SerializeField, Tooltip("Lanes the player may move vertically before the camera follows. " +
-                                 "Above jump apex (0.70 lane) means a jump moves the frame not at all, " +
-                                 "while a sustained climb still pushes past it.")]
-        private float _verticalDeadZoneLanes = 0.8f;
+        [SerializeField, Tooltip("Vertical dead zone, as a multiple of JUMP HEIGHT. Anything above " +
+                                 "1.0 means an ordinary jump moves the frame not at all, while a " +
+                                 "sustained climb still pushes past it. Derived from the jump rather " +
+                                 "than authored in lanes or in screen fractions, because clearing the " +
+                                 "apex is the property this exists for — and it is the only one of " +
+                                 "the three that stays true when either the jump or the framing is " +
+                                 "retuned.")]
+        [Range(1f, 2f)]
+        private float _verticalDeadZoneJumps = 1.1f;
 
         [SerializeField, Tooltip("Horizontal dead zone as a fraction of screen WIDTH. In screen units " +
                                  "rather than lanes because the visible width changes with aspect ratio, " +
@@ -157,6 +162,24 @@ namespace Rokkan.Prophecy.Presentation
 
         /// <summary>How many lanes that works out to. Derived — for the gizmo and for diagnostics.</summary>
         public float VisibleLanes => LaneHeight <= 0f ? 0f : VisibleHeight / LaneHeight;
+
+        /// <summary>Jump apex height in metres, from tuning.</summary>
+        public float JumpHeight => _tuning != null ? _tuning.Data.JumpHeight : 2.4f;
+
+        /// <summary>
+        /// Vertical dead zone in metres — how far the body may drift before the frame follows.
+        ///
+        /// <para><b>Measured in jumps, and that is the whole point.</b> It was authored in lanes,
+        /// which was fine only while the viewport was also authored in lanes. Once framing became
+        /// a share of the character, the two units drifted: the same 2.88 m dead zone went from a
+        /// fifth of the frame to a third, and the obvious correction — restore the old fifth —
+        /// would have put it at 1.8 m, below the 2.4 m apex, so every hop would have started
+        /// shoving the camera.</para>
+        ///
+        /// <para>Clearing the apex is the property the number was chosen for. Deriving it from the
+        /// jump keeps that true through any retune of either the jump or the frame.</para>
+        /// </summary>
+        public float VerticalDeadZone => JumpHeight * _verticalDeadZoneJumps;
 
         /// <summary>
         /// Distance needed to frame <see cref="VisibleHeight"/> at <see cref="_fieldOfView"/>.
@@ -242,7 +265,7 @@ namespace Rokkan.Prophecy.Presentation
             composition.DeadZone.Enabled = true;
             composition.DeadZone.Size = new Vector2(
                 _horizontalDeadZone,
-                VisibleHeight <= 0f ? 0.2f : Mathf.Clamp01(2f * _verticalDeadZoneLanes * LaneHeight / VisibleHeight));
+                VisibleHeight <= 0f ? 0.2f : Mathf.Clamp01(2f * VerticalDeadZone / VisibleHeight));
 
             _composer.Composition = composition;
             _composer.Damping = new Vector3(_dampingHorizontal, _dampingVertical, _dampingHorizontal);
