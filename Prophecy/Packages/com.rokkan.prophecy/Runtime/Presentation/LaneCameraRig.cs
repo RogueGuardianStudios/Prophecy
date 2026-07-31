@@ -16,11 +16,13 @@ namespace Rokkan.Prophecy.Presentation
     /// see" stops being an emergent property of a distance and a field of view that were each
     /// picked for other reasons.</para>
     ///
-    /// <para><b>The half-lane offsets are the point.</b> Four lanes fit the viewport, arranged as
-    /// half / whole / whole / whole / half, so a player on the ground floor stands half a lane
-    /// above the bottom edge. A whole lane of dead space beneath the floor — which is what a
-    /// naively centred camera gives — is a quarter of the screen showing nothing, and reads as
-    /// the character having sunk.</para>
+    /// <para><b>The frame is sized by the character, not by a lane count.</b> It was four lanes
+    /// once, which was a number you had to do arithmetic on before you knew the thing that
+    /// actually matters — and it only held for one set of tuning, since retuning the body or the
+    /// lane silently resized the character on screen. Now the share is authored and the height
+    /// derived, so the character reads the same through any retune. The feet still sit below
+    /// centre: a naively centred camera spends a quarter of the screen on void beneath the floor,
+    /// which reads as the character having sunk.</para>
     ///
     /// <para><b>Cinemachine does the work; this decides the numbers.</b> Position Composer handles
     /// dead zone, damping and screen placement, and — importantly — it only ever <i>positions</i>
@@ -97,8 +99,15 @@ namespace Rokkan.Prophecy.Presentation
         [Range(0f, 0.5f)]
         private float _horizontalDeadZone = 0.06f;
 
-        [SerializeField] private float _dampingHorizontal = 0.35f;
-        [SerializeField] private float _dampingVertical = 0.6f;
+        [SerializeField, Tooltip("Seconds for the camera to close a horizontal gap.")]
+        private float _dampingHorizontal = 0.35f;
+
+        [SerializeField, Tooltip("Seconds for the camera to close a vertical gap. Cut from 0.6 when " +
+                                 "framing moved to a 20% character share: damping is a TIME, so it " +
+                                 "did not change, but the frame shrank 14.4 m -> 9 m and the same " +
+                                 "lag in metres became 1.6x larger a share of the screen. Scaled by " +
+                                 "the same 1.6 to hold the apparent responsiveness.")]
+        private float _dampingVertical = 0.375f;
 
         [SerializeField, Tooltip("Quantise vertical framing to whole lanes, so the frame steps " +
                                  "floor by floor instead of drifting. A distinct look — try both.")]

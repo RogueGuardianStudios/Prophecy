@@ -43,8 +43,17 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Speed at or above which a walk becomes a run, in m/s.")]
         private float _runThreshold = BodyStateResolver.DefaultRunThreshold;
 
+        [SerializeField, Tooltip("How long the landing pose is held after touchdown, in seconds. " +
+                                 "The sim's LandedThisTick is true for exactly one tick — 16 ms — " +
+                                 "which is less than a single frame at 60 fps. Passed straight " +
+                                 "through, a half-second landing clip got one frame of screen time " +
+                                 "and read as a flicker rather than as a landing. Short enough that " +
+                                 "running out of a landing does not skate.")]
+        private float _landHoldSeconds = 0.18f;
+
         private BodyState _current = BodyState.Idle;
         private bool _started;
+        private float _landHold;
 
         /// <summary>The state showing right now. For the overlay and for tests.</summary>
         public BodyState Current => _current;
@@ -58,6 +67,11 @@ namespace Rokkan.Prophecy.Presentation
         private void Update()
         {
             if (_host == null || _host.Sim == null || _set == null || _animation == null) return;
+
+            // Latch the landing here rather than in the resolver, which stays a pure function of
+            // its inputs. How long a pose lingers is a presentation question anyway.
+            if (_host.Sim.State.LandedThisTick) _landHold = _landHoldSeconds;
+            else _landHold = Mathf.Max(0f, _landHold - Time.deltaTime);
 
             var inputs = Gather(_host.Sim);
             var next = BodyStateResolver.Resolve(in inputs);
@@ -115,7 +129,7 @@ namespace Rokkan.Prophecy.Presentation
                     ? attack.Current.Id
                     : null,
 
-                LandedThisTick = state.LandedThisTick,
+                LandedThisTick = _landHold > 0f,
                 RunThreshold = _runThreshold,
                 MoveThreshold = _moveThreshold,
             };
