@@ -13,33 +13,46 @@ visible hole rather than an oversight.
 
 ---
 
-## 1. The blocker: the Hero has no skeleton
+## 1. The Hero rig — cleared 2026-07-31
 
-`Assets/MeshyImports/T-Pose Figure_20260731_102144/Meshy_AI_T_Pose_Figure_0731142135_texture.fbx`
-is an **unrigged static mesh**. It contains no bones, no skin weights and no bind pose:
+**Current asset:** `Assets/MeshyImports/T-Pose Figure_20260731_110125/Meshy_AI_T_Pose_Figure_biped_Character_output.fbx`
 
-| Probe | Hero | A rigged Meshy export, for comparison |
-|---|---|---|
-| `Deformer` | 0 | 26 |
-| `Cluster` (skin clusters) | 0 | 24 |
-| `LimbNode` (bones) | 0 | 48 |
-| `BindPose` | 0 | 1 |
-| `Hips` / `Spine` | 0 / 0 | 3 / 9 |
+The first export (`…_102144`) was an unrigged static mesh — zero deformers, zero bones, no bind
+pose — and nothing on this list could have been applied to it. The re-export is rigged and set up
+correctly:
 
-The comparison column is `MeshyImports/Emerald Guardian_20260721_095650/…_withSkin.fbx`, which
-proves the probe finds a skeleton when there is one. Unity agrees: the importer recorded
-`internalIDToNameTable: []` and `clipAnimations: []`, and the asset is set to `animationType: 2`
-(Generic) with `avatarSetup: 0` (no avatar).
+| Check | Result |
+|---|---|
+| Skin clusters / bones / bind pose | 24 / 48 / 1 — matches a known-good Meshy rig exactly |
+| Import rig type | `animationType: 3` (**Humanoid**), `avatarSetup: 1` (create from this model) |
+| Rig import errors | none |
+| All 15 required humanoid bones | present |
 
-**Nothing on this list can be applied to that file.** Skinned animation needs bones to move. The
-fix is upstream of Unity — re-export the Hero from Meshy with rigging enabled (the "withSkin"
-naming on the older export shows the feature has been used before), then set the importer to
-**Humanoid**, not Generic.
+Bone naming is the Mixamo/Maya convention, which Unity's auto-mapper resolves natively:
 
-**Humanoid is not optional if the clips are coming from Synty.** Humanoid is the abstraction that
-lets a clip authored on one skeleton drive a different one. Generic rigs only play clips authored
-on their own exact bone hierarchy, so a Generic Hero can play nothing but animations made
-specifically for it.
+```
+Hips · Spine · Spine01 · Spine02 · Neck · Head
+LeftShoulder · LeftArm · LeftForeArm · LeftHand        (+ Right)
+LeftUpLeg    · LeftLeg · LeftFoot    · LeftToeBase     (+ Right)
+```
+
+`Spine01`/`Spine02` map to Chest and UpperChest; shoulders, neck and toes are optional bones that
+happen to be there, which is better than the minimum.
+
+**Being Humanoid is the part that matters**, and not only for this mesh. Humanoid is the
+abstraction that lets a clip authored on one skeleton drive a different one, so it is what makes
+the Synty library usable at all — a Generic rig could only ever play clips authored on its own
+exact hierarchy. The first export was Generic; this one is not.
+
+**One caveat, stated plainly:** the evidence above is the importer's configuration and the
+skeleton's contents. The proof is a retargeted clip actually playing on the body without limbs
+folding, and that cannot be run until there are clips (§3). Expect to spend a pass in
+**Configure → Muscles & Settings** regardless — auto-mapped avatars routinely need shoulder and
+elbow limits nudged, and an AI-generated mesh is likelier than a hand-rigged one to have an
+off-axis joint.
+
+One harmless import warning to ignore: the FBX carries an empty placeholder clip
+(`Armature|Armature|clip0|baselayer`, 0 frames). It is Meshy's export scaffolding, not a rig fault.
 
 ---
 
@@ -155,6 +168,6 @@ strafe sets for a camera-relative 3D controller, and Prophecy moves along one ax
   mappings are self-evident on sight and the orderings are not.
 
 **Still to build:** the `MonoBehaviour` that reads a `CharacterSim` each frame, fills
-`BodyStateInputs`, and drives the injector — deliberately left until there is a rigged mesh to
-prove it against, because it is the one piece whose correctness is a picture rather than an
-assertion.
+`BodyStateInputs`, and drives the injector. It was left until there was a rigged mesh to prove it
+against, because it is the one piece whose correctness is a picture rather than an assertion —
+the rig now exists, so the only thing still in its way is having clips to play (§3).
