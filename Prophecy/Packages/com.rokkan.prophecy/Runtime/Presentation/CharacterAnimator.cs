@@ -102,6 +102,9 @@ namespace Rokkan.Prophecy.Presentation
             float blend = _started ? _set.BlendSeconds : 0f;
             _started = true;
 
+#if UNITY_EDITOR
+            _lastSpeedMultiplier = speed;
+#endif
             _animation.PlayState(entry.Clip, entry.Loop, speed, blend);
 
             if (next != _current)
@@ -119,6 +122,12 @@ namespace Rokkan.Prophecy.Presentation
             {
                 _currentSeconds += Time.deltaTime;
             }
+
+#if UNITY_EDITOR
+            // Remembered AFTER the transition is recorded, so the next one is judged against the
+            // frame its state actually lived in.
+            _wasGrounded = inputs.Grounded;
+#endif
         }
 
 
@@ -139,7 +148,15 @@ namespace Rokkan.Prophecy.Presentation
 
         private readonly List<string> _log = new List<string>();
         private int _flickerCount;
-        private int _fallWhileGroundedCount;
+        private int _impossibleCount;
+        private int _interruptedCount;
+
+        // The previous frame's context. The first version of this log compared the OUTGOING state
+        // against the INCOMING frame's inputs and duly reported six impossible transitions, all of
+        // which were just "we were falling, we have now landed". Judging a state needs the frame it
+        // was actually in.
+        private bool _wasGrounded;
+        private float _lastSpeedMultiplier = 1f;
 
         private static string LogPath => System.IO.Path.Combine(
             System.IO.Directory.GetParent(Application.dataPath)!.FullName, "Logs", "body-state-log.txt");
@@ -155,19 +172,27 @@ namespace Rokkan.Prophecy.Presentation
             // The question the whole log exists to answer. While grounded the resolver cannot
             // return Fall, so if this ever counts above zero the fault is in the simulation's
             // Grounded flag and not in the animation at all.
-            bool impossible = from == BodyState.Fall && inputs.Grounded;
-            if (impossible) _fallWhileGroundedCount++;
+            bool impossible = from == BodyState.Fall && _wasGrounded;
+            if (impossible) _impossibleCount++;
+
+            // blend tells us what the graph had to do. "Replaced" is the only one that destroys a
+            // clip that was still visible, so it is the one that can pop.
+            var blend = _animation.LastAction;
+            bool interrupted = blend == AnimationSystem.BlendAction.Replaced;
+            if (interrupted) _interruptedCount++;
 
             _log.Add(string.Format(
                 "{0,6} {1,-14} {2,7:F1}ms -> {3,-14} grounded={4,-5} vel=({5,6:F2},{6,6:F2}) " +
-                "facing={7,2} stance={8,-6} attach={9}{10}{11}",
+                "facing={7,2} stance={8,-6} speed={9,5:F2} blend={10,-9} w={11,4:F2}{12}{13}{14}",
                 Time.frameCount, from, seconds * 1000f, to, inputs.Grounded,
                 inputs.Velocity.x, inputs.Velocity.y,
-                _host.Sim.State.Facing, inputs.Stance, inputs.Attachment,
+                _host.Sim.State.Facing, inputs.Stance,
+                _lastSpeedMultiplier, blend, _animation.StateWeight,
                 flicker ? "  <-- FLICKER" : "",
-                impossible ? "  <-- FALL WHILE GROUNDED" : ""));
+                impossible ? "  <-- FALL WHILE GROUNDED" : "",
+                interrupted ? "  <-- INTERRUPTED BLEND" : ""));
 
-            if (flicker || impossible) Flush();
+            if (flicker || impossible || interrupted) Flush();
         }
 
         private void OnDisable()
@@ -181,8 +206,10 @@ namespace Rokkan.Prophecy.Presentation
             text.AppendLine("Prophecy body-state log");
             text.AppendLine($"transitions : {_log.Count}");
             text.AppendLine($"flickers    : {_flickerCount}  (state shorter than {_flickerSeconds * 1000f:F0}ms)");
-            text.AppendLine($"impossible  : {_fallWhileGroundedCount}  (Fall resolved while grounded — " +
+            text.AppendLine($"impossible  : {_impossibleCount}  (Fall held across a grounded frame — " +
                             "non-zero means the sim's Grounded is flickering, not the animation)");
+            text.AppendLine($"interrupted : {_interruptedCount}  (a blend was cut short and a visible " +
+                            "clip had to be destroyed — this is what can pop)");
             text.AppendLine();
             text.AppendLine(" frame state              held    next           context");
             text.AppendLine(new string('-', 118));
