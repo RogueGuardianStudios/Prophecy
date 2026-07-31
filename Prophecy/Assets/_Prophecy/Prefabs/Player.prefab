@@ -125,7 +125,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7136474489844759871}
-  - {fileID: 5022847097114102091}
+  - {fileID: 8821898945785644505}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &308160872128486491
@@ -178,7 +178,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterView
   _host: {fileID: 308160872128486491}
-  _body: {fileID: 7136474489844759871}
+  _body: {fileID: 8821898945785644505}
   _turnSpeed: 900
   _resizeProxyOnCrouch: 0
   _resizeSmoothing: 0.06
@@ -224,10 +224,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterAnimator
   _host: {fileID: 308160872128486491}
   _set: {fileID: 11400000, guid: fa44520663e54dd4797f0705b9b08200, type: 2}
-  _animation: {fileID: 4242821085579799703}
+  _animation: {fileID: 2780685903315143615}
   _moveThreshold: 0.15
   _runThreshold: 4.5
---- !u!1001 &4773258908098358944
+--- !u!1001 &9072245420789277234
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -295,31 +295,30 @@ PrefabInstance:
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8111781155169087978, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 23f2e8dab304b914489b7889c8251d56, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4242821085579799703}
+      addedObject: {fileID: 2780685903315143615}
   m_SourcePrefab: {fileID: 100100000, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
---- !u!4 &5022847097114102091 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
-  m_PrefabInstance: {fileID: 4773258908098358944}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &5692387742477374449 stripped
+--- !u!1 &8153343767496236899 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
-  m_PrefabInstance: {fileID: 4773258908098358944}
+  m_PrefabInstance: {fileID: 9072245420789277234}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4242821085579799703
+--- !u!114 &2780685903315143615
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5692387742477374449}
+  m_GameObject: {fileID: 8153343767496236899}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 541f5a00690421a4d939c8b5ad41ca28, type: 3}
@@ -327,3 +326,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Animation::Rokkan.Animation.AnimationSystem
   _animator: {fileID: 0}
   _blendSeconds: 0.08
+--- !u!4 &8821898945785644505 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+  m_PrefabInstance: {fileID: 9072245420789277234}
+  m_PrefabAsset: {fileID: 0}
