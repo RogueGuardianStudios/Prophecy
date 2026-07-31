@@ -198,7 +198,8 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             var state = sim.State;
             var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
-                                             state.Facing, state.Team);
+                                             state.Facing, state.Team,
+                                             sim.Stats.DamageScale);
 
             // No cover query: the blade is directly underfoot, and a wall between the character and
             // a target they are standing on top of is not a situation the geometry can produce.

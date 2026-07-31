@@ -69,20 +69,34 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// <summary>-1 or +1. Mirrors hit volume offsets and rotations.</summary>
         public readonly int Facing;
 
-        public Attacker(int id, Vector2 feet, Vector2 origin, int facing, int team = 0)
+        /// <summary>
+        /// Outgoing damage multiplier, from the attacker's Might.
+        ///
+        /// <para>Carried on the attacker rather than looked up when a hit lands, because by then
+        /// the swing may be over — an attack that connects on its last active tick would otherwise
+        /// read stats belonging to whatever the character is doing now. It travels with the swing,
+        /// like the facing does, and for the same reason.</para>
+        /// </summary>
+        public readonly float DamageScale;
+
+        public Attacker(int id, Vector2 feet, Vector2 origin, int facing, int team = 0,
+                        float damageScale = 1f)
         {
             Id = id;
             Team = team;
             Feet = feet;
             Origin = origin;
+            DamageScale = damageScale <= 0f ? 1f : damageScale;
             Facing = facing < 0 ? -1 : 1;
         }
 
         /// <summary>Build one from a character's feet and body size, tracing cover from the
         /// midpoint of the body.</summary>
-        public static Attacker FromBody(int id, Vector2 feet, Vector2 bodySize, int facing, int team = 0)
+        public static Attacker FromBody(int id, Vector2 feet, Vector2 bodySize, int facing,
+                                        int team = 0, float damageScale = 1f)
         {
-            return new Attacker(id, feet, new Vector2(feet.x, feet.y + bodySize.y * 0.5f), facing, team);
+            return new Attacker(id, feet, new Vector2(feet.x, feet.y + bodySize.y * 0.5f),
+                                facing, team, damageScale);
         }
     }
 }

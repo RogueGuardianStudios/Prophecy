@@ -258,6 +258,23 @@ Added this session:
 
 ---
 
+### Added 2026-07-31, stats
+
+26. **Three stats, not six, and they are levels rather than scores.** Might, Flame, Heart from
+    design bible §6.2, each 1..8, with what a level is *worth* derived through `StatTuningData`.
+    A save holds "Heart 4", never "max health 220", so retuning reaches existing saves.
+27. **Stat modifiers apply in fixed stages, never in arrival order.**
+    `(base + flats) × (1 + percents) + finals`. Every operation within a stage commutes, so two
+    machines with the same modifiers compute the same number whatever order they were picked up
+    in. HopeFell's applies through a multicast event in subscription order and has a latent
+    ordering bug because of it — see `MIGRATION-HopeFell.md`.
+28. **Stat durations are absolute ticks.** Same reason as every other window in the project: a
+    wall-clock buff lasts a different number of ticks at 30 fps than at 144.
+29. **Levelling Heart grants headroom, not health.** A level-up mid-fight would otherwise be an
+    emergency heal, which turns progression into a combat resource.
+
+---
+
 ## 4. Traps already hit — do not rediscover
 
 Carried forward, still true: **both `.gitignore` files are required**; **tests in `file:` packages
@@ -379,8 +396,9 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    worth revisiting if a second unbounded volume ever appears.
 3. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
 4. **No overworld scene exists yet.**
-5. **`AttackModule.Modifiers` is settable but nothing feeds it.** No gear system exists, so every
-   scalable window currently resolves at its authored length. The seam is there; the source is not.
+5. **`AttackModule.Modifiers` is settable but nothing feeds it.** Stats now exist and drive damage
+   and max health, but not yet the *window* scales — `IFrameScale`, `ParryScale`, `CancelScale`
+   still resolve at 1. Those are gear's job rather than a stat's, and no gear exists.
 6. **`Interact` produces a request and a probe box that nothing consumes.**
 7. **F1 and F2 overlays ship visible**, gray-box loadout has everything on — release checklist.
 8. **Hit geometry is deterministic within an architecture, unproven across.** `HitResolver` is

@@ -130,7 +130,8 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 if (definition.Spawns[i].Projectile == null) continue;
 
                 var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
-                                                 state.Facing, state.Team);
+                                             state.Facing, state.Team,
+                                             sim.Stats.DamageScale);
 
                 sim.CombatWorld.Spawn(definition.Spawns[i].Projectile, attacker);
             }
@@ -196,7 +197,8 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             var state = sim.State;
             var attacker = Attacker.FromBody(state.CombatId, state.Position, state.BodySize,
-                                             state.Facing, state.Team);
+                                             state.Facing, state.Team,
+                                             sim.Stats.DamageScale);
 
             var definition = _runner.Current;
             string attackId = definition != null ? definition.Id : null;

@@ -42,6 +42,19 @@ namespace Rokkan.Prophecy.Sim
         public Vitals Vitals { get; } = new Vitals();
 
         /// <summary>
+        /// Might, Flame and Heart, and everything modifying them. Design bible §6.2.
+        ///
+        /// <para>On the sim rather than beside it, because damage dealt and health carried are
+        /// both simulation outcomes. Presentation may read it; nothing in presentation writes it.</para>
+        /// </summary>
+        public Stats.StatBlock Stats { get; } = new Stats.StatBlock();
+
+        // Max health is derived from Heart, so it is re-applied when the derivation could have
+        // changed rather than every tick — recomputing constantly would fight anything that
+        // deliberately sets MaxHealth, and would hide that this is a derived number.
+        private int _healthFromHeart = -1;
+
+        /// <summary>
         /// Ticks of stun an <i>unanswered</i> hit costs. Stamped from tuning when the character is
         /// built, the same way <see cref="Vitals.MaxHealth"/> is.
         ///
@@ -267,9 +280,30 @@ namespace Rokkan.Prophecy.Sim
 
         // ---------------------------------------------------------------- tick
 
+        /// <summary>
+        /// Keep <see cref="Vitals.MaxHealth"/> equal to what Heart says it should be.
+        ///
+        /// <para><b>Raising the cap does not heal.</b> Levelling Heart mid-fight grants headroom,
+        /// not health — the alternative makes a level-up an emergency heal and turns the
+        /// progression into a combat resource. Zelda II gave you the full bar on level-up because
+        /// it levelled you out of combat; this can happen at any time, so the choice matters.</para>
+        /// </summary>
+        private void SyncMaxHealthToHeart()
+        {
+            int wanted = Stats.MaxHealth;
+            if (wanted == _healthFromHeart) return;
+
+            _healthFromHeart = wanted;
+            Vitals.MaxHealth = wanted;
+        }
+
         public void Tick(in SimTickInfo info)
         {
             CurrentTick = info.Tick;
+
+            // Once a tick, before anything reads a stat, so every read within the tick agrees.
+            Stats.PruneExpired(info.Tick);
+            SyncMaxHealthToHeart();
 
             State.HitWallThisTick = false;
             State.HitCeilingThisTick = false;
