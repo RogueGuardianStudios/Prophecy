@@ -153,8 +153,8 @@ MonoBehaviour:
   _tuning: {fileID: 11400000, guid: e3e31b26c0e3f2b49b09c30e5226b71e, type: 2}
   _host: {fileID: 6710946903416866677}
   _followTarget: {fileID: 1321647750}
-  _visibleLanes: 4
-  _lanesBelowFeet: 1.5
+  _characterViewportShare: 0.2
+  _feetViewportY: 0.375
   _fieldOfView: 28
   _lookAheadLanesAtRun: 1
   _lookAheadSmoothTime: 0.45

@@ -42,16 +42,19 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("The transform Cinemachine follows. Driven by this component.")]
         private Transform _followTarget;
 
-        [Header("Framing, in lanes")]
-        [SerializeField, Tooltip("Lanes of world height the viewport spans.")]
-        [Range(1f, 10f)]
-        private float _visibleLanes = 4f;
+        [Header("Framing")]
+        [SerializeField, Tooltip("How much of the viewport's height the standing character fills. " +
+                                 "THIS is the framing decision — everything else about the frame is " +
+                                 "derived from it, so the character reads the same size however the " +
+                                 "body or the lane height is retuned.")]
+        [Range(0.05f, 0.5f)]
+        private float _characterViewportShare = 0.2f;
 
-        [SerializeField, Tooltip("Where the player sits when the camera is free: lanes of space below " +
-                                 "their feet. 1.5 = the centre lane (half lane + one full), so the body " +
-                                 "straddles screen centre. Level bounds may push them off this.")]
-        [Range(0f, 4f)]
-        private float _lanesBelowFeet = 1.5f;
+        [SerializeField, Tooltip("Where the feet sit vertically. 0 = bottom edge, 1 = top. Below " +
+                                 "centre on purpose: in a platformer the space that matters is above " +
+                                 "you, because that is where you are jumping to.")]
+        [Range(0f, 1f)]
+        private float _feetViewportY = 0.375f;
 
         [SerializeField, Tooltip("Long lens. Distance is derived from this and the visible height.")]
         [Range(10f, 70f)]
@@ -132,8 +135,28 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Floor-to-floor lane height in metres, from tuning.</summary>
         public float LaneHeight => _tuning != null ? _tuning.Data.LaneHeight : 3.6f;
 
-        /// <summary>World height the viewport spans.</summary>
-        public float VisibleHeight => LaneHeight * _visibleLanes;
+        /// <summary>Standing body height in metres, from tuning. What the frame is sized against.</summary>
+        public float StandHeight => _tuning != null ? _tuning.Data.StandHeight : 1.8f;
+
+        /// <summary>
+        /// World height the viewport spans, derived from how big the character should read.
+        ///
+        /// <para><b>This used to be authored as a lane count, and that was the wrong way round.</b>
+        /// "Four lanes" is a number you have to do arithmetic on before you know the thing you
+        /// actually care about — a 1.8 m body in 14.4 m of view is 12.5% of the screen, which
+        /// nobody could see from the field. Worse, it was only true for one set of tuning: retune
+        /// <c>StandHeight</c> or <c>LaneHeightMultiplier</c> and the character silently changes
+        /// size on screen while the camera settings look untouched.</para>
+        ///
+        /// <para>Stating the share and deriving the height inverts that. The character reads the
+        /// same however the body and the lane are retuned, and the number in the inspector is the
+        /// one a designer would actually ask for.</para>
+        /// </summary>
+        public float VisibleHeight =>
+            _characterViewportShare <= 0.0001f ? LaneHeight * 4f : StandHeight / _characterViewportShare;
+
+        /// <summary>How many lanes that works out to. Derived — for the gizmo and for diagnostics.</summary>
+        public float VisibleLanes => LaneHeight <= 0f ? 0f : VisibleHeight / LaneHeight;
 
         /// <summary>
         /// Distance needed to frame <see cref="VisibleHeight"/> at <see cref="_fieldOfView"/>.
@@ -144,7 +167,7 @@ namespace Rokkan.Prophecy.Presentation
             VisibleHeight / (2f * Mathf.Tan(_fieldOfView * 0.5f * Mathf.Deg2Rad));
 
         /// <summary>Where the player's feet sit vertically, 0 = bottom edge, 1 = top.</summary>
-        public float FeetViewportY => _visibleLanes <= 0f ? 0.5f : _lanesBelowFeet / _visibleLanes;
+        public float FeetViewportY => Mathf.Clamp01(_feetViewportY);
 
         /// <summary>
         /// How far above the feet the followed point sits, in metres.
@@ -361,7 +384,7 @@ namespace Rokkan.Prophecy.Presentation
             var centre = _followTarget != null ? _followTarget.position : transform.position;
             float bottom = centre.y - FeetViewportY * VisibleHeight;
 
-            for (int i = 0; i <= Mathf.CeilToInt(_visibleLanes); i++)
+            for (int i = 0; i <= Mathf.CeilToInt(VisibleLanes); i++)
             {
                 Gizmos.color = i == 0 ? new Color(1f, 1f, 1f, 0.5f) : new Color(0.4f, 0.8f, 1f, 0.35f);
                 var y = bottom + i * lane;
