@@ -92,7 +92,7 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
-        public void LandingIsEdgeTriggeredAndBeatsTheIdleItResolvesInto()
+        public void LandingAtAStandstillBeatsTheIdleItResolvesInto()
         {
             var input = Standing();
             input.LandedThisTick = true;
@@ -100,7 +100,37 @@ namespace Rokkan.Prophecy.Tests
             Assert.AreEqual(BodyState.Land, Resolve(input));
 
             input.LandedThisTick = false;
-            Assert.AreEqual(BodyState.Idle, Resolve(input), "and it lasts exactly one tick");
+            Assert.AreEqual(BodyState.Idle, Resolve(input), "and it ends when the landing does");
+        }
+
+        [Test]
+        public void LandingWhileStillMovingGoesStraightToTheGait()
+        {
+            // The clips are Land_Idle* — landings into a standstill, with no running equivalent in
+            // the pack. Held over a body still travelling they settle the feet while the character
+            // keeps moving, which is a skate. Landing out of a run must show the run.
+            var input = Standing();
+            input.LandedThisTick = true;
+
+            input.Velocity = new Vector2(1.5f, 0f);
+            Assert.AreEqual(BodyState.Walk, Resolve(input), "a landing must not stop a walk");
+
+            input.Velocity = new Vector2(input.RunThreshold + 1f, 0f);
+            Assert.AreEqual(BodyState.Run, Resolve(input), "nor a run");
+        }
+
+        [Test]
+        public void ALandingInterruptedByMovingEndsImmediately()
+        {
+            // The landing pose is held for a moment after touchdown, so pressing a direction
+            // during it has to cut it short rather than wait the hold out.
+            var input = Standing();
+            input.LandedThisTick = true;
+
+            Assert.AreEqual(BodyState.Land, Resolve(input));
+
+            input.Velocity = new Vector2(2f, 0f);
+            Assert.AreEqual(BodyState.Walk, Resolve(input));
         }
 
         [Test]

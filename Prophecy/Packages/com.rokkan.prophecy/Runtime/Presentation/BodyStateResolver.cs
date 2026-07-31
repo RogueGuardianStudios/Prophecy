@@ -106,12 +106,20 @@ namespace Rokkan.Prophecy.Presentation
                 return input.Velocity.y > 0f ? BodyState.JumpRise : BodyState.Fall;
             }
 
-            // 7. Grounded. The landing is edge-triggered off the sim's own one-tick flag rather
-            //    than inferred from velocity, so it cannot double-fire on a bumpy floor.
-            if (input.LandedThisTick) return BodyState.Land;
-
+            // 7. Grounded.
             float speed = Mathf.Abs(input.Velocity.x);
             bool moving = speed > input.MoveThreshold;
+
+            // The landing, edge-triggered off the sim's own one-tick flag rather than inferred
+            // from velocity so it cannot double-fire on a bumpy floor — and only when the body has
+            // actually come to rest.
+            //
+            // <b>Because the clips are landings into a standstill.</b> Synty names them
+            // Land_Idle* and ships no running equivalent, so holding one over a body still
+            // travelling at 4 m/s settles the feet while the character keeps moving: a skate. It
+            // is not a matter of holding it for less time either — someone running does not stop
+            // to land, they land mid-stride, and the run cycle already depicts that.
+            if (input.LandedThisTick && !moving) return BodyState.Land;
 
             if (input.Stance == Stance.Crouch)
                 return moving ? BodyState.CrouchWalk : BodyState.CrouchIdle;

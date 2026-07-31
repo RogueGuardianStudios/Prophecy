@@ -83,9 +83,9 @@ assuming any of it can be used.
 
 | `BodyState` | P | Loop | Synty | Notes |
 |---|---|---|---|---|
-| `JumpRise` | P0 | ✅ | ✅ `A_Jump_*` | Split at the apex — one "air" clip reads as floating |
+| `JumpRise` | P0 | ✅ | ✅ `A_Jump_Idle_Masc` | Split at the apex — one "air" clip reads as floating. **Gap:** the pack also has `A_Jump_{Walking,Running,Sprinting}` and only the standing one is mapped, so a sprinting jump currently shows a standing leap |
 | `Fall` | P0 | ✅ | ✅ `A_InAir_Fall*` | |
-| `Land` | P0 | ✗ | ✅ `A_Land_Idle{Soft,Medium,Hard}` | Edge-triggered off `LandedThisTick`, one tick |
+| `Land` | P0 | ✗ | ✅ `A_Land_Idle{Soft,Medium,Hard}` | **Only when stopping.** Every clip in the pack is a landing *into idle* and there is no running equivalent, so landing out of a run shows the run |
 | `WallSlide` | P1 | ✅ | ❌ **none** | Zero matches in either pack |
 | `WallJump` | P1 | ✗ | ⚠️ | Reuse `JumpRise` mirrored until authored |
 | `LedgeHang` | P1 | ✅ | ❌ **none** | |
