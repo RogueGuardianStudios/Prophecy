@@ -54,6 +54,38 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// </summary>
         public int Id;
 
+        /// <summary>
+        /// What effect this <i>is</i>, for stacking. Zero means "does not stack-manage" — every
+        /// application is independent.
+        ///
+        /// <para><b>Distinct from both other ids, and it has to be.</b> <see cref="SourceId"/> is
+        /// which thing granted it and <see cref="Id"/> is this exact instance; neither answers "is
+        /// this the same poison". Two rings of +1 Might should give +2, while two applications of
+        /// one poison should not — and that difference is the whole of stacking.</para>
+        ///
+        /// <para>Zero by default, so gear keeps adding up and only things that opt in are
+        /// managed.</para>
+        /// </summary>
+        public int StackKey;
+
+        /// <summary>
+        /// How many instances of this <see cref="StackKey"/> may coexist. Zero or less means one,
+        /// because a debuff that silently stacked to infinity is the worse default.
+        /// </summary>
+        public int MaxStacks;
+
+        /// <summary>Effective stack cap — at least one.</summary>
+        public int StackLimit => MaxStacks < 1 ? 1 : MaxStacks;
+
+        /// <summary>
+        /// Whether two modifiers are the same effect for stacking. Same key, same stat, same
+        /// stage — so one poison debuffing both Might and Heart manages each independently, and
+        /// "the strongest" always compares like with like.
+        /// </summary>
+        public bool SameEffectAs(in StatModifier other) =>
+            StackKey != 0 && StackKey == other.StackKey &&
+            Kind == other.Kind && Stage == other.Stage;
+
         public bool IsPermanent => ExpiresOnTick == Permanent;
 
         public bool IsActiveOn(long tick) => tick < ExpiresOnTick;

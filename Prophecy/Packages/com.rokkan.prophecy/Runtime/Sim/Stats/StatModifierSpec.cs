@@ -29,18 +29,33 @@ namespace Rokkan.Prophecy.Sim.Stats
                                  "PERMANENT, which is what worn gear and bound Protectors want.")]
         private int _durationTicks;
 
+        [SerializeField, Tooltip("Identifies the effect for stacking — every poison shares one " +
+                                 "key. LEAVE AT ZERO for gear and anything whose second copy is " +
+                                 "genuinely a second copy: two rings of +1 Might should give +2.")]
+        private int _stackKey;
+
+        [SerializeField, Tooltip("How many can coexist. Reapplying always refreshes the duration " +
+                                 "and always keeps the stronger value; this only decides whether a " +
+                                 "further instance is added. Zero or less means one.")]
+        private int _maxStacks;
+
         public StatKind Kind => _kind;
         public StatStage Stage => _stage;
         public float Value => _value;
         public int DurationTicks => _durationTicks;
+        public int StackKey => _stackKey;
+        public int MaxStacks => _maxStacks;
         public bool IsPermanent => _durationTicks <= 0;
 
-        public StatModifierSpec(StatKind kind, StatStage stage, float value, int durationTicks = 0)
+        public StatModifierSpec(StatKind kind, StatStage stage, float value, int durationTicks = 0,
+                                int stackKey = 0, int maxStacks = 0)
         {
             _kind = kind;
             _stage = stage;
             _value = value;
             _durationTicks = durationTicks;
+            _stackKey = stackKey;
+            _maxStacks = maxStacks;
         }
 
         /// <summary>
@@ -55,11 +70,14 @@ namespace Rokkan.Prophecy.Sim.Stats
                 ExpiresOnTick = IsPermanent ? StatModifier.Permanent : currentTick + _durationTicks,
                 SourceId = sourceId,
                 Id = id,
+                StackKey = _stackKey,
+                MaxStacks = _maxStacks,
             };
 
         public override string ToString() =>
             $"{_kind} {_stage} {_value:+0.##;-0.##}" +
-            (IsPermanent ? " permanent" : $" for {_durationTicks}t");
+            (IsPermanent ? " permanent" : $" for {_durationTicks}t") +
+            (_stackKey == 0 ? "" : $" stack:{_stackKey} x{(_maxStacks < 1 ? 1 : _maxStacks)}");
     }
 
     /// <summary>Turning a whole authored set into live modifiers — the equip case.</summary>

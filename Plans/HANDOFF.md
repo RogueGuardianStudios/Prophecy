@@ -273,6 +273,17 @@ Added this session:
 29. **Levelling Heart grants headroom, not health.** A level-up mid-fight would otherwise be an
     emergency heal, which turns progression into a combat resource.
 
+30. **Reapplying a debuff refreshes, upgrades, then caps — in that order.** Every instance in the
+    group takes the new expiry, the group is upgraded if the incoming is stronger by magnitude, and
+    a further instance is added only below the cap. Default cap is **one**. A weak reapplication
+    can therefore refresh a strong debuff but never dilute it, and a whole stack expires together
+    rather than drifting apart. Opt-in via `StatModifier.StackKey`; gear leaves it at zero so two
+    rings of +1 Might still give +2.
+31. **Damage over time is not built, and does not belong in stats.** A DOT applies damage rather
+    than modifying a stat, so it belongs beside `HitEvent` and the gate chain — otherwise a poison
+    tick would route around i-frames, block and parry. Deferred to the enemy pass, when whether it
+    is blockable is answerable rather than guessable.
+
 ### Stat parity audit vs HopeFell — 2026-08-02
 
 Every member of HopeFell's stats system, checked against Prophecy's. Three rows are deliberate

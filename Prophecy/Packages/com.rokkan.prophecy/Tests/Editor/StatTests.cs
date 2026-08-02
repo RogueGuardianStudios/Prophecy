@@ -15,6 +15,136 @@ namespace Rokkan.Prophecy.Tests
     {
         private static StatBlock Fresh() => new StatBlock();
 
+        // ---------------------------------------------------------------- stacking
+
+        private const int Poison = 900;
+
+        private static StatModifier PoisonDose(float value, long expires, int maxStacks = 0) =>
+            new StatModifier
+            {
+                Kind = StatKind.Might, Stage = StatStage.Flat, Value = value,
+                ExpiresOnTick = expires, StackKey = Poison, MaxStacks = maxStacks,
+            };
+
+        [Test]
+        public void ReapplyingRefreshesTheDuration()
+        {
+            var block = Fresh();
+            block.Apply(PoisonDose(-1f, expires: 100));
+            block.Apply(PoisonDose(-1f, expires: 500));
+
+            block.PruneExpired(200);
+
+            Assert.AreEqual(0f, block.Effective(StatKind.Might), 0.0001f,
+                "the refreshed dose should still be biting at tick 200");
+        }
+
+        [Test]
+        public void TheStrongerDoseWinsAndTheWeakerCannotDiluteIt()
+        {
+            // A trash mob's feeble poison must be able to refresh a boss's, never water it down.
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 6);
+
+            block.Apply(PoisonDose(-3f, expires: 100));
+            block.Apply(PoisonDose(-1f, expires: 500));
+
+            Assert.AreEqual(3f, block.Effective(StatKind.Might), 0.0001f, "6 - 3, not 6 - 1");
+        }
+
+        [Test]
+        public void AStrongerReapplicationUpgradesTheStack()
+        {
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 6);
+
+            block.Apply(PoisonDose(-1f, expires: 100));
+            block.Apply(PoisonDose(-3f, expires: 500));
+
+            Assert.AreEqual(3f, block.Effective(StatKind.Might), 0.0001f);
+        }
+
+        [Test]
+        public void TheDefaultStackLimitIsOne()
+        {
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 8);
+
+            var dose = PoisonDose(-1f, expires: 500);
+            block.Apply(dose);
+            block.Apply(dose);
+            block.Apply(dose);
+
+            Assert.AreEqual(1, block.StackCountOf(dose), "three doses, one stack");
+            Assert.AreEqual(7f, block.Effective(StatKind.Might), 0.0001f);
+        }
+
+        [Test]
+        public void AnEffectCanBeAllowedToStackToItsCap()
+        {
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 8);
+
+            for (int i = 0; i < 5; i++) block.Apply(PoisonDose(-1f, expires: 500, maxStacks: 3));
+
+            Assert.AreEqual(3, block.StackCountOf(PoisonDose(-1f, 500, 3)), "capped at three");
+            Assert.AreEqual(5f, block.Effective(StatKind.Might), 0.0001f, "8 - 3");
+        }
+
+        [Test]
+        public void AWholeStackRefreshesTogether()
+        {
+            // One timer on screen rather than three drifting apart.
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 8);
+
+            block.Apply(PoisonDose(-1f, expires: 100, maxStacks: 3));
+            block.Apply(PoisonDose(-1f, expires: 100, maxStacks: 3));
+            block.Apply(PoisonDose(-1f, expires: 900, maxStacks: 3));
+
+            block.PruneExpired(500);
+
+            Assert.AreEqual(3, block.StackCountOf(PoisonDose(-1f, 900, 3)),
+                "the earlier doses should have been carried to the new expiry");
+        }
+
+        [Test]
+        public void GearDoesNotStackManageAndSimplyAddsUp()
+        {
+            // Two rings of +1 Might give +2. StackKey stays zero for anything whose second copy is
+            // genuinely a second copy.
+            var block = Fresh();
+
+            block.Apply(StatModifier.Flat(StatKind.Might, 1f));
+            block.Apply(StatModifier.Flat(StatKind.Might, 1f));
+
+            Assert.AreEqual(3f, block.Effective(StatKind.Might), 0.0001f);
+        }
+
+        [Test]
+        public void DifferentStatsUnderOneEffectAreManagedSeparately()
+        {
+            // A poison that saps Might and Heart refreshes and caps each independently, so
+            // "the strongest" always compares like with like.
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 5);
+            block.SetLevel(StatKind.Heart, 5);
+
+            block.Apply(new StatModifier
+            {
+                Kind = StatKind.Might, Stage = StatStage.Flat, Value = -2f,
+                ExpiresOnTick = 500, StackKey = Poison,
+            });
+            block.Apply(new StatModifier
+            {
+                Kind = StatKind.Heart, Stage = StatStage.Flat, Value = -1f,
+                ExpiresOnTick = 500, StackKey = Poison,
+            });
+
+            Assert.AreEqual(3f, block.Effective(StatKind.Might), 0.0001f);
+            Assert.AreEqual(4f, block.Effective(StatKind.Heart), 0.0001f);
+        }
+
         // ---------------------------------------------------------------- parity with HopeFell
 
         [Test]

@@ -121,7 +121,96 @@ namespace Rokkan.Prophecy.Sim.Stats
 
         // ---------------------------------------------------------------- modifiers
 
+        /// <summary>
+        /// Add a modifier with no stacking rules at all. Gear, level-ups, anything whose second
+        /// copy is genuinely a second copy.
+        /// </summary>
         public void Add(in StatModifier modifier) => _modifiers.Add(modifier);
+
+        /// <summary>
+        /// Apply a modifier, honouring its stacking rules. The entry point for anything reappliable
+        /// — debuffs, DOTs, auras.
+        ///
+        /// <para><b>Three rules, in this order</b>, for a modifier that names a
+        /// <see cref="StatModifier.StackKey"/>:</para>
+        ///
+        /// <list type="number">
+        /// <item><b>Refresh.</b> Every instance already in the group takes the incoming expiry.
+        /// The whole stack runs out together, which is what makes a stack readable — one timer on
+        /// screen rather than three drifting apart.</item>
+        /// <item><b>Strongest wins.</b> If the incoming is stronger by magnitude, the group is
+        /// upgraded to it. A weak reapplication can therefore refresh a strong debuff but never
+        /// dilute it, which is the behaviour that stops a trash mob's feeble poison cancelling a
+        /// boss's.</item>
+        /// <item><b>Cap.</b> A further instance is added only while the group is below
+        /// <see cref="StatModifier.StackLimit"/> — one, unless the effect says otherwise.</item>
+        /// </list>
+        ///
+        /// <para>A modifier with no stack key skips all three and is simply added, so two rings of
+        /// +1 Might still give +2.</para>
+        /// </summary>
+        public void Apply(in StatModifier modifier)
+        {
+            if (modifier.StackKey == 0)
+            {
+                _modifiers.Add(modifier);
+                return;
+            }
+
+            int inGroup = 0;
+            float strongest = Mathf.Abs(modifier.Value);
+
+            // Strongest is decided across the whole group first, so the upgrade pass cannot depend
+            // on the order the list happens to be in.
+            for (int i = 0; i < _modifiers.Count; i++)
+            {
+                if (!modifier.SameEffectAs(_modifiers[i])) continue;
+
+                inGroup++;
+                strongest = Mathf.Max(strongest, Mathf.Abs(_modifiers[i].Value));
+            }
+
+            if (inGroup == 0)
+            {
+                _modifiers.Add(modifier);
+                return;
+            }
+
+            // Keep the incoming sign: a group is one effect, so a stronger value of the opposite
+            // sign would be a different effect wearing the same key.
+            float sign = modifier.Value < 0f ? -1f : 1f;
+            float value = strongest * sign;
+
+            for (int i = 0; i < _modifiers.Count; i++)
+            {
+                if (!modifier.SameEffectAs(_modifiers[i])) continue;
+
+                var existing = _modifiers[i];
+                existing.ExpiresOnTick = modifier.ExpiresOnTick;   // 1. refresh
+                existing.Value = value;                            // 2. strongest
+                _modifiers[i] = existing;
+            }
+
+            // 3. cap
+            if (inGroup < modifier.StackLimit)
+            {
+                var added = modifier;
+                added.Value = value;
+                _modifiers.Add(added);
+            }
+        }
+
+        /// <summary>How many instances of an effect are currently stacked.</summary>
+        public int StackCountOf(in StatModifier like)
+        {
+            if (like.StackKey == 0) return 0;
+
+            int count = 0;
+            for (int i = 0; i < _modifiers.Count; i++)
+                if (like.SameEffectAs(_modifiers[i])) count++;
+
+            return count;
+        }
 
         /// <summary>Add several at once — equipping, or a Protector's whole boon.</summary>
         public void AddRange(IReadOnlyList<StatModifier> modifiers)
@@ -139,7 +228,7 @@ namespace Rokkan.Prophecy.Sim.Stats
         public void AddSpecs(IReadOnlyList<StatModifierSpec> specs, long currentTick, int sourceId)
         {
             if (specs == null) return;
-            for (int i = 0; i < specs.Count; i++) _modifiers.Add(specs[i].Resolve(currentTick, sourceId));
+            for (int i = 0; i < specs.Count; i++) Apply(specs[i].Resolve(currentTick, sourceId));
         }
 
         /// <summary>
