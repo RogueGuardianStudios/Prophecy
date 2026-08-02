@@ -14,7 +14,7 @@ namespace Rokkan.Prophecy.Sim.Stats
     /// same level and the same modifiers compute the same number regardless of the order those
     /// modifiers arrived — see <see cref="StatStage"/> for why that is not automatic.</para>
     /// </summary>
-    public sealed class StatBlock
+    public sealed class StatBlock : IStatSource
     {
         /// <summary>Lowest a stat can be. Level 1 is the starting hero, not zero.</summary>
         public const int MinLevel = 1;
@@ -123,6 +123,74 @@ namespace Rokkan.Prophecy.Sim.Stats
 
         public void Add(in StatModifier modifier) => _modifiers.Add(modifier);
 
+        /// <summary>Add several at once — equipping, or a Protector's whole boon.</summary>
+        public void AddRange(IReadOnlyList<StatModifier> modifiers)
+        {
+            if (modifiers == null) return;
+            for (int i = 0; i < modifiers.Count; i++) _modifiers.Add(modifiers[i]);
+        }
+
+        /// <summary>
+        /// Author a set of modifiers onto this block, starting now.
+        ///
+        /// <para>The equip path: gear carries <see cref="StatModifierSpec"/> with durations, and
+        /// this is where a duration becomes an expiry tick.</para>
+        /// </summary>
+        public void AddSpecs(IReadOnlyList<StatModifierSpec> specs, long currentTick, int sourceId)
+        {
+            if (specs == null) return;
+            for (int i = 0; i < specs.Count; i++) _modifiers.Add(specs[i].Resolve(currentTick, sourceId));
+        }
+
+        /// <summary>
+        /// Remove one modifier by its id, leaving its siblings alone. Ids of zero are
+        /// unidentified and never match, so this cannot remove something at random.
+        /// </summary>
+        /// <returns>True if anything was removed.</returns>
+        public bool RemoveId(int id)
+        {
+            if (id == 0) return false;
+
+            for (int i = 0; i < _modifiers.Count; i++)
+            {
+                if (_modifiers[i].Id != id) continue;
+
+                _modifiers.RemoveAt(i);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Remove several sources at once — unequipping a whole loadout.</summary>
+        public void RemoveSources(IReadOnlyList<int> sourceIds)
+        {
+            if (sourceIds == null || sourceIds.Count == 0) return;
+
+            _keep.Clear();
+
+            for (int i = 0; i < _modifiers.Count; i++)
+            {
+                bool drop = false;
+                for (int s = 0; s < sourceIds.Count && !drop; s++)
+                    drop = _modifiers[i].SourceId == sourceIds[s];
+
+                if (!drop) _keep.Add(_modifiers[i]);
+            }
+
+            _modifiers.Clear();
+            _modifiers.AddRange(_keep);
+        }
+
+        /// <summary>
+        /// End a modifier early, as if it had expired.
+        ///
+        /// <para>HopeFell's <c>MarkForRemoval</c>. Dispelling a buff, or a channelled effect the
+        /// caster stopped paying for — cases where the duration was never the thing that ended
+        /// it.</para>
+        /// </summary>
+        public bool Cancel(int id) => RemoveId(id);
+
         /// <summary>Remove everything from one source — unequipping, or a Protector released.</summary>
         public void RemoveSource(int sourceId)
         {
@@ -142,7 +210,11 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// and expiry only changes on a tick boundary, so doing it once is both cheaper and the
         /// only way two reads in the same tick are guaranteed to agree.</para>
         /// </summary>
-        public void PruneExpired(long tick)
+        /// <param name="expired">Optional. Filled with whatever lapsed, so a caller can play the
+        /// "buff ended" sting without polling. HopeFell raises an <c>OnDispose</c> event for this;
+        /// a caller-supplied list does the same job without allocating or letting a subscriber run
+        /// inside the sim's tick.</param>
+        public void PruneExpired(long tick, List<StatModifier> expired = null)
         {
             bool any = false;
             for (int i = 0; i < _modifiers.Count && !any; i++)
@@ -152,7 +224,10 @@ namespace Rokkan.Prophecy.Sim.Stats
 
             _keep.Clear();
             for (int i = 0; i < _modifiers.Count; i++)
+            {
                 if (_modifiers[i].IsActiveOn(tick)) _keep.Add(_modifiers[i]);
+                else expired?.Add(_modifiers[i]);
+            }
 
             _modifiers.Clear();
             _modifiers.AddRange(_keep);

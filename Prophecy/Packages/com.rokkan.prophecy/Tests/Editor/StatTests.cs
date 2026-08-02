@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Rokkan.Prophecy.Sim.Stats;
 
@@ -13,6 +14,127 @@ namespace Rokkan.Prophecy.Tests
     public class StatTests
     {
         private static StatBlock Fresh() => new StatBlock();
+
+        // ---------------------------------------------------------------- parity with HopeFell
+
+        [Test]
+        public void ModifiersCanBeAddedAndRemovedInBulk()
+        {
+            // The equip path. HopeFell's EquippableItem calls AddModifiers / RemoveModifiers with
+            // the whole set, so the same shape has to exist here.
+            var block = Fresh();
+            var set = new List<StatModifier>
+            {
+                StatModifier.Flat(StatKind.Might, 1f, sourceId: 5),
+                StatModifier.Flat(StatKind.Heart, 2f, sourceId: 5),
+            };
+
+            block.AddRange(set);
+            Assert.AreEqual(2f, block.Effective(StatKind.Might), 0.0001f);
+            Assert.AreEqual(3f, block.Effective(StatKind.Heart), 0.0001f);
+
+            block.RemoveSources(new[] { 5 });
+            Assert.AreEqual(1f, block.Effective(StatKind.Might), 0.0001f);
+            Assert.AreEqual(1f, block.Effective(StatKind.Heart), 0.0001f);
+        }
+
+        [Test]
+        public void OneModifierCanBeCancelledWithoutItsSiblings()
+        {
+            // HopeFell removes by object reference, which a struct cannot offer. An explicit id
+            // does the same job and is unambiguous when two identical buffs are stacked.
+            var block = Fresh();
+            block.Add(StatModifier.Flat(StatKind.Might, 1f, sourceId: 5, id: 11));
+            block.Add(StatModifier.Flat(StatKind.Might, 1f, sourceId: 5, id: 12));
+
+            Assert.AreEqual(3f, block.Effective(StatKind.Might), 0.0001f);
+
+            Assert.IsTrue(block.Cancel(11));
+            Assert.AreEqual(2f, block.Effective(StatKind.Might), 0.0001f, "only one should go");
+
+            Assert.IsFalse(block.Cancel(0), "an unidentified id must never match anything");
+        }
+
+        [Test]
+        public void AuthoredSpecsBecomeLiveModifiersFromTheTickTheyAreApplied()
+        {
+            // The reason a spec exists at all: authored durations, not absolute ticks. Equipping
+            // the same sword twice must give a full-length buff both times.
+            var spec = new StatModifierSpec(StatKind.Might, StatStage.Flat, 2f, durationTicks: 60);
+
+            var early = spec.Resolve(currentTick: 0);
+            var late = spec.Resolve(currentTick: 1000);
+
+            Assert.AreEqual(60, early.ExpiresOnTick);
+            Assert.AreEqual(1060, late.ExpiresOnTick, "a duration is relative to when it starts");
+        }
+
+        [Test]
+        public void ASpecWithNoDurationIsPermanent()
+        {
+            var spec = new StatModifierSpec(StatKind.Heart, StatStage.Flat, 1f, durationTicks: 0);
+
+            Assert.IsTrue(spec.IsPermanent);
+            Assert.IsTrue(spec.Resolve(500).IsPermanent, "worn gear must not quietly fall off");
+        }
+
+        [Test]
+        public void ExpiryCanBeObservedWithoutPolling()
+        {
+            // HopeFell raises OnDispose. A caller-supplied list does the same job without
+            // allocating and without letting a subscriber run inside the sim's tick.
+            var block = Fresh();
+            block.Add(StatModifier.Flat(StatKind.Might, 3f, expiresOnTick: 10, id: 42));
+
+            var expired = new List<StatModifier>();
+            block.PruneExpired(9, expired);
+            Assert.IsEmpty(expired, "nothing has lapsed yet");
+
+            block.PruneExpired(10, expired);
+            Assert.AreEqual(1, expired.Count);
+            Assert.AreEqual(42, expired[0].Id, "and it says which one so a caller can react");
+        }
+
+        [Test]
+        public void SkillsCanScaleOffSeveralStatsAtOnce()
+        {
+            // HopeFell's StatScaleStruct, held as a list on SkillStratagy so one skill can scale
+            // off more than one stat. A flame-art costing Flame and hitting for Might is the case.
+            var source = new FixedStats(might: 4, flame: 2, heart: 1);
+
+            var scales = new List<StatScale>
+            {
+                new StatScale(StatKind.Might, 2f),
+                new StatScale(StatKind.Flame, 3f),
+            };
+
+            Assert.AreEqual(4 * 2 + 2 * 3, scales.Evaluate(source), 0.0001f);
+            Assert.AreEqual(10 + 14, scales.ApplyToDamage(source, 10));
+        }
+
+        [Test]
+        public void AnUnauthoredScaleSetLeavesDamageAlone()
+        {
+            // An unauthored skill should do its flat damage, not zero.
+            var source = new FixedStats();
+
+            Assert.AreEqual(10, ((IReadOnlyList<StatScale>)null).ApplyToDamage(source, 10));
+            Assert.AreEqual(10, new List<StatScale>().ApplyToDamage(source, 10));
+        }
+
+        [Test]
+        public void AStatBlockIsAStatSource()
+        {
+            // So a hit box or a skill can be handed the player's block, an enemy's, or a test
+            // double without caring which.
+            var block = Fresh();
+            block.SetLevel(StatKind.Might, 5);
+
+            IStatSource source = block;
+
+            Assert.AreEqual(5, source.LevelOf(StatKind.Might));
+            Assert.AreEqual(5f, source.Effective(StatKind.Might), 0.0001f);
+        }
 
         // ---------------------------------------------------------------- extensibility
 

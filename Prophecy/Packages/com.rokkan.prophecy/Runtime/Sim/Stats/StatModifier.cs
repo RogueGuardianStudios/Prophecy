@@ -42,32 +42,44 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// <summary>A source tag, so everything from one item can be removed together.</summary>
         public int SourceId;
 
+        /// <summary>
+        /// Identifies this exact modifier, so one effect can be cancelled without taking its
+        /// siblings with it.
+        ///
+        /// <para>HopeFell removes a modifier by object reference, which a struct cannot offer —
+        /// and "remove the first one that compares equal" is ambiguous the moment two identical
+        /// buffs are stacked. An explicit id is unambiguous and survives being copied.</para>
+        ///
+        /// <para>Zero means unidentified: still removable by source, just not individually.</para>
+        /// </summary>
+        public int Id;
+
         public bool IsPermanent => ExpiresOnTick == Permanent;
 
         public bool IsActiveOn(long tick) => tick < ExpiresOnTick;
 
         public static StatModifier Flat(StatKind kind, float value,
-                                        long expiresOnTick = Permanent, int sourceId = 0) =>
+                                        long expiresOnTick = Permanent, int sourceId = 0, int id = 0) =>
             new StatModifier
             {
                 Kind = kind, Stage = StatStage.Flat, Value = value,
-                ExpiresOnTick = expiresOnTick, SourceId = sourceId,
+                ExpiresOnTick = expiresOnTick, SourceId = sourceId, Id = id,
             };
 
         public static StatModifier Percent(StatKind kind, float fraction,
-                                           long expiresOnTick = Permanent, int sourceId = 0) =>
+                                           long expiresOnTick = Permanent, int sourceId = 0, int id = 0) =>
             new StatModifier
             {
                 Kind = kind, Stage = StatStage.Percent, Value = fraction,
-                ExpiresOnTick = expiresOnTick, SourceId = sourceId,
+                ExpiresOnTick = expiresOnTick, SourceId = sourceId, Id = id,
             };
 
         public static StatModifier Final(StatKind kind, float value,
-                                         long expiresOnTick = Permanent, int sourceId = 0) =>
+                                         long expiresOnTick = Permanent, int sourceId = 0, int id = 0) =>
             new StatModifier
             {
                 Kind = kind, Stage = StatStage.Final, Value = value,
-                ExpiresOnTick = expiresOnTick, SourceId = sourceId,
+                ExpiresOnTick = expiresOnTick, SourceId = sourceId, Id = id,
             };
 
         public override string ToString() =>
