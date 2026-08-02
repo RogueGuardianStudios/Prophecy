@@ -273,6 +273,49 @@ Added this session:
 29. **Levelling Heart grants headroom, not health.** A level-up mid-fight would otherwise be an
     emergency heal, which turns progression into a combat resource.
 
+### Stat parity audit vs HopeFell — 2026-08-02
+
+Every member of HopeFell's stats system, checked against Prophecy's. Three rows are deliberate
+refusals; everything else has an equivalent.
+
+| HopeFell | Prophecy | |
+|---|---|---|
+| `StatType` enum | `StatKind` | ✅ different list by design (§6.2) |
+| `BaseStats` SO | `StatProfile` SO | ✅ authored levels + innate modifiers |
+| `IStatProvider.GetStatOfType` | `IStatSource.Effective` / `.LevelOf` | ✅ |
+| `StatStruct` | `float` from `Effective` | ✅ value returned directly |
+| `EntityStats` | `StatBlock` | ✅ |
+| `StatsMediator` | folded into `StatBlock` | ✅ no separate object |
+| `STAT_ADD` | `StatStage.Flat` | ✅ |
+| `STAT_MINUS` | negative `Flat` | ✅ |
+| `STAT_MULTIPLY` | `StatStage.Percent` | ✅ sums rather than compounds |
+| `STAT_DIVIDE` | negative `Percent` | ✅ ÷2 is −50%, without integer truncation |
+| `AddModifier` | `Add` | ✅ |
+| `AddModifiers(array)` | `AddRange`, `AddSpecs` | ✅ |
+| `RemoveModifier(one)` | `RemoveId` | ✅ by id — a struct has no reference identity |
+| `RemoveModifiers(array)` | `RemoveSource`, `RemoveSources` | ✅ |
+| `MarkForRemoval()` | `Cancel(id)` | ✅ |
+| duration timer | `ExpiresOnTick` | ✅ ticks, not wall clock |
+| permanent (duration ≤ 0) | `StatModifier.Permanent` | ✅ |
+| `Update(deltaTime)` mark-and-sweep | `PruneExpired(tick)` | ✅ |
+| `OnDispose` event | `PruneExpired(tick, expired)` | ✅ list out-param — no allocation, no subscriber running inside the tick |
+| `StatModifierDetails` | `StatModifierSpec` | ✅ authored duration, resolved at apply |
+| `StatScaleStruct` | `StatScale` + `Evaluate` / `ApplyToDamage` | ✅ |
+| `ToString` | present on stat, modifier and spec | ✅ |
+| arbitrary `Func<int,int>` | — | ❌ **refused** |
+| `abstract StatModifier` subclassing | — | ❌ **refused** |
+| stats as `int` | `float` | ❌ **changed** |
+
+**The two refusals.** Arbitrary operations and custom modifier subclasses both let a modifier carry
+executable behaviour. Neither serialises into a save, neither crosses a wire, and neither can be
+checked for determinism — a modifier whose effect is a closure is one two machines cannot agree
+about. The three stages express every operation HopeFell actually uses (`ADD`, `MINUS`, `MULTIPLY`,
+`DIVIDE`), so nothing real is lost. If a case appears that the stages genuinely cannot express, the
+answer is a **new named stage**, not a delegate.
+
+**The change.** HopeFell's `STAT_DIVIDE` truncates, so 7 halved twice is 1 rather than 1.75.
+Effective values are floats here and only the final derived numbers round.
+
 ---
 
 ## 4. Traps already hit — do not rediscover
