@@ -1,15 +1,16 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-30, the session that built M4's combat spine, the arena, defence, and then
-made the whole thing scale.
-**Resume at:** M4 — enemies. Every combat system now exists, is reachable in the arena, and holds
-up at a hundred bodies. What is missing is something to use them against that is not a dummy on a
-timer.
+**Written:** 2026-07-30, refreshed 2026-08-02. The session that built M4's combat spine, made it
+scale, then gave it a body and a stat sheet.
+**Resume at:** M4 — **enemies**. Every combat system exists, holds up at a hundred bodies, and now
+has a rigged character animating off it. What is missing is something to fight, and that single gap
+blocks the finisher work, the unwired stat hooks, DOTs and the death rule all at once.
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
-the phase plan is `Plans/Gray-Box-Build-Plan.md`; dev-only settings that must be reverted before
-shipping are in `Plans/Release-Checklist.md`.
+the phase plan is `Plans/Gray-Box-Build-Plan.md`; the animation rules are
+`Plans/Animation-Contract.md`; dev-only settings that must be reverted before shipping are in
+`Plans/Release-Checklist.md`.
 
 ---
 
@@ -18,12 +19,12 @@ shipping are in `Plans/Release-Checklist.md`.
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **401 passing, 0 failed, 0 skipped** (~4.3 s) |
+| Tests | **473 passing, 0 failed, 0 skipped** (~5.0 s) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
 
-### Commits this session
+### Commits, newest last
 
 ```
 339a7f3  Add the combat timing spine: TickRange, ScalableWindow, AttackTimeline
@@ -40,24 +41,42 @@ a92437a  Respawn on death, so combat can be lost and then tried again
 7260df9  Own the hit geometry, add a broadphase, move the fight out of presentation
 b80980e  Bound the scans the broadphase pass missed
 44c7561  Refresh the handoff, and make its test numbers self-maintaining
-(this)   Fix five defects a review found, and cover them
+fb5d7dd  Fix five defects a review found, and cover them
+f55c3d2  Set up the animation system, and list what it needs
+39a8a46  Pull a curated Synty clip set, and record what it took
+f13a896  Record that the Hero rig is no longer a blocker
+15bf0a0  Record the animation contract, match clip speed to the sim, put the hero on the player
+a006490  Turn the hero to face the camera's plane, and give it its texture
+2f8391c  Frame the camera by the character's share of the screen, not by a lane count
+ed48b28  Measure the vertical dead zone in jumps, not lanes
+84e0017  Hold the landing pose, and speed the camera up to match the tighter frame
+ac58c8c  Show the body-state history on the F2 overlay
+5e8a736  Log body-state transitions to a file so a flicker can be caught after the fact
+97d0b85  Fix the flicker detector, and log what the blend actually did
+3a13ae3  Show the run when landing out of a run, not the landing
+b45bd21  Add the three-stat system, and wire Might and Heart into combat
+ba1d5eb  Size the stat arrays from the enum instead of from the number three
+837ecf1  Close the stat gaps against HopeFell, and record the three refusals
+e8c8d26  Record the stat parity audit in the handoff
+c55d2c0  Give debuffs stacking rules: refresh, strongest, then cap at one
+ffa95d5  Add speed modifiers and ability restrictions, and stop the playback clamp drifting
 ```
-
-`7260df9` and `b80980e` are one piece of work in two parts, and the split is the useful bit: the
-first added the broadphase and every damage path went through it, which was true and still left four
-full walks of the roster in the places nobody counts. See §10.
 
 ### Three repos are in play
 
 | Repo | Path | State |
 |---|---|---|
 | **Prophecy** | `RGS\Prophecy\Prophecy` (Unity project nested one deeper) | active, above |
-| **Shared packages** | `RGS\Packages` | own git repo, clean — **untouched this session** |
-| **HopeFell** | `RGS\HopeFell` | ⚠️ **still untouched, and must stay that way for now** |
+| **Shared packages** | `RGS\Packages` | **changed** — `com.rokkan.animation` extracted |
+| **HopeFell** | `RGS\HopeFell` | **still untouched, and must stay that way** |
 
-Nothing in `RGS\Packages` changed, so `MIGRATION-HopeFell.md` needs no new entries. Combat lives in
-`com.rokkan.prophecy` and has not been promoted to a shared package — it should not be until
-HopeFell's turn, because the whole point of building it here was to go further than HopeFell did.
+`com.rokkan.animation` **0.1.0** came out of HopeFell's `com.rokkan.gameplay` this session and is
+consumed by Prophecy. Divergences are logged in `RGS/Packages/MIGRATION-HopeFell.md`, entries 7-9.
+The two that matter: root motion is gone from the contract, and the vestigial gameplay clip-event
+channels were deleted rather than annotated.
+
+HopeFell's **stats** system was read in full and deliberately *not* extracted. The reasoning, plus
+three latent bugs found while reading it, are in the same file. Nothing in HopeFell was modified.
 
 ---
 
@@ -68,11 +87,11 @@ HopeFell's turn, because the whole point of building it here was to go further t
 ```
 TickRange.cs          half-open [Start, End); zero-length is ABSENT, not instantaneous
 ScalableWindow.cs     start + duration; the opening tick never moves, only the length scales
-AttackHitBox.cs       one damaging volume: window, offset, half-extents, rotation, damage, cover flag
+AttackHitBox.cs       one damaging volume: window, offset, half-extents, rotation, damage, cover
 AttackDefinition.cs   phases as three DURATIONS that partition the action; windows laid over them
 AttackTimeline.cs     arms once, resolves windows at Arm, reports what is true this tick
 HitResolver.cs        separating-axis overlap + CollisionWorld.IsOccluded for cover
-Hurtbox.cs            Hurtbox + Attacker, plain structs keyed on an integer id
+Hurtbox.cs            Hurtbox + Attacker; the Attacker carries the damage scale it swung with
 ComboRunner.cs        chain links gated on the cancel window, with input buffering
 ICombatWorld.cs       the target seam: hurtboxes in, HitEvents out, HitResults back
 CombatTuningData.cs   the moveset, stance entry points, buffer length, defence numbers, Validate()
@@ -84,50 +103,95 @@ CombatState.cs        the fight itself: registry, projectiles, contact, hit rout
 Projectile.cs         ProjectileDefinition + ProjectileSystem: one type for bolts and areas
 ```
 
-### Combat — the rest
+### Stats — `Runtime/Sim/Stats/`  *(new this session)*
+
+```
+StatKind.cs           Might/Flame/Heart are earnable; Speed and anything below is modifier-only
+StatModifier.cs       a struct: stage, value, expiry TICK, source, id, stack key
+StatModifierSpec.cs   the authored half — a DURATION, resolved to an expiry when applied
+StatBlock.cs          levels + modifiers + derived numbers. Implements IStatSource
+StatTuningData.cs     what a level is worth, and the Resolve curve. Derived, never stored
+StatScale.cs          "this scales off that stat" — for skills and attacks
+IStatSource.cs        the seam, plus FixedStats for enemies and tests
+AbilityRestriction.cs silence / disarm / root, and the set that folds them
+Runtime/Core/StatTuning.cs   asset shells: StatTuning and StatProfile
+```
+
+### Animation — `com.rokkan.animation` *(shared)* + `Runtime/Presentation/`
+
+```
+com.rokkan.animation/AnimationSystem.cs   PlayableGraph; 4-slot state layer + an injection layer
+com.rokkan.animation/IClipInjector.cs     the surface; NO root-motion flag, deliberately
+com.rokkan.animation/ClipHandle.cs        per-play subscription scope; OnDone fires exactly once
+com.rokkan.animation/ClipEventChannel.cs  cosmetic channels ONLY — no gameplay vocabulary exists
+BodyState.cs                              23 states; the authoritative animation shopping list
+BodyStateResolver.cs                      pure: sim state in, one BodyState out. Precedence tested
+BodyAnimationSet.cs                       state -> clip + authored reference speed
+CharacterAnimator.cs                      reads the sim, speed-matches, logs flickers (editor only)
+Editor/Build/BodyAnimationSetBuilder.cs   generates the mapping from measured speeds
+Editor/Build/HeroModelInstaller.cs        puts the rigged hero on the player prefab, scaled
+Editor/Build/ReferenceSpeedMeasurer.cs    measures what each clip was authored to travel at
+```
+
+### The rest of combat
 
 ```
 Runtime/Sim/Abilities/AttackModule.cs   the join: lock, timeline, resolve, publish cancel window
-Runtime/Sim/Abilities/Block.cs          guard AND parry on one button — when you pressed decides which
-Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored, speed derived
-Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; the i-frame gate
-Runtime/Core/CombatTuning.cs            asset shell over CombatTuningData
-Runtime/AssemblyInfo.cs                 InternalsVisibleTo the test assembly — see §10
+Runtime/Sim/Abilities/Block.cs          guard AND parry on one button — when you pressed decides
+Runtime/Sim/Abilities/DodgeStep.cs      a committed step with i-frames; distance authored
+Runtime/Sim/Abilities/HitReact.cs       picks up a parked stun, force-locks, shoves; i-frame gate
 Runtime/Presentation/CombatDirector.cs  thin: owns a CombatState, ticks it, drives the visual half
 Runtime/Presentation/Combatant.cs       hittable: a dummy, or a front for a simulated character
 Runtime/Presentation/TrainingAttacker.cs a dummy that swings back, or casts, on a tick cycle
-Runtime/Presentation/ArenaStations.cs   number-key warp between stations (editor scaffolding)
-Runtime/Presentation/CombatDebugOverlay F2: frame data a tick at a time, defence state, GL volumes
-Editor/Build/GrayBoxArenaBuilder.cs     generates GrayBox_Arena from the authored reach
-Assets/_Prophecy/Data/CombatTuning.asset       the live moveset and defence numbers
-Assets/_Prophecy/Scenes/GrayBox_Arena.unity    generated; 12 stations, 10 warp points
+Runtime/Presentation/CombatDebugOverlay F2: frame data, defence state, body state, GL volumes
+Assets/_Prophecy/Data/CombatTuning.asset        the live moveset and defence numbers
+Assets/_Prophecy/Data/BodyAnimationSet.asset    generated; 17 states mapped, 6 unmapped
+Assets/_Prophecy/Animation/Synty/               25 clips + 2 rigs, 11 MB, licence beside them
+Assets/_Prophecy/Scenes/GrayBox_Arena.unity     generated; 12 stations, 10 warp points
 ```
 
-There is **no `Parry.cs`** — parry was folded into `Block` when the two became one button, and a
-separate module would have had to reach across to ask whether the other one was holding.
+There is **no `Parry.cs`** — parry folded into `Block` when the two became one button.
 
-Tests, per fixture, as the runner reports them — `Prophecy > Tests > Run EditMode Tests` now writes
-this list, because counting `[Test]` attributes by hand gets it wrong (a `[TestCase]` method is
-several tests, and the old numbers here had drifted):
+### Tests, per fixture
 
 ```
 combat      DefenceTests 39, AttackModuleTests 26, DodgeTests 23, CombatScaleTests 21,
             DownThrustCombatTests 21, AttackTimelineTests 18, ProjectileTests 17,
             HitResolverTests 16, ComboRunnerTests 14, CombatWindowTests 14        = 209
+stats       StatTests 41                                                          =  41
+animation   BodyStateTests 22, StateBlendTests 9                                  =  31
 movement    MovementTests 33, TraversalAbilityTests 32, CharacterSimTests 23,
             CollisionWorldTests 22, OcclusionTests 11, InputLatchTests 7          = 128
 contract    SimArchitectureGateTests 6, PackageWiringTests 4                      =  10
-shared      SimClockTests 14, RGS_RandomTests 9, RandomStreamTests 7, and four more of 6
+shared      SimClockTests 14, RGS_RandomTests 9, RandomStreamTests 7, and four of 6
             (DeterministicMath, FoundationType, GoldenVector, RandomSource)       =  54
 ```
 
-**347 Prophecy + 54 shared = 401.** The shared ones run here because `com.rgs.core` is in
-`testables` — if that count ever drops to zero, that is the manifest entry, not a deleted test.
+**419 Prophecy + 54 shared = 473.** The shared ones run because `com.rgs.core` and
+`com.rokkan.animation` are in `testables` — if either count drops to zero, that is the manifest
+entry, not a deleted test.
 
-**Not yet built:** no enemies, no AI, no encounter concept — `TrainingAttacker` swings on a timer
-and that is all. No animation system. No overworld scene. **Death is a respawn and nothing more** —
-deliberately scaffolding, see §7 and the release checklist. `Crawl` and `FlameArt` are the last two
-stubs.
+### Built, but not yet connected to anything
+
+Half the stat surface is waiting on enemies, and that is the right order: each is a one-liner once
+there is something to hang it on, and guessing now would be guessing.
+
+| Built | Waiting on |
+|---|---|
+| `Flame` -> `MaxFlame` | `FlameArt` is still a stub |
+| `Resolve` / `SpendLevel` | **nothing awards XP** — no deaths grant it, no UI spends it |
+| `StatProfile` | `Combatant` has no stats field |
+| `StatScale` | no `AttackDefinition` scales off a stat |
+| `AttackModifiers` window scales | gear, which does not exist |
+
+**Six animation states have no clip** and silently fall back to Idle: `WallSlide`, `LedgeHang`,
+`LedgeClimb`, `LadderIdle`, `LadderClimb`, `DownThrust`. Synty ships nothing for any of them — they
+are 3D action packs and these are 2.5D platformer moves, so a wall-slide currently looks like
+standing still. Jump variants are also unmapped, so a sprinting jump plays a standing leap.
+
+**Not built at all:** no enemies, no AI, no encounter concept. No overworld scene. No DOTs. **Death
+is a respawn and nothing more** — deliberately scaffolding, see §7. `Crawl` and `FlameArt` are the
+last two ability stubs.
 
 ---
 
@@ -548,12 +612,22 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   test, a broadphase in front of every damage path, and the fight itself moved out of presentation
   into a plain-C# `CombatState`. Not scope creep — a hundred targets and four co-op players is the
   brief, and `CombatState` is the thing a host would replicate. §10.
+- **A body, animating off the sim.** A rigged Meshy hero on the player prefab, 25 Synty clips, and
+  a state layer that speed-matches playback to actual velocity so the feet do not skate without
+  root motion. `Plans/Animation-Contract.md` is the constitution; `Plans/Animation-Requirements.md`
+  is the shopping list and the gap register.
+- **Stats.** Might, Flame, Heart and a modifier-only Speed, with a deterministic stage pipeline,
+  tick-based expiry, stacking rules and ability restrictions. Audited member-by-member against
+  HopeFell's (§3) and built rather than ported.
 
 ### Next
 
 1. **Enemies.** `TrainingAttacker` is a dummy on a timer, and it is now the only thing standing
    between the combat systems and an actual fight. It needs a `CharacterSim`, a reason to choose
-   between its attacks, and an executable state when it is staggered.
+   between its attacks, and an executable state when it is staggered. It also unblocks five stat
+   hooks that are built and connected to nothing (§2), and it is where DOTs belong.
+   **AI approach: GOAP, from HopeFell — decided 2026-08-02.** This supersedes the earlier
+   "M6, and only if it beats a plain state machine" note. See §12 for the extraction risk.
 2. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
    executable/staggered state on enemies, and **a parried attacker is now exactly that state
