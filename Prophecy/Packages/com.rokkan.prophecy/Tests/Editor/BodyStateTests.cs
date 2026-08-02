@@ -33,6 +33,100 @@ namespace Rokkan.Prophecy.Tests
         private static BodyState Resolve(BodyStateInputs input) =>
             BodyStateResolver.Resolve(in input);
 
+        // ---------------------------------------------------------------- speed matching
+
+        /// <summary>A set with one locomotion entry, for exercising the playback maths.</summary>
+        private static BodyAnimationSet.Entry Walking() =>
+            new BodyAnimationSet.Entry { State = BodyState.Walk, Loop = true, ReferenceSpeed = 2.595f };
+
+        [Test]
+        public void PlaybackTracksActualSpeedSoASlowNeedsNoSpecialHandling()
+        {
+            // The whole reason a speed debuff does not need its own animation path: the multiplier
+            // is computed from real velocity, so halving movement halves the stride with it.
+            var set = ScriptableObject.CreateInstance<BodyAnimationSet>();
+
+            try
+            {
+                var entry = Walking();
+
+                float full = set.PlaybackSpeedFor(in entry, 4f);
+                float halved = set.PlaybackSpeedFor(in entry, 2f);
+
+                Assert.AreEqual(full * 0.5f, halved, 0.0001f,
+                    "a 50% slow must halve the playback, or the feet drift by the difference");
+            }
+            finally
+            {
+                Object.DestroyImmediate(set);
+            }
+        }
+
+        [Test]
+        public void NothingInThePlausibleSpeedRangeIsClamped()
+        {
+            // Clamping IS foot drift — by exactly the ratio clamped away. The old 0.25 floor made
+            // a creeping character step four times too fast, and a strong slow parked you there.
+            //
+            // Each clip is checked against the band IT covers, which is the correction this test
+            // needed: 15 m/s against the walk clip is not a case, because above the run threshold
+            // the resolver has already switched to the sprint clip. Testing a clip outside its own
+            // band measures nothing.
+            var set = ScriptableObject.CreateInstance<BodyAnimationSet>();
+
+            try
+            {
+                var walk = new BodyAnimationSet.Entry { ReferenceSpeed = 2.595f };
+                var run = new BodyAnimationSet.Entry { ReferenceSpeed = 7.271f };
+
+                // Walk covers the move threshold up to the run threshold, and every debuffed speed
+                // in between.
+                AssertUnclamped(set, walk, BodyStateResolver.DefaultMoveThreshold);
+                AssertUnclamped(set, walk, 0.4f);
+                AssertUnclamped(set, walk, 2f);
+                AssertUnclamped(set, walk, BodyStateResolver.DefaultRunThreshold);
+
+                // Run covers the run threshold upward, including a doubled run.
+                AssertUnclamped(set, run, BodyStateResolver.DefaultRunThreshold);
+                AssertUnclamped(set, run, 7.5f);
+                AssertUnclamped(set, run, 15f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(set);
+            }
+        }
+
+        private static void AssertUnclamped(BodyAnimationSet set, BodyAnimationSet.Entry entry,
+                                            float speed)
+        {
+            float honest = speed / entry.ReferenceSpeed;
+            float actual = set.PlaybackSpeedFor(in entry, speed);
+
+            Assert.AreEqual(honest, actual, 0.0001f,
+                $"{speed} m/s on a {entry.ReferenceSpeed} m/s clip was clamped from {honest:0.###} " +
+                $"to {actual:0.###} — the feet slide by that ratio");
+        }
+
+        [Test]
+        public void AClipWithNoReferenceSpeedIsNeverScaled()
+        {
+            // Scaling a sword swing by how fast you happened to be walking is nonsense.
+            var set = ScriptableObject.CreateInstance<BodyAnimationSet>();
+
+            try
+            {
+                var attack = new BodyAnimationSet.Entry { State = BodyState.AttackStandA, ReferenceSpeed = 0f };
+
+                Assert.AreEqual(1f, set.PlaybackSpeedFor(in attack, 0f), 0.0001f);
+                Assert.AreEqual(1f, set.PlaybackSpeedFor(in attack, 9f), 0.0001f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(set);
+            }
+        }
+
         // ---------------------------------------------------------------- ground
 
         [Test]

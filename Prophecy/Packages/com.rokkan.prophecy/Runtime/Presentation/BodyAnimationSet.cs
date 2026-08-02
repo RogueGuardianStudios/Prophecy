@@ -42,13 +42,23 @@ namespace Rokkan.Prophecy.Presentation
                                  "belong on the entry if any state ever needs one.")]
         private float _blendSeconds = 0.12f;
 
-        [SerializeField, Tooltip("Below this playback multiplier a clip is treated as stopped rather " +
-                                 "than crawling. Stops a near-idle walk becoming a slideshow.")]
-        private float _minPlaybackSpeed = 0.25f;
+        // CLAMPING IS FOOT DRIFT. The multiplier is what makes the stride match the travel, so
+        // any speed at which it is clamped is a speed at which the feet slide — by exactly the
+        // ratio that was clamped away. These are guards against division nonsense, not tuning
+        // knobs, and they are set wide enough that nothing in the plausible range touches them.
+        //
+        // The range that has to fit: from the move threshold (0.15 m/s, below which the character
+        // is Idle anyway) up to a hasted run. At the slow end the honest playback is about 0.06,
+        // which is a near-frozen cycle — and near-frozen with planted feet looks far better than
+        // stepping briskly while creeping, which is what the old 0.25 floor produced.
 
-        [SerializeField, Tooltip("Above this, playback is clamped. A sprint scaled 4x reads as a " +
-                                 "twitch, and past a point it is better to look slightly fast than broken.")]
-        private float _maxPlaybackSpeed = 2.5f;
+        [SerializeField, Tooltip("Playback floor. Reaching it means the feet are sliding, so it is " +
+                                 "set below anything the game can actually produce.")]
+        private float _minPlaybackSpeed = 0.05f;
+
+        [SerializeField, Tooltip("Playback ceiling. Same rule — high enough that a hasted run does " +
+                                 "not touch it.")]
+        private float _maxPlaybackSpeed = 4f;
 
         private Dictionary<BodyState, Entry> _byState;
 
@@ -75,8 +85,14 @@ namespace Rokkan.Prophecy.Presentation
         }
 
         /// <summary>
-        /// Playback multiplier for a clip at a given travel speed, clamped to the sane range.
-        /// Returns 1 for anything with no reference speed.
+        /// Playback multiplier for a clip at a given travel speed. One for anything with no
+        /// reference speed.
+        ///
+        /// <para><b>Speed buffs and debuffs need no special handling here</b>, and that is worth
+        /// stating because it looks like they should. The multiplier is computed from the
+        /// character's <i>actual</i> velocity, so a slow that halves movement halves the stride
+        /// with it and the feet stay planted. The one thing that can break the match is the clamp
+        /// — see the fields.</para>
         /// </summary>
         public float PlaybackSpeedFor(in Entry entry, float simSpeed)
         {
@@ -107,7 +123,7 @@ namespace Rokkan.Prophecy.Presentation
         private void OnValidate()
         {
             _blendSeconds = Mathf.Max(0f, _blendSeconds);
-            _minPlaybackSpeed = Mathf.Clamp(_minPlaybackSpeed, 0.01f, 1f);
+            _minPlaybackSpeed = Mathf.Clamp(_minPlaybackSpeed, 0.001f, 1f);
             _maxPlaybackSpeed = Mathf.Max(1f, _maxPlaybackSpeed);
 
             Invalidate();

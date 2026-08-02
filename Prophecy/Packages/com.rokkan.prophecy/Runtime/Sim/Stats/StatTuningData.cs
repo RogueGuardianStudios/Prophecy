@@ -65,7 +65,7 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// </summary>
         public int ResolveForNextLevel(int totalLevelsHeld)
         {
-            int earned = Mathf.Max(0, totalLevelsHeld - StatBlock.Count * StatBlock.MinLevel);
+            int earned = Mathf.Max(0, totalLevelsHeld - StatKinds.ProgressionCount * StatBlock.MinLevel);
             return Mathf.Max(1, Mathf.RoundToInt(BaseResolveCost * Mathf.Pow(ResolveCostGrowth, earned)));
         }
 

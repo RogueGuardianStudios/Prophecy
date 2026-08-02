@@ -74,6 +74,11 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// </summary>
         public bool SpendLevel(StatKind kind)
         {
+            // Speed and anything like it can be modified but never earned — spending a level-up on
+            // one would silently lose it, and would also change the design bible's three-way choice
+            // into a four-way one.
+            if (!kind.IsProgression()) return false;
+
             if (UnspentLevels <= 0) return false;
             if (_levels[(int)kind] >= MaxLevel) return false;
 
@@ -101,20 +106,25 @@ namespace Rokkan.Prophecy.Sim.Stats
                 Resolve -= _tuning.ResolveForNextLevel(TotalLevels + earned);
                 earned++;
 
-                if (TotalLevels + earned >= MaxLevel * Count) break;   // every stat capped
+                if (TotalLevels + earned >= MaxLevel * StatKinds.ProgressionCount) break;   // all capped
             }
 
             UnspentLevels += earned;
             return earned;
         }
 
-        /// <summary>Sum of every level. What the finale's power gate reads (§6.3).</summary>
+        /// <summary>
+        /// Sum of the earned levels. What the finale's power gate reads (§6.3).
+        ///
+        /// <para>Progression stats only. A haste potion must not read as complicity.</para>
+        /// </summary>
         public int TotalLevels
         {
             get
             {
                 int total = 0;
-                for (int i = 0; i < _levels.Length; i++) total += _levels[i];
+                for (int i = 0; i < StatKinds.ProgressionCount && i < _levels.Length; i++)
+                    total += _levels[i];
                 return total;
             }
         }

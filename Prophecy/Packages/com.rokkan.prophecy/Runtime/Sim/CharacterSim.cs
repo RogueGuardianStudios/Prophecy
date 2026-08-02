@@ -49,6 +49,14 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public Stats.StatBlock Stats { get; } = new Stats.StatBlock();
 
+        /// <summary>
+        /// What the character temporarily may not do — silences, disarms, roots.
+        ///
+        /// <para>Beside the stats rather than inside them: a restriction has no value to scale and
+        /// no strongest to compare. It shares only the lifecycle.</para>
+        /// </summary>
+        public Stats.RestrictionSet Restrictions { get; } = new Stats.RestrictionSet();
+
         // Max health is derived from Heart, so it is re-applied when the derivation could have
         // changed rather than every tick — recomputing constantly would fight anything that
         // deliberately sets MaxHealth, and would hide that this is a derived number.
@@ -273,7 +281,20 @@ namespace Rokkan.Prophecy.Sim
         /// True if <paramref name="action"/> is currently permitted. The question every module
         /// asks before acting — and the reason none of them need to know each other exists.
         /// </summary>
-        public bool Can(LockFlags action) => !_lock.IsHeld || (_lock.Flags & action) == 0;
+        /// <summary>
+        /// Whether an action is available: not locked out by a committed move, and not barred by a
+        /// restriction.
+        ///
+        /// <para>Both consulted here rather than at each call site, because there are dozens of
+        /// call sites and one of them would eventually check only the lock. A root that a module
+        /// forgot to ask about is a root that does nothing.</para>
+        /// </summary>
+        public bool Can(LockFlags action)
+        {
+            if (Restrictions.Blocks(action)) return false;
+
+            return !_lock.IsHeld || (_lock.Flags & action) == 0;
+        }
 
         /// <summary>True if <paramref name="owner"/> is the current lock holder.</summary>
         public bool HoldsLock(object owner) => _lock.IsHeld && ReferenceEquals(_lock.Owner, owner);
@@ -303,6 +324,7 @@ namespace Rokkan.Prophecy.Sim
 
             // Once a tick, before anything reads a stat, so every read within the tick agrees.
             Stats.PruneExpired(info.Tick);
+            Restrictions.PruneExpired(info.Tick);
             SyncMaxHealthToHeart();
 
             State.HitWallThisTick = false;
@@ -317,6 +339,13 @@ namespace Rokkan.Prophecy.Sim
                 var m = _modules[i];
                 if (!m.Enabled) continue;
                 if ((m.ValidIn & State.Space) == 0) continue;
+
+                // A silenced ability does not tick at all, rather than ticking and refusing to
+                // start. Modules hold state across ticks — a charge, a combo window — and letting
+                // one advance while forbidden to act is how a silence ends with the attack it was
+                // meant to prevent already half-wound.
+                if (Restrictions.IsBarred(m.Id)) continue;
+
                 m.Tick(this, in _input, in info);
             }
 
@@ -438,6 +467,7 @@ namespace Rokkan.Prophecy.Sim
         public void Revive()
         {
             Vitals.Reset();
+            Restrictions.Clear();
             _pendingStun = default;
         }
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Stats;
 
 namespace Rokkan.Prophecy.Tests
@@ -14,6 +15,116 @@ namespace Rokkan.Prophecy.Tests
     public class StatTests
     {
         private static StatBlock Fresh() => new StatBlock();
+
+        // ---------------------------------------------------------------- speed & restrictions
+
+        [Test]
+        public void SpeedIsAMultiplierThatStartsAtOne()
+        {
+            var block = Fresh();
+
+            Assert.AreEqual(1f, block.Effective(StatKind.Speed), 0.0001f, "unmodified is normal pace");
+
+            block.Apply(StatModifier.Percent(StatKind.Speed, -0.5f));
+            Assert.AreEqual(0.5f, block.Effective(StatKind.Speed), 0.0001f, "a hobble");
+
+            block.ClearModifiers();
+            block.Apply(StatModifier.Percent(StatKind.Speed, 0.5f));
+            Assert.AreEqual(1.5f, block.Effective(StatKind.Speed), 0.0001f, "a haste");
+        }
+
+        [Test]
+        public void SpeedCannotBeLevelledAndDoesNotCountAsPower()
+        {
+            // The finale gates on total power as a measure of complicity (§6.3). A haste potion
+            // must not read as having bound another Protector.
+            var block = Fresh();
+            block.AwardResolve(100_000);
+
+            int before = block.TotalLevels;
+
+            Assert.IsFalse(block.SpendLevel(StatKind.Speed), "Resolve buys the three, not Speed");
+            Assert.AreEqual(before, block.TotalLevels);
+
+            block.SetLevel(StatKind.Speed, StatBlock.MaxLevel);
+            Assert.AreEqual(before, block.TotalLevels, "and Speed never counts toward the gate");
+        }
+
+        [Test]
+        public void ASlowCanExpireLikeAnyOtherDebuff()
+        {
+            var block = Fresh();
+            block.Apply(StatModifier.Percent(StatKind.Speed, -0.6f, expiresOnTick: 100));
+
+            Assert.AreEqual(0.4f, block.Effective(StatKind.Speed), 0.0001f);
+
+            block.PruneExpired(100);
+            Assert.AreEqual(1f, block.Effective(StatKind.Speed), 0.0001f);
+        }
+
+        [Test]
+        public void ASilenceBarsOneAbilityAndLeavesTheRestAlone()
+        {
+            var set = new RestrictionSet();
+            set.Apply(AbilityRestriction.Silence(AbilityId.FlameArt, expiresOnTick: 100));
+
+            Assert.IsTrue(set.IsBarred(AbilityId.FlameArt));
+            Assert.IsFalse(set.IsBarred(AbilityId.Attack), "a silence is not a disarm");
+        }
+
+        [Test]
+        public void ARootBarsMovementThroughTheSameFlagsTheLockUses()
+        {
+            var set = new RestrictionSet();
+            set.Apply(AbilityRestriction.Lock(LockFlags.Move | LockFlags.Jump, expiresOnTick: 100));
+
+            Assert.IsTrue(set.Blocks(LockFlags.Move));
+            Assert.IsTrue(set.Blocks(LockFlags.Jump));
+            Assert.IsFalse(set.Blocks(LockFlags.Attack), "rooted, not disarmed");
+        }
+
+        [Test]
+        public void RestrictionsLiftWhenTheyExpire()
+        {
+            var set = new RestrictionSet();
+            set.Apply(AbilityRestriction.Lock(LockFlags.Move, expiresOnTick: 50));
+
+            set.PruneExpired(49);
+            Assert.IsTrue(set.Blocks(LockFlags.Move));
+
+            set.PruneExpired(50);
+            Assert.IsFalse(set.Blocks(LockFlags.Move), "and the fold has to be rebuilt, not stale");
+        }
+
+        [Test]
+        public void ReapplyingASilenceRefreshesItAndNeverShortensIt()
+        {
+            // Being silenced twice is being silenced — but a brief reapplication must not cure a
+            // long one.
+            var set = new RestrictionSet();
+            const int key = 55;
+
+            set.Apply(AbilityRestriction.Silence(AbilityId.FlameArt, 500, stackKey: key));
+            set.Apply(AbilityRestriction.Silence(AbilityId.FlameArt, 100, stackKey: key));
+
+            Assert.AreEqual(1, set.All.Count, "one silence, not two");
+
+            set.PruneExpired(200);
+            Assert.IsTrue(set.IsBarred(AbilityId.FlameArt), "the longer duration must win");
+        }
+
+        [Test]
+        public void RestrictionsComeOffWithTheirSource()
+        {
+            var set = new RestrictionSet();
+            set.Apply(AbilityRestriction.Lock(LockFlags.Move, StatModifier.Permanent, sourceId: 9));
+            set.Apply(AbilityRestriction.Silence(AbilityId.Attack, StatModifier.Permanent, sourceId: 4));
+
+            set.RemoveSource(9);
+
+            Assert.IsFalse(set.Blocks(LockFlags.Move));
+            Assert.IsTrue(set.IsBarred(AbilityId.Attack), "the other source is untouched");
+        }
 
         // ---------------------------------------------------------------- stacking
 
@@ -286,8 +397,10 @@ namespace Rokkan.Prophecy.Tests
                 Assert.AreEqual(4f, block.Effective(kind), 0.0001f, $"{kind} ignored its modifier");
             }
 
-            Assert.AreEqual(StatBlock.Count * 3, block.TotalLevels,
-                "TotalLevels must count every stat, not a hard-coded three");
+            // Progression stats only — Speed is addressable and modifiable but is not power, so
+            // raising it must not move the finale's gate.
+            Assert.AreEqual(StatKinds.ProgressionCount * 3, block.TotalLevels,
+                "TotalLevels must count every PROGRESSION stat, and only those");
         }
 
         [Test]

@@ -23,6 +23,36 @@ namespace Rokkan.Prophecy.Sim.Stats
 
         /// <summary>Life. Sizes maximum health.</summary>
         Heart = 2,
+
+        // ---- Below here: modifiable, but NOT earned. Resolve cannot be spent on these and they
+        // do not count toward the finale's power gate. Keep progression stats above this line —
+        // ProgressionCount depends on the ordering.
+
+        /// <summary>
+        /// Movement speed, as a multiplier. Base 1 is normal; 0.5 is a hobble, 1.5 a haste.
+        ///
+        /// <para><b>Modifiable but not levelable</b>, which is why it sits below the three. A
+        /// slowing debuff has to live somewhere, and the alternative was a second parallel system
+        /// with its own duration, stacking and expiry rules — all of which this one already has.
+        /// Making it a fourth <i>earnable</i> stat would have been the real mistake: the design
+        /// bible's progression is a choice between three, and a fourth option changes that
+        /// choice.</para>
+        /// </summary>
+        Speed = 3,
+    }
+
+    /// <summary>Which stats are which.</summary>
+    public static class StatKinds
+    {
+        /// <summary>
+        /// How many stats Resolve can be spent on. The progression stats are the first
+        /// <c>ProgressionCount</c> values of <see cref="StatKind"/>, so anything added below them
+        /// is automatically modifier-only.
+        /// </summary>
+        public const int ProgressionCount = 3;
+
+        /// <summary>True for the stats a player levels. False for Speed and anything like it.</summary>
+        public static bool IsProgression(this StatKind kind) => (int)kind < ProgressionCount;
     }
 
     /// <summary>

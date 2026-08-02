@@ -48,7 +48,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (Mathf.Abs(axis) < _tuning.MoveDeadzone) axis = 0f;
             if (!sim.Can(LockFlags.Move)) axis = 0f;
 
-            float target = axis == 0f ? 0f : Mathf.Sign(axis) * TopSpeed(state, Mathf.Abs(axis));
+            float target = axis == 0f ? 0f : Mathf.Sign(axis) * TopSpeed(sim, state, Mathf.Abs(axis));
 
             bool pushing = axis != 0f;
             float rate = state.Grounded
@@ -85,7 +85,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             }
         }
 
-        private float TopSpeed(CharacterState state, float axisMagnitude)
+        private float TopSpeed(CharacterSim sim, CharacterState state, float axisMagnitude)
         {
             float speed;
 
@@ -104,7 +104,12 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (state.Stance == Stance.Crouch)
                 speed *= _tuning.CrouchSpeedMultiplier;
 
-            return speed;
+            // Applied last, so a slow scales whatever gait you were in rather than pinning you to
+            // one. A hobbled run is still faster than a hobbled walk, which is what a player
+            // expects and what keeps the run toggle meaningful while debuffed.
+            speed *= sim.Stats.Effective(Stats.StatKind.Speed);
+
+            return Mathf.Max(0f, speed);
         }
     }
 }

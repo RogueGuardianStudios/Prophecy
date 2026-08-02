@@ -284,6 +284,24 @@ Added this session:
     tick would route around i-frames, block and parry. Deferred to the enemy pass, when whether it
     is blockable is answerable rather than guessable.
 
+32. **Speed is modifiable but not levelable, and does not count as power.** Slows and hastes need
+    a home, and a second system with its own duration, stacking and expiry rules would be the wrong
+    one. So `StatKind.Speed` sits *below* the three progression stats — Resolve cannot buy it,
+    `SpendLevel` refuses it, and `TotalLevels` skips it so a haste potion never reads as complicity
+    at the finale (§6.3). Anything added below `StatKinds.ProgressionCount` is automatically
+    modifier-only.
+33. **A restriction is not a stat.** Silence, disarm and root have no value to scale and no
+    "strongest" to compare, so `AbilityRestriction` is its own type sharing only the lifecycle. It
+    bars either `LockFlags` (the same vocabulary the action lock speaks) or one `AbilityId`.
+    **A barred module does not tick at all** rather than ticking and refusing — modules hold state
+    across ticks, and one advancing while forbidden to act is how a silence ends with the attack it
+    was meant to prevent already half-wound.
+34. **Clamping playback speed is foot drift, by definition.** The multiplier is what makes stride
+    match travel, so any clamped speed slides by exactly the ratio clamped away. The bounds are
+    guards against division nonsense, not tuning — set wide enough (0.05 … 4) that nothing from the
+    move threshold to a hasted run touches them. A speed debuff needs no animation handling of its
+    own precisely because playback is computed from *actual* velocity.
+
 ### Stat parity audit vs HopeFell — 2026-08-02
 
 Every member of HopeFell's stats system, checked against Prophecy's. Three rows are deliberate
