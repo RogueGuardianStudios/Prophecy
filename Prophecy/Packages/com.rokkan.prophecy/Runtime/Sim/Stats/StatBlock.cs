@@ -22,7 +22,24 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// <summary>Highest. Zelda II capped at 8 and the ceiling is part of the pacing.</summary>
         public const int MaxLevel = 8;
 
-        private readonly int[] _levels = { MinLevel, MinLevel, MinLevel };
+        /// <summary>
+        /// How many stats there are, read from <see cref="StatKind"/>.
+        ///
+        /// <para>Sized from the enum rather than written as 3, because the first version was
+        /// written as 3 in four places and adding a fourth stat would have thrown on the first
+        /// read rather than failing to compile. A count that can disagree with the thing it counts
+        /// is a trap however few there are.</para>
+        /// </summary>
+        public static readonly int Count = System.Enum.GetValues(typeof(StatKind)).Length;
+
+        private readonly int[] _levels = NewLevels();
+
+        private static int[] NewLevels()
+        {
+            var levels = new int[Count];
+            for (int i = 0; i < levels.Length; i++) levels[i] = MinLevel;
+            return levels;
+        }
         private readonly List<StatModifier> _modifiers = new List<StatModifier>();
         private readonly List<StatModifier> _keep = new List<StatModifier>();
 
@@ -84,15 +101,23 @@ namespace Rokkan.Prophecy.Sim.Stats
                 Resolve -= _tuning.ResolveForNextLevel(TotalLevels + earned);
                 earned++;
 
-                if (TotalLevels + earned >= MaxLevel * 3) break;   // every stat capped
+                if (TotalLevels + earned >= MaxLevel * Count) break;   // every stat capped
             }
 
             UnspentLevels += earned;
             return earned;
         }
 
-        /// <summary>Sum of the three levels. What the finale's power gate reads (§6.3).</summary>
-        public int TotalLevels => _levels[0] + _levels[1] + _levels[2];
+        /// <summary>Sum of every level. What the finale's power gate reads (§6.3).</summary>
+        public int TotalLevels
+        {
+            get
+            {
+                int total = 0;
+                for (int i = 0; i < _levels.Length; i++) total += _levels[i];
+                return total;
+            }
+        }
 
         // ---------------------------------------------------------------- modifiers
 

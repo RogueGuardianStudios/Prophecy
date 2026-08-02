@@ -14,6 +14,41 @@ namespace Rokkan.Prophecy.Tests
     {
         private static StatBlock Fresh() => new StatBlock();
 
+        // ---------------------------------------------------------------- extensibility
+
+        [Test]
+        public void EveryStatKindIsAddressable()
+        {
+            // Guards the fragility that adding a stat used to introduce: the level array was
+            // written as three literals, so a fourth StatKind would have thrown on the first read
+            // rather than failing to compile. Sizing from the enum fixes it; this catches any
+            // future place that goes back to assuming a count.
+            var block = Fresh();
+
+            foreach (StatKind kind in System.Enum.GetValues(typeof(StatKind)))
+            {
+                Assert.DoesNotThrow(() => block.SetLevel(kind, 3), $"{kind} is not addressable");
+                Assert.AreEqual(3, block.LevelOf(kind), $"{kind} did not keep its level");
+
+                block.Add(StatModifier.Flat(kind, 1f));
+                Assert.AreEqual(4f, block.Effective(kind), 0.0001f, $"{kind} ignored its modifier");
+            }
+
+            Assert.AreEqual(StatBlock.Count * 3, block.TotalLevels,
+                "TotalLevels must count every stat, not a hard-coded three");
+        }
+
+        [Test]
+        public void ModifiersOnlyTouchTheStatTheyName()
+        {
+            var block = Fresh();
+            block.Add(StatModifier.Flat(StatKind.Might, 5f));
+
+            Assert.AreEqual(6f, block.Effective(StatKind.Might), 0.0001f);
+            Assert.AreEqual(1f, block.Effective(StatKind.Flame), 0.0001f, "Flame must be untouched");
+            Assert.AreEqual(1f, block.Effective(StatKind.Heart), 0.0001f, "Heart must be untouched");
+        }
+
         // ---------------------------------------------------------------- ordering
 
         [Test]

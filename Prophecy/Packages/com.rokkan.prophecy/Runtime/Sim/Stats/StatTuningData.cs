@@ -61,11 +61,11 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// Resolve required to earn the next level, given how many are already held.
         ///
         /// <para>Geometric, so early levels arrive quickly and late ones are a commitment. The
-        /// three starting levels are free, so the cost curve counts from there.</para>
+        /// starting level in each stat is free, so the cost curve counts from there.</para>
         /// </summary>
         public int ResolveForNextLevel(int totalLevelsHeld)
         {
-            int earned = Mathf.Max(0, totalLevelsHeld - 3 * StatBlock.MinLevel);
+            int earned = Mathf.Max(0, totalLevelsHeld - StatBlock.Count * StatBlock.MinLevel);
             return Mathf.Max(1, Mathf.RoundToInt(BaseResolveCost * Mathf.Pow(ResolveCostGrowth, earned)));
         }
 
