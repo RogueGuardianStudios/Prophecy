@@ -54,7 +54,7 @@ Reusable material lives in HopeFell's `Packages/`, **not** its `Assets/`.
 | `com.rgs.core` **0.2.0** | `SerializableGuid`, `TagMask128`, RNG streams, `ISerializer`/`JsonSerializer`, `PersistentSingleton`, `VectorMath`, `DeterministicMath`, **`RGS.Core.Sim`** (the 60 Hz fixed-tick spine) | ✅ extracted, consumed |
 | `com.rokkan.core` | `SavePrimitives.cs` (`ISaveable`, `IBind<T>`) | ✅ extracted, consumed |
 | `com.rokkan.animation` | The clip-injection system | ⏳ planned M4 |
-| `com.rgs.goap` | GOAP (currently in HopeFell's `Assets/`) | ⏳ planned M6, only if it beats a plain state machine |
+| `com.rgs.goap` **2.0.0** | GOAP: Burst A* planner, Recollection memory, blackboard, editor suite | ✅ extracted, consumed. **Framework only** — HopeFell's beliefs, sensors and demos stayed behind; Prophecy supplies sensors that read the sim |
 
 Consumed via `file:../../../../Packages/<name>` in `Prophecy/Packages/manifest.json`. The path is relative to the **Packages folder** and is four levels up because of the nested layout — if Unity reports a package cannot be resolved, that depth is the thing to check.
 
