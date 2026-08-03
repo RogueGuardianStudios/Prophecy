@@ -78,6 +78,26 @@ namespace Rokkan.Prophecy.Goap
                     return GoapActionStatus.Failure;   // it moved; close again rather than whiff
                 }
 
+                // Face the target BEFORE pressing.
+                //
+                // An attack is aimed by the attacker's facing — a hit box is mirrored by it and a
+                // projectile is launched along it — and facing follows the movement axis, which
+                // means whichever way the body last walked. A caster that has just backed away is
+                // facing away from what it is shooting at, so its bolt leaves in the direction it
+                // retreated. The grunt never showed this because closing and swinging point the
+                // same way; the moment an action moves AWAY and then attacks, they do not.
+                //
+                // Turning costs one tick and about seven centimetres of drift, because the only
+                // lever the AI has is the same axis a player would push. That is the price of the
+                // AI pressing buttons rather than setting state, and it is worth paying.
+                int toTarget = percept.DirectionToTarget;
+
+                if (toTarget != 0 && FacingOf(host) != toTarget)
+                {
+                    host.Intent.MoveX = toTarget;
+                    return GoapActionStatus.Running;
+                }
+
                 // Stop dead first. Walking into the target while swinging shoves it out of the
                 // reach the attack was authored for, and the hit misses invisibly.
                 host.Intent.MoveX = 0f;
@@ -89,10 +109,16 @@ namespace Rokkan.Prophecy.Goap
 
             host.Intent.MoveX = 0f;
 
-
             return tick - host.Scratch.StartedTick >= recovery
                 ? GoapActionStatus.Success
                 : GoapActionStatus.Running;
+        }
+
+        /// <summary>Which way the body is pointing, or 0 if it has no simulation yet.</summary>
+        private static int FacingOf(EnemyBrainHost host)
+        {
+            var body = host.GetComponent<PlayerCharacterHost>();
+            return body?.Sim?.State?.Facing ?? 0;
         }
 
         private static long CurrentTick(EnemyBrainHost host)
