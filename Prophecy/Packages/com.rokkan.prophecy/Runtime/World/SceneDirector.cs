@@ -41,6 +41,10 @@ namespace Rokkan.Prophecy.World
 
         public static SceneDirector Instance { get; private set; }
 
+        /// <summary>The persistent player this director moves. Read by portals, which need to know
+        /// where the feet are without going looking for them.</summary>
+        public PlayerCharacterHost Player => _player;
+
         private SceneDescriptor _descriptor;
         private SpawnPoint _activeSpawn;
 
