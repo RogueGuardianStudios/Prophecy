@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &535464676332010218
+--- !u!1 &5750721582263145223
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,46 +8,46 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8868313516696692682}
-  - component: {fileID: 4812605695359067000}
-  - component: {fileID: 6645715429147852930}
-  - component: {fileID: 7245913787062139448}
-  - component: {fileID: 7517239556866367700}
-  - component: {fileID: 5081826839378223088}
-  - component: {fileID: 1681539276105142183}
-  - component: {fileID: 71836941195209178}
-  - component: {fileID: 7420226415763647379}
-  - component: {fileID: 9197407758364004755}
+  - component: {fileID: 3662275141688354749}
+  - component: {fileID: 4661686183067807320}
+  - component: {fileID: 3385863312158110931}
+  - component: {fileID: 458568804098834392}
+  - component: {fileID: 1719510542709080894}
+  - component: {fileID: 201498067572195026}
+  - component: {fileID: 3769771030393151552}
+  - component: {fileID: 3699971481274449698}
+  - component: {fileID: 5712152816918719345}
+  - component: {fileID: 8574968284677836948}
   m_Layer: 0
-  m_Name: Enemy_Capsule
+  m_Name: Enemy_Caster
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8868313516696692682
+--- !u!4 &3662275141688354749
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7376805773751550447}
+  - {fileID: 7118330935137254072}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4812605695359067000
+--- !u!114 &4661686183067807320
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2a83b57bfa1001438f6c285c15f4848, type: 3}
@@ -55,7 +55,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.PlayerCharacterHost
   _tuning: {fileID: 11400000, guid: e3e31b26c0e3f2b49b09c30e5226b71e, type: 2}
   _loadout: {fileID: 11400000, guid: 3631cec18ae1b024d992119f971cdc72, type: 2}
-  _combatTuning: {fileID: 11400000, guid: fb9512cfff0c622479b0b8a905148b0b, type: 2}
+  _combatTuning: {fileID: 11400000, guid: bb680c2d469088e4ea97949edefd27e4, type: 2}
   _clockDriver: {fileID: 0}
   _input:
     underlyingValue: {fileID: 0}
@@ -65,30 +65,30 @@ MonoBehaviour:
     m_Bits: 4294967295
   _railDepth: 0
   _bakeOnStart: 1
---- !u!114 &6645715429147852930
+--- !u!114 &3385863312158110931
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2f69b07aac89ba4fb58231efcec5076, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterView
-  _host: {fileID: 4812605695359067000}
-  _body: {fileID: 7376805773751550447}
+  _host: {fileID: 4661686183067807320}
+  _body: {fileID: 7118330935137254072}
   _turnSpeed: 900
   _resizeProxyOnCrouch: 1
   _resizeSmoothing: 0.06
---- !u!114 &7245913787062139448
+--- !u!114 &458568804098834392
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc3cb08f900afaf48873fb40855f78a5, type: 3}
@@ -96,7 +96,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.Combatant
   _combatId: 0
   _team: 2
-  _simHost: {fileID: 4812605695359067000}
+  _simHost: {fileID: 4661686183067807320}
   _size: {x: 0.9, y: 1.8}
   _offset: {x: 0, y: 0.9}
   _maxHealth: 60
@@ -110,19 +110,19 @@ MonoBehaviour:
   _flashSeconds: 0.12
   _knockback: 0.25
   _knockbackRecoverySeconds: 0.35
---- !u!114 &7517239556866367700
+--- !u!114 &1719510542709080894
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5748ce2940653ea4399e68d106219834, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.EnemyBrainHost
-  _host: {fileID: 4812605695359067000}
+  _host: {fileID: 4661686183067807320}
   _team: 2
   _tuning:
     SightRange: 12
@@ -133,35 +133,35 @@ MonoBehaviour:
   _fallbackWhenNoBrain: 1
   _trace: 1
   _traceEveryTicks: 30
---- !u!114 &5081826839378223088
+--- !u!114 &201498067572195026
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7abb1c729d8dd4d8acfac5c0529d60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.AttackTelegraph
-  _host: {fileID: 4812605695359067000}
-  _combatant: {fileID: 7245913787062139448}
+  _host: {fileID: 4661686183067807320}
+  _combatant: {fileID: 458568804098834392}
   _windUpColour: {r: 1, g: 0.78, b: 0.25, a: 1}
   _activeColour: {r: 1, g: 0.2, b: 0.12, a: 1}
---- !u!114 &1681539276105142183
+--- !u!114 &3769771030393151552
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 42dca2c0301bc4d4fbfcefd6bb865f83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapAgentContext
-  Agent: {fileID: 7420226415763647379}
+  Agent: {fileID: 5712152816918719345}
   _registeredKeys: []
   _preCacheCommonComponents: 1
   _actionOverrides:
@@ -174,25 +174,25 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
---- !u!114 &71836941195209178
+--- !u!114 &3699971481274449698
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 512948a3a1f44b5a8fa5f9f2b6f1b44f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 7108428516461642407
-  - rid: 7108428516461642408
+  - rid: 7108428516461642454
+  - rid: 7108428516461642455
   references:
     version: 2
     RefIds:
-    - rid: 7108428516461642407
+    - rid: 7108428516461642454
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -210,7 +210,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 7108428516461642408
+    - rid: 7108428516461642455
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -219,26 +219,26 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
---- !u!114 &7420226415763647379
+--- !u!114 &5712152816918719345
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d4cb3637f74f5fc4ba6875a759ecaf3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapAgent
-  _brain: {fileID: 11400000, guid: ee1f12b32430de6418d795375b4a3185, type: 2}
+  _brain: {fileID: 11400000, guid: aeb3647ea32f277469f11c0d93223366, type: 2}
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 1155741335
-      Part2: 1271524944
-      Part3: 2115017110
-      Part4: 1815905483
+      Part1: 2649277738
+      Part2: 1284537916
+      Part3: 283586697
+      Part4: 3186491744
     Actions: []
     Goals: []
     Beliefs: []
@@ -256,20 +256,20 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
---- !u!114 &9197407758364004755
+--- !u!114 &8574968284677836948
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 535464676332010218}
+  m_GameObject: {fileID: 5750721582263145223}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c0efeeb3d51b23f458ea90d2bc5307aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy.Goap::Rokkan.Prophecy.Goap.GoapTraceProbe
   _interval: 0.5
---- !u!1 &698936919371536825
+--- !u!1 &7670929028324034323
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -277,9 +277,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7376805773751550447}
-  - component: {fileID: 8672309781585556335}
-  - component: {fileID: 8225756650667649477}
+  - component: {fileID: 7118330935137254072}
+  - component: {fileID: 1213661560822662100}
+  - component: {fileID: 5414215783084595511}
   m_Layer: 0
   m_Name: Body
   m_TagString: Untagged
@@ -287,36 +287,36 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7376805773751550447
+--- !u!4 &7118330935137254072
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 698936919371536825}
+  m_GameObject: {fileID: 7670929028324034323}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0.9, z: 0}
   m_LocalScale: {x: 0.9, y: 0.9, z: 0.9}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8868313516696692682}
+  m_Father: {fileID: 3662275141688354749}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8672309781585556335
+--- !u!33 &1213661560822662100
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 698936919371536825}
+  m_GameObject: {fileID: 7670929028324034323}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &8225756650667649477
+--- !u!23 &5414215783084595511
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 698936919371536825}
+  m_GameObject: {fileID: 7670929028324034323}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1

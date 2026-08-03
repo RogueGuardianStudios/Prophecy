@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: c8c57964b7757ed4c9021563de938b7d, type: 3}
   m_Name: Sensor_Terrain
-  m_EditorClassIdentifier: Rokkan.Prophecy.Goap:Rokkan.Prophecy.Goap:ProphecyTerrainSensor
+  m_EditorClassIdentifier: Rokkan.Prophecy.Goap::Rokkan.Prophecy.Goap.ProphecyTerrainSensor
   DefaultInterval: 0.5

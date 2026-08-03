@@ -48,6 +48,7 @@ namespace Rokkan.Prophecy.Presentation
         private Percept _percept;
         private bool _blockedAhead;
         private bool _drivenExternally;
+        private string _driverLabel;
 
         public EnemyBrainHost() => _builtIn = new PatrolPursueAttack(_tuning);
 
@@ -60,6 +61,31 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>What the body will be told to do. GOAP action strategies write this.</summary>
         public EnemyIntent Intent => _intent;
 
+        /// <summary>
+        /// Working state for whichever action is running on THIS enemy.
+        ///
+        /// <para><b>Because the strategies are shared assets.</b> A <c>GoapActionStrategy</c> is a
+        /// ScriptableObject, so there is exactly one instance of it for the whole game — every
+        /// enemy running "Swing" is running the same object. A field on the strategy is therefore
+        /// a global variable wearing a member's clothing: the grunt set its swing timestamp and
+        /// the caster, reading the same field, believed it had already fired and skipped the shot
+        /// entirely. Nothing errored; the caster simply never attacked.</para>
+        ///
+        /// <para>One scratch rather than one per action because an agent runs a single action at a
+        /// time — the executor guarantees it — so the fields cannot be contended within an agent,
+        /// only between them, which is exactly what this separates.</para>
+        /// </summary>
+        public sealed class ActionScratch
+        {
+            /// <summary>Tick the current action began doing whatever it times. MinValue = not yet.</summary>
+            public long StartedTick = long.MinValue;
+
+            /// <summary>Which way it is going: a patrol's heading, or a spring's committed aim.</summary>
+            public int Direction = 1;
+        }
+
+        public ActionScratch Scratch { get; } = new ActionScratch();
+
         /// <summary>The built-in loop, for comparison against a planner and for the overlay.</summary>
         public PatrolPursueAttack BuiltIn => _builtIn;
 
@@ -68,8 +94,16 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>
         /// Tell this host that something else is writing the intent, so the built-in loop stands
         /// down. A GOAP agent calls this when it takes over.
+        ///
+        /// <para><paramref name="label"/> is for the trace only — the name of whatever is deciding,
+        /// so a log can say "Swing" rather than reporting the built-in loop's last thought. It
+        /// carries no behaviour and nothing reads it to make a decision.</para>
         /// </summary>
-        public void DriveExternally(bool driven) => _drivenExternally = driven;
+        public void DriveExternally(bool driven, string label = null)
+        {
+            _drivenExternally = driven;
+            if (driven) _driverLabel = label;
+        }
 
         private void Awake()
         {
@@ -104,8 +138,89 @@ namespace Rokkan.Prophecy.Presentation
             if (!_drivenExternally && _fallbackWhenNoBrain)
                 _builtIn.Tick(in _percept, _intent, sim.CurrentTick, _blockedAhead);
 
+#if UNITY_EDITOR
+            Trace(sim);
+#endif
             return _intent.Consume();
         }
+
+#if UNITY_EDITOR
+        // ---------------------------------------------------------------- trace
+        //
+        // Editor-only by construction. Enemy behaviour is invisible from outside — a capsule that
+        // is planning and a capsule that is running the fallback look identical — and the console
+        // bridge does not reach play mode reliably, so this writes a file instead.
+
+        [Header("Diagnostics (editor only)")]
+        [SerializeField, Tooltip("Write a line to Logs/enemy-trace.txt every few ticks. The column " +
+                                 "that matters is 'driver': GOAP means a planner action is writing " +
+                                 "the intent, builtin means it never took over.")]
+        private bool _trace = true;
+
+        [SerializeField, Tooltip("Ticks between trace lines. 30 is twice a second.")]
+        private int _traceEveryTicks = 30;
+
+        private static readonly System.Collections.Generic.List<string> TraceLines =
+            new System.Collections.Generic.List<string>();
+
+        private static string TracePath => System.IO.Path.Combine(
+            System.IO.Directory.GetParent(Application.dataPath)!.FullName, "Logs", "enemy-trace.txt");
+
+        private void Trace(CharacterSim sim)
+        {
+            if (!_trace || _traceEveryTicks < 1) return;
+            if (sim.CurrentTick % _traceEveryTicks != 0) return;
+
+            // The built-in loop does not tick while a planner drives, so its Behaviour is frozen at
+            // whatever it last decided — it read "Patrol" through an entire pursuit. Report whoever
+            // is actually deciding.
+            string behaviour = _drivenExternally
+                ? (_driverLabel ?? "<external>")
+                : _builtIn.Behaviour.ToString();
+
+            TraceLines.Add(string.Format(
+                "{0,6} {1,-14} driver={2,-7} x={3,7:F2} vx={4,6:F2} target={5,-5} see={6,-5} " +
+                "dist={7,6:F2} blocked={8,-5} move={9,5:F2}",
+                sim.CurrentTick, behaviour,
+                _drivenExternally ? "GOAP" : "builtin",
+                sim.State.Position.x, sim.State.Velocity.x,
+                _percept.HasTarget, _percept.HasLineOfSight,
+                _percept.HasTarget ? _percept.DistanceX : -1f,
+                _blockedAhead, _intent.MoveX));
+
+            if (TraceLines.Count % 20 == 0) FlushTrace();
+        }
+
+        private void OnDisable()
+        {
+            if (_trace) FlushTrace();
+        }
+
+        private static void FlushTrace()
+        {
+            if (TraceLines.Count == 0) return;
+
+            var text = new System.Text.StringBuilder();
+            text.AppendLine("Prophecy enemy trace");
+            text.AppendLine("driver=GOAP means a planner action wrote the intent; builtin means it never took over.");
+            text.AppendLine();
+            text.AppendLine("  tick behaviour      driver        x     vx target see    dist blocked  move");
+            text.AppendLine(new string('-', 108));
+
+            int start = Mathf.Max(0, TraceLines.Count - 300);
+            for (int i = start; i < TraceLines.Count; i++) text.AppendLine(TraceLines[i]);
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(TracePath)!);
+                System.IO.File.WriteAllText(TracePath, text.ToString());
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Prophecy] could not write the enemy trace: {e.Message}");
+            }
+        }
+#endif
 
         private void Sense(CharacterSim sim)
         {

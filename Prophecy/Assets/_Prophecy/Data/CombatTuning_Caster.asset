@@ -1,0 +1,184 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a0036507bfa34f42bc254acecbda089, type: 3}
+  m_Name: CombatTuning_Caster
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Core.CombatTuning
+  _data:
+    StandingAttackId: slash_high
+    CrouchingAttackId: thrust_low
+    AirAttackId: 
+    AttackBufferTicks: 10
+    Attacks:
+    - Id: slash_high
+      RequiredStance: 0
+      StartupTicks: 24
+      ActiveTicks: 4
+      RecoveryTicks: 12
+      HitBoxes: []
+      Spawns:
+      - Tick: 24
+        Projectile:
+          Id: caster_bolt
+          SpawnOffset: {x: 0.8, y: 1}
+          Speed: 9
+          Gravity: 0
+          HalfExtents: {x: 0.25, y: 0.25}
+          GrowthPerSecond: {x: 0, y: 0}
+          Damage: 10
+          Height: 0
+          Defeats: 0
+          LifetimeTicks: 0
+          StoppedByGeometry: 0
+          MaxTargets: 0
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 30
+        BaseDuration: 8
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: slash_high_2
+      RequiresExecutableTarget: 0
+    - Id: slash_high_2
+      RequiredStance: 0
+      StartupTicks: 24
+      ActiveTicks: 5
+      RecoveryTicks: 16
+      HitBoxes: []
+      Spawns:
+      - Tick: 24
+        Projectile:
+          Id: caster_bolt
+          SpawnOffset: {x: 0.8, y: 1}
+          Speed: 9
+          Gravity: 0
+          HalfExtents: {x: 0.25, y: 0.25}
+          GrowthPerSecond: {x: 0, y: 0}
+          Damage: 14
+          Height: 0
+          Defeats: 0
+          LifetimeTicks: 0
+          StoppedByGeometry: 0
+          MaxTargets: 0
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 37
+        BaseDuration: 6
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
+    - Id: thrust_low
+      RequiredStance: 1
+      StartupTicks: 24
+      ActiveTicks: 4
+      RecoveryTicks: 14
+      HitBoxes: []
+      Spawns:
+      - Tick: 24
+        Projectile:
+          Id: caster_bolt
+          SpawnOffset: {x: 0.8, y: 1}
+          Speed: 9
+          Gravity: 0
+          HalfExtents: {x: 0.25, y: 0.25}
+          GrowthPerSecond: {x: 0, y: 0}
+          Damage: 9
+          Height: 0
+          Defeats: 0
+          LifetimeTicks: 0
+          StoppedByGeometry: 0
+          MaxTargets: 0
+      IFrames:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 32
+        BaseDuration: 6
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
+    DownThrustBox:
+      OpenTick: 0
+      CloseTick: 1
+      Offset: {x: 0, y: -0.2}
+      HalfExtents: {x: 0.45, y: 0.35}
+      RotationDegrees: 0
+      Damage: 16
+      Height: 2
+      Defeats: 0
+      StoppedByGeometry: 0
+    DownThrustAttackId: down_thrust
+    MaxHealth: 100
+    BlockedDamageFraction: 0.25
+    BlockPushbackSpeed: 2.5
+    ParryWindow:
+      BaseStart: 0
+      BaseDuration: 8
+      MinTicks: 2
+      MaxTicks: 24
+    DodgeAction:
+      Id: dodge
+      RequiredStance: 0
+      StartupTicks: 3
+      ActiveTicks: 10
+      RecoveryTicks: 14
+      HitBoxes: []
+      Spawns: []
+      IFrames:
+        BaseStart: 2
+        BaseDuration: 13
+        MinTicks: 2
+        MaxTicks: 30
+      ParryWindow:
+        BaseStart: 0
+        BaseDuration: 0
+        MinTicks: 1
+        MaxTicks: 60
+      CancelWindow:
+        BaseStart: 20
+        BaseDuration: 7
+        MinTicks: 1
+        MaxTicks: 60
+      ChainsInto: 
+      RequiresExecutableTarget: 0
+    DodgeDistance: 2.2
+    ParryStunTicks: 40
+    HitStunTicks: 18
+    KnockbackSpeed: 4
+    KnockbackLift: 2
+    HitInvulnerabilityTicks: 20

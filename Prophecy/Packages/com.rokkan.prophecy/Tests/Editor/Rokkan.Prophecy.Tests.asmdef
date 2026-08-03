@@ -3,6 +3,8 @@
     "rootNamespace": "Rokkan.Prophecy.Tests",
     "references": [
         "Rokkan.Prophecy",
+        "Rokkan.Prophecy.Goap",
+        "RGS.GOAP.Core",
         "RGS.Core",
         "Rokkan.Core",
         "UnityEngine.TestRunner",

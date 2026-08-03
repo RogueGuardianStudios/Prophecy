@@ -180,7 +180,10 @@ namespace Rokkan.Prophecy.Editor.Build
 
             float cursor = -12f;
 
-            cursor = Ground(geometry, "Ground", cursor, 132f);
+            // Runs to x=180. The dummy stations end around 105, but the planner stations past it
+            // patrol, and a patrol needs floor on both sides of where it starts — an enemy spawned
+            // on the last metre of ground walks off it before it has decided anything.
+            cursor = Ground(geometry, "Ground", cursor, 192f);
 
             // Station 1 — the basic hit. A full-body dummy both attacks reach, so the first swing
             // in the arena always connects and "is combat on at all" is never the question.
@@ -236,6 +239,20 @@ namespace Rokkan.Prophecy.Editor.Build
             // arena can actually ask.
             Caster(targets, "11_Bolt", 90f, tuning, projectile: true);
             Caster(targets, "12_Shockwave", 100f, tuning, projectile: false);
+
+            // Station 13 — the first thing in the arena that decides for itself. Everything above
+            // is a dummy on a timer; this one plans. Placed at the far end with clear floor either
+            // side of it, because the first question to ask of a patrol is whether it turns round
+            // before it walks off, and that needs an edge to find.
+            Grunt(targets, 112f);
+
+            // Stations 14–16 — the rest of the roster, each alone so its one idea is legible.
+            // Spaced further apart than the dummy stations: these move, and two planners inside
+            // each other's 12 m sight range would be answering questions about each other rather
+            // than about the player.
+            Planner(targets, "Enemy_Chaser", "14_Chaser", 130f);
+            Planner(targets, "Enemy_Ambusher", "15_Ambusher", 148f);
+            Planner(targets, "Enemy_Caster", "16_Caster", 166f);
 
             // Station 10 — the down-thrust. A launch ledge and a row of targets under it, spaced so
             // one bounce carries into the next. Nothing else in the arena asks whether the dive is
@@ -409,6 +426,41 @@ namespace Rokkan.Prophecy.Editor.Build
         /// answers each accepts are deliberately different so neither is a re-skin of the sword
         /// stations.</para>
         /// </summary>
+        /// <summary>
+        /// Drop the GOAP capsule in. Instantiated from its prefab rather than assembled here, so
+        /// the arena and the enemy cannot drift apart — regenerate either and the other still
+        /// holds.
+        /// </summary>
+        private static void Grunt(Transform parent, float x) =>
+            Planner(parent, "Enemy_Capsule", "13_Grunt", x);
+
+        /// <summary>
+        /// Drops one planner-driven enemy in, by prefab name.
+        ///
+        /// <para>Each archetype gets its own station so they can be read one at a time. A chaser
+        /// and a grunt standing together are hard to tell apart until one of them stops to swing,
+        /// which is the moment the difference matters and the worst moment to be guessing which is
+        /// which.</para>
+        /// </summary>
+        private static void Planner(Transform parent, string prefabName, string stationName, float x)
+        {
+            string path = $"Assets/_Prophecy/Prefabs/{prefabName}.prefab";
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[Prophecy] No enemy prefab at {path}. Run " +
+                                 "Prophecy > Build > Generate Enemies first; the arena will " +
+                                 $"build without {stationName}.");
+                return;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.name = stationName;
+            instance.transform.position = new Vector3(x, 0f, 0f);
+        }
+
         private static void Caster(Transform parent, string name, float x, MovementTuning tuning,
                                    bool projectile)
         {
@@ -528,6 +580,10 @@ namespace Rokkan.Prophecy.Editor.Build
                 ("9 Unblockable", 66.5f, 0f),
                 ("10 Pogo (on the ledge)", 80f, 3.6f),
                 ("11 Bolt / 12 Shockwave", 88f, 0f),
+                ("13 Grunt (it plans)", 105f, 0f),
+                ("14 Chaser (body-checks)", 124f, 0f),
+                ("15 Ambusher (springs)", 142f, 0f),
+                ("16 Caster (keeps away)", 158f, 0f),
             };
 
             list.arraySize = entries.Length;
@@ -587,6 +643,12 @@ namespace Rokkan.Prophecy.Editor.Build
             var director = new GameObject("CombatDirector");
             var component = director.AddComponent<CombatDirector>();
             SetPrivate(component, "_space", MovementSpace.SideScroll);
+
+            // Projectiles are simulated whether or not anything draws them, and until now nothing
+            // did outside the F2 overlay — so a caster firing and a caster failing to fire looked
+            // identical, and the bolt that hit you came from nowhere.
+            var view = director.AddComponent<ProjectileView>();
+            SetPrivate(view, "_director", component);
         }
 
         private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning)
