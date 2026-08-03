@@ -98,6 +98,16 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>True when this is a simulated character rather than a dummy.</summary>
         public bool IsSimulated => _simHost != null && _simHost.Sim != null;
 
+        /// <summary>
+        /// The simulated body behind this combatant, or null for a dummy.
+        ///
+        /// <para>Exposed so the debug overlay can draw what a real enemy is swinging. It used to
+        /// draw incoming attacks only for scripted <see cref="TrainingAttacker"/>s, which meant a
+        /// planning enemy's hit box — the one that actually reaches the player — was the single
+        /// volume the volume viewer could not show.</para>
+        /// </summary>
+        public PlayerCharacterHost SimHost => _simHost;
+
         private Vitals Vitals => IsSimulated ? _simHost.Sim.Vitals : _dummyVitals;
 
         public int Health => Vitals.Health;
@@ -132,6 +142,13 @@ namespace Rokkan.Prophecy.Presentation
 
         private void Awake()
         {
+            // A host on this same object means a simulated body, always — the dummy path exists for
+            // things that have no simulation at all, and those have no host to find. Leaving this
+            // to be wired by hand made a moving character publish a hurtbox at its spawn point and
+            // say nothing about it, because "a dummy that does not move" is the normal case and
+            // nothing downstream can tell the two apart.
+            if (_simHost == null) _simHost = GetComponent<PlayerCharacterHost>();
+
             _dummyVitals.MaxHealth = _maxHealth;
             _dummyVitals.Reset();
 

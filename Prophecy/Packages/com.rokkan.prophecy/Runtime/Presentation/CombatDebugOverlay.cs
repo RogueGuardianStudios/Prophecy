@@ -431,6 +431,7 @@ namespace Rokkan.Prophecy.Presentation
 
             DrawAttackVolumes(space, depth);
             DrawIncomingVolumes(space, depth);
+            DrawSimulatedAttackerVolumes(space, depth);
             DrawProjectiles(space, depth);
 
             GL.End();
@@ -471,6 +472,50 @@ namespace Rokkan.Prophecy.Presentation
                     DrawBox(box.ResolveCentre(feet, facing), box.HalfExtents,
                             box.ResolveRotation(facing),
                             live ? _liveBoxColour : _armedBoxColour, space, depth);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The attacks of every <i>simulated</i> body other than the one being inspected.
+        ///
+        /// <para><b>Separate from <see cref="DrawIncomingVolumes"/> because they find their
+        /// attackers differently.</b> That one walks <see cref="TrainingAttacker"/>s, which run
+        /// scripted swings and are the only thing this overlay knew about when it was written. A
+        /// planning enemy attacks through the ordinary <c>AttackModule</c>, so it appeared nowhere
+        /// — the volume that actually reaches the player was the one volume the viewer could not
+        /// draw, and an attack that connected looked identical to one that should have missed.</para>
+        /// </summary>
+        private void DrawSimulatedAttackerVolumes(MovementSpace space, float depth)
+        {
+            if (_director == null) return;
+
+            var combatants = _director.Combatants;
+            for (int c = 0; c < combatants.Count; c++)
+            {
+                var combatant = combatants[c];
+                if (combatant == null || !combatant.IsSimulated) continue;
+
+                var sim = combatant.SimHost.Sim;
+                if (sim == _host.Sim) continue;          // drawn by DrawAttackVolumes, in its own colours
+
+                var attack = sim.Get<AttackModule>();
+                if (attack == null || !attack.IsAttacking) continue;
+
+                var definition = attack.Current;
+                if (definition?.HitBoxes == null) continue;
+
+                var timeline = attack.Runner.Timeline;
+                var state = sim.State;
+
+                for (int i = 0; i < definition.HitBoxes.Length; i++)
+                {
+                    var box = definition.HitBoxes[i];
+
+                    DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
+                            box.ResolveRotation(state.Facing),
+                            timeline.IsHitBoxLive(i) ? _liveBoxColour : _armedBoxColour,
+                            space, depth);
                 }
             }
         }
