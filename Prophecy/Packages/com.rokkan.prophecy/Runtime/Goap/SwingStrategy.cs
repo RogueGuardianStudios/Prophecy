@@ -83,10 +83,12 @@ namespace Rokkan.Prophecy.Goap
                 host.Intent.MoveX = 0f;
                 host.Intent.PressAttack();
                 host.Scratch.StartedTick = tick;
+
                 return GoapActionStatus.Running;
             }
 
             host.Intent.MoveX = 0f;
+
 
             return tick - host.Scratch.StartedTick >= recovery
                 ? GoapActionStatus.Success

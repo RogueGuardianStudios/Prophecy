@@ -126,6 +126,24 @@ namespace Rokkan.Prophecy.Editor
             EditorUtility.SetDirty(caster);
             AssetDatabase.SaveAssets();
 
+            // ProjectileDefinition ships a validator that says exactly what is wrong with a bolt
+            // that cannot work, and not calling it cost a caster that fired into nothing for a
+            // whole session. Generation now refuses to pass quietly.
+            foreach (var attack in caster.Data.Attacks)
+            {
+                if (attack?.Spawns == null) continue;
+
+                for (int i = 0; i < attack.Spawns.Length; i++)
+                {
+                    string malformed = attack.Spawns[i].Projectile?.Validate();
+                    if (malformed == null) continue;
+
+                    Debug.LogError($"[Prophecy] {CasterTuningPath} '{attack.Id}' spawn {i} " +
+                                   $"cannot work: {malformed}");
+                    return null;
+                }
+            }
+
             Debug.Log($"[Prophecy] Caster combat tuning generated at {CasterTuningPath}.");
             return caster;
         }
@@ -167,18 +185,37 @@ namespace Rokkan.Prophecy.Editor
             var bolt = spawn.FindPropertyRelative("Projectile");
             if (bolt == null) return;
 
+            // EVERY field, explicitly.
+            //
+            // SerializedProperty.InsertArrayElementAtIndex creates a ZEROED element — C# field
+            // initializers do not run for it. ProjectileDefinition declares LifetimeTicks = 120,
+            // MaxTargets = 1 and StoppedByGeometry = true, and the bolt got 0, 0 and false: it
+            // expired the tick it spawned. The caster fired, correctly, forever, and nothing ever
+            // came out. Anything left unnamed here is silently zero, so nothing is left unnamed.
             Set(bolt, "Id", "caster_bolt");
             SetVector(bolt, "SpawnOffset", new Vector2(0.8f, 1.0f));
             SetFloat(bolt, "Speed", 9f);            // slow enough to be dodged on sight
             SetFloat(bolt, "Gravity", 0f);
             SetVector(bolt, "HalfExtents", new Vector2(0.25f, 0.25f));
+            SetVector(bolt, "GrowthPerSecond", Vector2.zero);
             SetInt(bolt, "Damage", damage);
+            SetInt(bolt, "Height", 0);              // AttackHeight.Any
+            SetInt(bolt, "Defeats", 0);             // DefensiveAnswer.None — every answer works
+            SetInt(bolt, "LifetimeTicks", 120);     // 2 seconds; the one that was killing it
+            SetBool(bolt, "StoppedByGeometry", true);
+            SetInt(bolt, "MaxTargets", 1);
         }
 
         private static void Set(SerializedProperty parent, string name, string value)
         {
             var p = parent.FindPropertyRelative(name);
             if (p != null) p.stringValue = value;
+        }
+
+        private static void SetBool(SerializedProperty parent, string name, bool value)
+        {
+            var p = parent.FindPropertyRelative(name);
+            if (p != null) p.boolValue = value;
         }
 
         private static void SetInt(SerializedProperty parent, string name, int value)

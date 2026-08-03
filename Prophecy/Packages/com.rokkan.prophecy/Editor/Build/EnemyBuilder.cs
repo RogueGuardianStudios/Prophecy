@@ -246,6 +246,18 @@ namespace Rokkan.Prophecy.Editor
                 desired: new[] { On(wasStruck) },
                 validity: new[] { On(hasAnyTarget) });
 
+            // The ambusher's version also requires the target to be CLOSE, not merely to exist.
+            //
+            // Its spring is deliberately gated on a range nothing can close, so with a target in
+            // sight but out of range the goal is valid and unreachable — and the planner reports a
+            // failure five times, enters fallback, waits out a cooldown, and does it again. Making
+            // the trigger a validity condition means the goal is simply not considered until you
+            // are near, and it plans its lurk cleanly instead. A goal that cannot be reached should
+            // not be offered.
+            var springGoal = Goal("StrikeTarget", priority: 10f,
+                desired: new[] { On(wasStruck) },
+                validity: new[] { On(hasAnyTarget), On(withinSpring) });
+
             var patrolGoal = Goal("Wander", priority: 1f,
                 desired: new[] { On(isPatrolling) });
 
@@ -299,7 +311,7 @@ namespace Rokkan.Prophecy.Editor
                 case Archetype.Ambusher:
                     state.Actions.Add(lurkAction);
                     state.Actions.Add(springAction);
-                    state.Goals.Add(killGoal);
+                    state.Goals.Add(springGoal);
                     state.Goals.Add(patrolGoal);
                     break;
 

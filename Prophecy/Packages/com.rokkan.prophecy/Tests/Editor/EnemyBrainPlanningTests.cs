@@ -173,6 +173,45 @@ namespace Rokkan.Prophecy.Tests
             }
         }
 
+        /// <summary>
+        /// The caster's bolt has to be able to exist.
+        ///
+        /// <para><b>A projectile that cannot work still fires.</b> The attack plays, the planner is
+        /// satisfied, the press is logged — and nothing comes out, because the bolt expired on the
+        /// tick it spawned. That is what a zero lifetime does, and it is what a generator gets when
+        /// it builds a serialized array element and trusts the class's field initializers:
+        /// <c>InsertArrayElementAtIndex</c> zeroes the element instead of running them.</para>
+        /// </summary>
+        [Test]
+        public void TheCastersProjectilesCanActuallyExist()
+        {
+            var tuning = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Core.CombatTuning>(
+                "Assets/_Prophecy/Data/CombatTuning_Caster.asset");
+
+            Assert.IsNotNull(tuning, "No caster tuning. Run Prophecy → Build → Generate Enemies.");
+
+            int spawns = 0;
+
+            foreach (var attack in tuning.Data.Attacks)
+            {
+                if (attack?.Spawns == null) continue;
+
+                for (int i = 0; i < attack.Spawns.Length; i++)
+                {
+                    var projectile = attack.Spawns[i].Projectile;
+                    Assert.IsNotNull(projectile, $"'{attack.Id}' spawn {i} has no projectile.");
+
+                    Assert.IsNull(projectile.Validate(),
+                        $"'{attack.Id}' spawn {i}: {projectile.Validate()}");
+
+                    spawns++;
+                }
+            }
+
+            Assert.Greater(spawns, 0,
+                "The caster's moveset spawns nothing — it is a melee enemy with no reach.");
+        }
+
         [Test]
         public void EveryBeliefTheBrainUsesSurvivesIntoTheRegistry()
         {

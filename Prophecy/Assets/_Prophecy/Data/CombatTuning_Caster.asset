@@ -36,9 +36,9 @@ MonoBehaviour:
           Damage: 10
           Height: 0
           Defeats: 0
-          LifetimeTicks: 0
-          StoppedByGeometry: 0
-          MaxTargets: 0
+          LifetimeTicks: 120
+          StoppedByGeometry: 1
+          MaxTargets: 1
       IFrames:
         BaseStart: 0
         BaseDuration: 0
@@ -74,9 +74,9 @@ MonoBehaviour:
           Damage: 14
           Height: 0
           Defeats: 0
-          LifetimeTicks: 0
-          StoppedByGeometry: 0
-          MaxTargets: 0
+          LifetimeTicks: 120
+          StoppedByGeometry: 1
+          MaxTargets: 1
       IFrames:
         BaseStart: 0
         BaseDuration: 0
@@ -112,9 +112,9 @@ MonoBehaviour:
           Damage: 9
           Height: 0
           Defeats: 0
-          LifetimeTicks: 0
-          StoppedByGeometry: 0
-          MaxTargets: 0
+          LifetimeTicks: 120
+          StoppedByGeometry: 1
+          MaxTargets: 1
       IFrames:
         BaseStart: 0
         BaseDuration: 0
