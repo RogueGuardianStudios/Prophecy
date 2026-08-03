@@ -1,9 +1,13 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-30, refreshed 2026-08-03. The session that built M4's combat spine, made it
-scale, gave it a body and a stat sheet — and then gave it something to fight.
-**Resume at:** M4 — **the combat orchestrator** (§11.11), then the finisher work, the unwired stat
-hooks, DOTs and the death rule, all of which were waiting on enemies existing.
+**Written:** 2026-07-30, refreshed 2026-08-03 (evening). The session that built M4's combat spine,
+made it scale, gave it a body and a stat sheet, gave it something to fight — and then opened the
+second play mode: the first **world transitions** landed 2026-08-03 (portals, a top-down overworld,
+the Tunic camera; see §2a and the decisions block).
+**Resume at:** the active thread is **world transitions** — next there is top-down collision
+(gap 3, now player-facing), real entrances, and "last overworld position". The **combat
+orchestrator** (§11.11) remains the queued combat thread, then finishers, stat hooks, DOTs and the
+death rule.
 
 Enemies now exist and plan: four archetypes on one GOAP brain format, driving the simulation
 through the same `InputFrame` a gamepad produces. The roster is stable and verified — patrol,
@@ -24,9 +28,9 @@ the phase plan is `Plans/Gray-Box-Build-Plan.md`; the animation rules are
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **516 passing, 0 failed, 0 skipped** |
+| Tests | **522 passing, 0 failed, 0 skipped** (refresh from `Logs/test-results.txt`) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
-| Uncommitted | **Everything from 2026-08-03** — the enemy roster, GOAP wiring, `AttackTelegraph`, `ProjectileView`, the enemy loadout and tuning, and two new test fixtures. Nothing since `8b8db8a` is committed. |
+| Uncommitted | An **Iron Roc Warrior** Meshy import (`Assets/MeshyImports/…162720/…162724/`) and the `GrayBox_Arena` edit that placed it in the scene — user experiments from 2026-08-03 16:27, deliberately left out of the transition commits. |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
 
@@ -195,9 +199,39 @@ there is something to hang it on, and guessing now would be guessing.
 are 3D action packs and these are 2.5D platformer moves, so a wall-slide currently looks like
 standing still. Jump variants are also unmapped, so a sprinting jump plays a standing leap.
 
-**Not built at all:** no enemies, no AI, no encounter concept. No overworld scene. No DOTs. **Death
-is a respawn and nothing more** — deliberately scaffolding, see §7. `Crawl` and `FlameArt` are the
-last two ability stubs.
+**Not built at all:** no encounter concept, no DOTs. **Death is a respawn and nothing more** —
+deliberately scaffolding, see §7. `Crawl` and `FlameArt` are the last two ability stubs. *(This
+list used to open with "no enemies, no AI, no overworld scene" — all three exist now; see §8 for
+the roster and §2a for the overworld.)*
+
+---
+
+## 2a. World transitions — first slice, 2026-08-03
+
+The dual-mode structure is real: walk off either end of the traversal course and you are standing
+in a top-down overworld under a Tunic camera; touch the blue cube and you are back, mid-course.
+Verified end to end in play mode — both portals, both arrival spawns, the return trip twice, the
+space switching `SideScroll` ⇄ `TopDown` each way.
+
+```
+Runtime/World/Portal.cs                     walk-in volume; fires GoTo(scene, spawn); arming rule
+Runtime/Presentation/OverworldCameraRig.cs  the Tunic camera: fixed angle, share-derived distance
+Editor/Build/GrayBoxOverworldBuilder.cs     generates GrayBox_Overworld; menu + -executeMethod
+Editor/Build/GrayBoxMaterials.cs            the one portal material both scenes share
+Assets/_Prophecy/Scenes/GrayBox_Overworld.unity  TopDown, kill plane off, own camera at priority 50
+Tests/Editor/PortalTests.cs                 the arming rule, 5 ways
+```
+
+- **The traversal course now spawns mid-level** at `SpawnPoint` id `centre`, placed by snapping
+  the course's arithmetic midpoint into the nearest recorded ground-level floor span — so "the
+  middle" stays standable through any retune. Portals bracket the course: `Portal_West` on the
+  run-up edge, `Portal_East` in front of the end wall.
+- **The overworld is deliberately almost nothing** — a 64×44 m plain, a rim you can see (visual
+  only), two arrival spawns flanking the return cube. It exists to prove the mode loop, not to be
+  a place yet.
+- **`SceneDirector.Player` is new** — portals read the player's mapped feet from it rather than
+  going looking.
+- **Bootstrap's brain blend is now Cut** (was EaseInOut 2 s). See the decisions block.
 
 ---
 
@@ -447,6 +481,38 @@ answer is a **new named stage**, not a delegate.
 **The change.** HopeFell's `STAT_DIVIDE` truncates, so 7 halved twice is 1 rather than 1.75.
 Effective values are floats here and only the final derived numbers round.
 
+### Added 2026-08-03, world transitions
+
+- **Portals are walk-in volumes, and they live in presentation.** Zelda II's transitions are tiles
+  you step onto, so crossing the threshold is the input — no interact press. The volume test is
+  frame-timed MonoBehaviour code against the sim's mapped feet, exactly like the kill plane: a
+  scene load is not replayable state, so the sim gains nothing from owning it and would grow a
+  third kind of geometry doing so. The `Interact` seam stays free for doors that should ask first.
+- **A portal arms only after the player has been seen outside it.** Portal pairs point at each
+  other's spawns, and nothing guarantees an arrival spawn sits clear of a portal volume — the slip
+  would ping-pong the player between two loads forever. One clean frame outside before firing
+  makes that structurally impossible rather than avoided by careful placement. `PortalTests` holds
+  the rule; mid-transition frames neither arm nor fire.
+- **Each world scene carries the camera that knows how to shoot it; Cinemachine priority is the
+  entire handover.** Every number on `LaneCameraRig` is side-scroll vocabulary — lanes, jump-height
+  dead zones, fall look — so the overworld got its own rig rather than a mode flag. It sits in the
+  overworld scene at priority 50 over the Bootstrap rig's 0, wins while loaded, and takes the
+  answer with it when the scene unloads. Same shape as §11.11's "spatial policy is per-space and
+  pluggable", applied to cameras. The rig is self-assembling (adds its own composer, owns its
+  priority) so the scene generator never references Cinemachine — the same reason `EnemyBuilder`
+  attaches GOAP by reflection.
+- **The overworld camera is Tunic.** Pitch 50, yaw 45, FOV 22, applied as a constant every frame —
+  Follow only, no Aim, and the map never rotates. Framing follows the project rule: the authored
+  number is the character's viewport share (0.13 — a token on a map, not the subject of a shot),
+  and the distance is derived (35.6 m).
+- **World transitions cut, never blend.** The brain's default blend was EaseInOut 2 s, which on a
+  scene swap swoops the camera across the world between the two rigs — the cross-camera version of
+  the slide `SnapToTarget` exists to prevent. Set to Cut in Bootstrap. If a camera pair ever
+  genuinely wants a blend (the finisher shot), a custom-blends asset can name exactly that pair.
+- **Leaving by different ends arrives at different spawns.** Both traversal portals lead to the
+  overworld, but west arrives west of the return cube and east arrives east — the level occupies a
+  place on the map rather than being a menu entry.
+
 ---
 
 ## 4. Traps already hit — do not rediscover
@@ -568,8 +634,12 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    `CloseTick` because every other volume needs them, but the dive lasts until it connects or
    lands, so no tick count could describe it. The fields sit unused and are documented as such —
    worth revisiting if a second unbounded volume ever appears.
-3. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in `MovementSpace.TopDown`.
-4. **No overworld scene exists yet.**
+3. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in
+   `MovementSpace.TopDown`. Now player-facing: the overworld's rim is visual only and the player
+   can walk off the plain into featureless void. First item on the transitions thread.
+4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
+   do except leave, and "last overworld position" (design bible §9) is not stored — portals name
+   fixed spawns, so re-entering does not return you to where you stood.
 5. **`AttackModule.Modifiers` is settable but nothing feeds it.** Stats now exist and drive damage
    and max health, but not yet the *window* scales — `IFrameScale`, `ParryScale`, `CancelScale`
    still resolve at 1. Those are gear's job rather than a stat's, and no gear exists.

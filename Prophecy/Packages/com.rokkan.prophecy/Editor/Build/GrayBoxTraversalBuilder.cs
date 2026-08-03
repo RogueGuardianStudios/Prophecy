@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Presentation;
@@ -34,8 +35,20 @@ namespace Rokkan.Prophecy.Editor.Build
     {
         public const string ScenePath = "Assets/_Prophecy/Scenes/GrayBox_Traversal.unity";
 
+        /// <summary>Scene name portals in other scenes target. Derived so it cannot drift.</summary>
+        public static string SceneName => Path.GetFileNameWithoutExtension(ScenePath);
+
+        /// <summary>The mid-level arrival spawn. Named here so the overworld's return portal and
+        /// this builder agree by construction rather than by convention.</summary>
+        public const string CentreSpawnId = "centre";
+
         private const float Depth = 3f;      // Z thickness, so the side-on camera sees solid boxes
         private const float GroundThickness = 2f;
+
+        /// <summary>Walkable ground-level floor spans, recorded as they are built. What the centre
+        /// spawn and the portals stand on — placing either by eye instead would put it over a gap
+        /// the moment the course's proportions retune.</summary>
+        private static readonly List<Vector2> FloorSpans = new List<Vector2>();
 
         [MenuItem("Prophecy/Build/Generate GrayBox_Traversal", priority = 40)]
         public static void Generate()
@@ -138,13 +151,15 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private static void BuildContents(MovementTuning tuning, Metrics m)
         {
+            FloorSpans.Clear();
+
             var geometry = new GameObject("Geometry").transform;
             var markers = new GameObject("Markers").transform;
 
             CreateLighting();
-            CreateDescriptorAndSpawn(markers, tuning);
 
-            float cursor = -10f;
+            const float start = -10f;
+            float cursor = start;
 
             // --- flat run-up: long enough to reach top speed and feel the acceleration curve
             cursor = Ground(geometry, "Ground_RunUp", cursor, 22f);
@@ -175,7 +190,86 @@ namespace Rokkan.Prophecy.Editor.Build
             cursor = RopeSection(geometry, cursor);
 
             // --- a wall to run into, so wall-stop is visible rather than inferred
-            Wall(geometry, cursor);
+            float end = Wall(geometry, cursor);
+
+            // Markers go last, because where they stand is derived from what was built: the spawn
+            // sits on real floor nearest the level's midpoint, and the portals bracket the course.
+            CreateDescriptorAndSpawn(markers, tuning, SpawnX(start, end));
+            CreatePortals(markers, start, end);
+        }
+
+        /// <summary>
+        /// Where the player starts: on solid ground, as close to the middle of the course as the
+        /// floors allow.
+        ///
+        /// <para>The naive answer — the arithmetic midpoint — lands wherever it lands, and half
+        /// the course is gaps, steps and shafts. So the midpoint is snapped into the nearest
+        /// recorded ground-level floor span, which keeps "the middle of the level" true after any
+        /// retune reshuffles what is underfoot there.</para>
+        /// </summary>
+        private static float SpawnX(float start, float end)
+        {
+            const float margin = 1f;
+            float mid = (start + end) * 0.5f;
+
+            float bestX = start + margin;
+            float bestDistance = float.MaxValue;
+
+            for (int i = 0; i < FloorSpans.Count; i++)
+            {
+                var span = FloorSpans[i];
+                if (span.y - span.x < margin * 2f) continue;   // too narrow to stand in
+
+                float x = Mathf.Clamp(mid, span.x + margin, span.y - margin);
+                float distance = Mathf.Abs(x - mid);
+
+                if (distance >= bestDistance) continue;
+
+                bestDistance = distance;
+                bestX = x;
+            }
+
+            return bestX;
+        }
+
+        /// <summary>
+        /// A portal at each end of the course, both leading to the overworld.
+        ///
+        /// <para>West sits on the run-up's edge; east on the last stretch of floor, in front of
+        /// the end wall. They arrive at different overworld spawns — leaving by different ends of
+        /// a place should put you at different sides of its door.</para>
+        /// </summary>
+        private static void CreatePortals(Transform parent, float start, float end)
+        {
+            PortalAt(parent, "Portal_West", start + 1.6f,
+                     GrayBoxOverworldBuilder.SceneName, GrayBoxOverworldBuilder.WestSpawnId);
+
+            // The end wall occupies the last two metres; the portal stands on the floor before it.
+            PortalAt(parent, "Portal_East", end - 4f,
+                     GrayBoxOverworldBuilder.SceneName, GrayBoxOverworldBuilder.EastSpawnId);
+        }
+
+        /// <summary>
+        /// A portal the side-scroll camera can read: an upright slab in the portal colour, with
+        /// the volume sized a touch past it. No collider — the sim must not bake a wall across
+        /// the course, and the portal tests the player's feet itself.
+        /// </summary>
+        private static void PortalAt(Transform parent, string name, float x,
+                                     string targetScene, string targetSpawnId)
+        {
+            var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            slab.name = name;
+            slab.transform.SetParent(parent, false);
+            slab.transform.localScale = new Vector3(1.4f, 2.4f, 0.4f);
+            slab.transform.position = new Vector3(x, 1.2f, 0f);
+
+            Object.DestroyImmediate(slab.GetComponent<Collider>());
+            slab.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
+
+            var portal = slab.AddComponent<Portal>();
+            SetPrivate(portal, "_targetScene", targetScene);
+            SetPrivate(portal, "_targetSpawnId", targetSpawnId);
+            SetPrivate(portal, "_halfExtents", new Vector3(0.9f, 1.4f, 1.5f));
         }
 
         private static void CreateLighting()
@@ -189,14 +283,15 @@ namespace Rokkan.Prophecy.Editor.Build
             component.shadows = LightShadows.Soft;
         }
 
-        private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning)
+        private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning,
+                                                     float spawnX)
         {
-            var spawnObject = new GameObject("Spawn_default");
+            var spawnObject = new GameObject("Spawn_" + CentreSpawnId);
             spawnObject.transform.SetParent(markers, false);
-            spawnObject.transform.position = new Vector3(-8f, 0f, 0f);
+            spawnObject.transform.position = new Vector3(spawnX, 0f, 0f);
 
             var spawn = spawnObject.AddComponent<SpawnPoint>();
-            SetPrivate(spawn, "_id", "default");
+            SetPrivate(spawn, "_id", CentreSpawnId);
             SetPrivate(spawn, "_facing", 1);
 
             var descriptorObject = new GameObject("SceneDescriptor");
@@ -228,6 +323,10 @@ namespace Rokkan.Prophecy.Editor.Build
             Box(parent, name,
                 new Vector2(startX, topY - GroundThickness),
                 new Vector2(startX + length, topY));
+
+            // Only ground-level floor counts as somewhere to place a marker — a raised walkway is
+            // walkable but arriving on one would skip the course it belongs to.
+            if (topY == 0f) FloorSpans.Add(new Vector2(startX, startX + length));
 
             return startX + length;
         }
@@ -477,13 +576,15 @@ namespace Rokkan.Prophecy.Editor.Build
             return floorEnd;
         }
 
-        private static void Wall(Transform parent, float startX)
+        private static float Wall(Transform parent, float startX)
         {
             Ground(parent, "Ground_End", startX, 8f);
 
             Box(parent, "Wall_End",
                 new Vector2(startX + 8f, 0f),
                 new Vector2(startX + 10f, 6f));
+
+            return startX + 10f;
         }
 
         /// <summary>An axis-aligned box spanning min..max in the XY play plane.</summary>
@@ -556,6 +657,7 @@ namespace Rokkan.Prophecy.Editor.Build
                 // enumValueFlag rather than enumValueIndex: it carries the declared value, which
                 // is what a [Flags] enum like MovementSpace needs and what a plain one still gets right.
                 case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
+                case Vector3 v: property.vector3Value = v; break;
                 case Object o: property.objectReferenceValue = o; break;
                 default:
                     Debug.LogError($"[Prophecy] Unsupported field type for '{fieldName}'.");
