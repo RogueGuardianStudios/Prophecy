@@ -1,4 +1,5 @@
 using RGS.Core.Sim;
+using RGS.Core.Attributes;
 using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
@@ -41,8 +42,9 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Leave empty to find one in the scene.")]
         private SimClockDriver _clockDriver;
 
-        [SerializeField]
-        private PlayerInputCapture _input;
+        [SerializeField, Tooltip("Whatever drives this character: the player's input capture, or " +
+                                 "an AI brain. Any component implementing IInputSource.")]
+        private InterfaceReference<IInputSource> _input = new InterfaceReference<IInputSource>();
 
         [Header("World")]
         [SerializeField]
@@ -62,6 +64,39 @@ namespace Rokkan.Prophecy.Presentation
 
         /// <summary>The simulated character. Read by presentation; never written to.</summary>
         public CharacterSim Sim { get; private set; }
+
+        /// <summary>
+        /// Find a driver on this object if none was assigned.
+        ///
+        /// <para><b>Both a convenience and a migration.</b> An AI brain is a component on the same
+        /// object, so a spawned enemy needs no wiring at all — which is the point of the input
+        /// seam. It also repairs the player: this field used to be a concrete
+        /// <c>PlayerInputCapture</c> and widening it to an interface changed the serialised shape,
+        /// so every prefab authored against the old field deserialises to nothing. That is a silent
+        /// break — the character simply stops responding — and a fallback is a better answer than a
+        /// one-off migration script that has to be remembered.</para>
+        /// </summary>
+        private void ResolveInputSource()
+        {
+            if (_input != null && _input.UnderlyingValue != null) return;
+
+            var found = GetComponent<IInputSource>() ?? GetComponentInChildren<IInputSource>();
+
+            if (found != null)
+            {
+                SetInputSource(found);
+                return;
+            }
+
+            Debug.LogWarning($"{name}: nothing drives this character — no IInputSource assigned or " +
+                             "found. It will stand still.", this);
+        }
+
+        /// <summary>
+        /// Swap what drives this character. For spawning, where the brain is attached at runtime
+        /// rather than authored — and for tests, which drive a character from a scripted sequence.
+        /// </summary>
+        public void SetInputSource(IInputSource source) => _input.Value = source;
 
         /// <summary>The baked geometry the sim collides against.</summary>
         public CollisionWorld World { get; private set; }
@@ -85,6 +120,8 @@ namespace Rokkan.Prophecy.Presentation
         private void Awake()
         {
             World = new CollisionWorld();
+
+            ResolveInputSource();
 
             if (_tuning == null)
                 Debug.LogWarning($"{name}: no MovementTuning assigned — falling back to code defaults, " +
@@ -144,8 +181,10 @@ namespace Rokkan.Prophecy.Presentation
             var fight = CombatDirector.Instance != null ? CombatDirector.Instance.State : null;
             if (!ReferenceEquals(Sim.CombatWorld, fight)) Sim.CombatWorld = fight;
 
-            if (_input != null)
-                Sim.SetInput(_input.ConsumeFrame());
+            // Whoever is driving. The simulation cannot tell a gamepad from a planner, and that
+            // is the property the whole AI design rests on — see IInputSource.
+            var source = _input?.Value;
+            if (source != null) Sim.SetInput(source.ConsumeFrame());
 
             PreviousPosition = Sim.State.Position;
             Sim.Tick(in info);

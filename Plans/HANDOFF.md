@@ -366,6 +366,20 @@ Added this session:
     move threshold to a hasted run touches them. A speed debuff needs no animation handling of its
     own precisely because playback is computed from *actual* velocity.
 
+35. **The AI drives the simulation; it is not part of it.** A brain implements `IInputSource` and
+    produces an `InputFrame` — the same struct a gamepad produces — and the sim executes it. The
+    test that proves it: hand a player's input to an enemy, or a planner's output to the player,
+    and neither the sim nor any ability module notices. `InputSourceTests` asserts exactly that,
+    driving a character from a scripted sequence with no scene, no device and no AI.
+
+    **The rule that erodes silently:** a brain that writes `sim.State.Position`, moves a transform,
+    or calls an ability directly has stepped over the line, and *nothing will fail*. The game will
+    look right and the character will be outside its own rules — no action lock, no i-frames, no
+    cover, and nothing a headless test can reproduce. **Actions press buttons. Only ever buttons.**
+
+    The corollary is why enemies are cheap: an enemy is the same `CharacterSim` with a different
+    `AbilityLoadout`, so every combat rule already applies to it.
+
 ### Stat parity audit vs HopeFell — 2026-08-02
 
 Every member of HopeFell's stats system, checked against Prophecy's. Three rows are deliberate
