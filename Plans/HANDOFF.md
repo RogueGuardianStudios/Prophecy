@@ -380,6 +380,24 @@ Added this session:
     The corollary is why enemies are cheap: an enemy is the same `CharacterSim` with a different
     `AbilityLoadout`, so every combat rule already applies to it.
 
+36. **Proving `com.rgs.goap` is game-ready is a project goal, not a means to an end.** So "would a
+    state machine be simpler here" is already answered for enemies: GOAP drives them because
+    exercising it in a shipping game is part of the point. Do not re-litigate it per enemy.
+37. **GOAP lives in its own assembly, `Rokkan.Prophecy.Goap`.** Not in the sim, which
+    `SimArchitectureGateTests` would reject outright, and not in the main runtime, which would drag
+    Burst and Collections into every consumer. Sensors and strategies are the only things that
+    know both worlds.
+38. **A GOAP action writes `EnemyIntent` and nothing else.** No position, no transform, no ability
+    call — the intent becomes an `InputFrame` and the sim decides what it means, so a planned
+    attack obeys the same action lock, cancel window, cover check and i-frames a player's does.
+    This is decision 35 applied to the planner, and it is the one that will erode silently: a
+    strategy that moved the transform would look right on screen and be outside every combat rule,
+    with nothing failing to say so.
+39. **Perception runs once per tick on `EnemyBrainHost`, not inside sensors.** Sensors copy the
+    result to the blackboard. Sensing twice would let the planner and the body disagree about where
+    the target is; sensing on a sensor's own interval would tie an enemy's reactions to a cadence
+    unrelated to the tick its combat runs on.
+
 ### Stat parity audit vs HopeFell — 2026-08-02
 
 Every member of HopeFell's stats system, checked against Prophecy's. Three rows are deliberate
