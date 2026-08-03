@@ -100,6 +100,24 @@ results at 30, 60 and 144 fps.**
 
 Modules talk only through the controller, which arbitrates via **action locks** (`LockFlags { Move, Turn, Jump, Attack, Defend }` + priority + cancel window). Adding a new module must not require editing an existing one — that's the architecture test. Cancel windows read sim elapsed ticks, never frame time.
 
+### Enemies never share state — GOAP strategies and sensors are stateless
+
+Enemy A must not be able to reach anything of enemy B's. A's swing does not start B's cooldown, and
+a patrol direction is one enemy's heading, not the level's.
+
+The trap is that `GoapActionStrategy` and `GoapSensorSO` are **ScriptableObjects — one instance for
+the whole game**. A field on one is a global variable wearing a member's clothing. It has already
+cost a caster that never fired: the grunt stamped its swing tick on the shared `SwingStrategy`, the
+caster read it, concluded it had already attacked, and skipped the shot. No error, no failed plan.
+
+- Per-agent working state lives on **`EnemyBrainHost.ActionScratch`**, which exists once per enemy.
+- Serialized fields on a strategy are fine — those are authored config, identical for every agent by
+  design and never written at runtime.
+- Enforced by `StrategyIsolationGateTests`, which fails on any private non-readonly, non-serialized
+  instance field on a strategy or sensor. The failure is invisible with one enemy in the scene and
+  only appears once two of a kind exist, which is when it is hardest to attribute — so it is a
+  structural test rather than a convention.
+
 ### Animation
 
 `AnimationSystem` hijacks the `Animator` via a `PlayableGraph` and **nulls `runtimeAnimatorController`**. Consequence: direct `Animator.SetFloat`/`SetBool` calls become *silent no-ops*. Always route through the `IClipInjector` parameter facade.

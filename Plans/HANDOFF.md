@@ -1,10 +1,15 @@
 # Prophecy — session handoff
 
-**Written:** 2026-07-30, refreshed 2026-08-02. The session that built M4's combat spine, made it
-scale, then gave it a body and a stat sheet.
-**Resume at:** M4 — **enemies**. Every combat system exists, holds up at a hundred bodies, and now
-has a rigged character animating off it. What is missing is something to fight, and that single gap
-blocks the finisher work, the unwired stat hooks, DOTs and the death rule all at once.
+**Written:** 2026-07-30, refreshed 2026-08-03. The session that built M4's combat spine, made it
+scale, gave it a body and a stat sheet — and then gave it something to fight.
+**Resume at:** M4 — **the combat orchestrator** (§11.11), then the finisher work, the unwired stat
+hooks, DOTs and the death rule, all of which were waiting on enemies existing.
+
+Enemies now exist and plan: four archetypes on one GOAP brain format, driving the simulation
+through the same `InputFrame` a gamepad produces. The roster is stable and verified — patrol,
+pursue, swing, spring, retreat and fire all run, hits land, and the whole thing is guarded by
+structural tests rather than by memory. What it is *not* yet is tuned: see §6, and note that the
+orchestrator is the next thing standing between "it works" and "it plays".
 
 This is the "where we are and why" document. Standing rules live in `CLAUDE.md` at the repo root
 (loaded automatically) — this file does not repeat them. Design canon is `Plans/Design-Bible.md`;
@@ -19,8 +24,9 @@ the phase plan is `Plans/Gray-Box-Build-Plan.md`; the animation rules are
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **473 passing, 0 failed, 0 skipped** (~5.0 s) |
+| Tests | **516 passing, 0 failed, 0 skipped** |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
+| Uncommitted | **Everything from 2026-08-03** — the enemy roster, GOAP wiring, `AttackTelegraph`, `ProjectileView`, the enemy loadout and tuning, and two new test fixtures. Nothing since `8b8db8a` is committed. |
 
 To put the work on `main`: `git checkout main && git merge --ff-only baseline/unity-project-and-design-docs`
 
@@ -652,14 +658,30 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   tick-based expiry, stacking rules and ability restrictions. Audited member-by-member against
   HopeFell's (§3) and built rather than ported.
 
+- **Enemies — done 2026-08-03.** Four archetypes, one brain format, all planner-driven:
+
+  | Archetype | Actions | How it fights |
+  |---|---|---|
+  | Grunt | Patrol, Pursue, Swing | The full loop |
+  | Chaser | Patrol, Pursue (holds station) | No attack — contact damage is the weapon |
+  | Ambusher | Lurk, Spring | Aims once and commits; sidestep beats it |
+  | Caster | Lurk, KeepDistance, Fire | Retreat *is* the attack; throws a 9 m/s bolt |
+
+  The AI drives the sim through `IInputSource` — the same `InputFrame` a gamepad produces — so a
+  planned attack is subject to every action lock, cancel window, cover check and i-frame a player's
+  is. **"Dumb" is a smaller action set, not different machinery**, which is what keeps one brain
+  format, one sensor set and one debugging story across the roster.
+
+  Enemies get their own `CombatTuning_Grunt` (24-tick wind-up vs the player's 6) and an explicit
+  `AbilityLoadout_Enemy` — an empty loadout means *every* module on, which silently gave enemies
+  the player's double jump, dodge and down-thrust. `AttackTelegraph` renders the startup phase so
+  the defence can be timed, and `ProjectileView` renders bolts, which nothing outside the F2
+  overlay had ever done.
+
 ### Next
 
-1. **Enemies.** `TrainingAttacker` is a dummy on a timer, and it is now the only thing standing
-   between the combat systems and an actual fight. It needs a `CharacterSim`, a reason to choose
-   between its attacks, and an executable state when it is staggered. It also unblocks five stat
-   hooks that are built and connected to nothing (§2), and it is where DOTs belong.
-   **AI approach: GOAP, from HopeFell — decided 2026-08-02.** This supersedes the earlier
-   "M6, and only if it beats a plain state machine" note. See §12 for the extraction risk.
+1. **The combat orchestrator** (§11.11). The roster works; what it does not do is fight *as a
+   group*. This is now the thing between "it works" and "it plays", and it decides §11.10 with it.
 2. **Finishers and the camera takeover** — both decided, neither built. A Doom finisher is one-way
    and expressible as an `AttackDefinition` plus a precondition and a reward; it still needs an
    executable/staggered state on enemies, and **a parried attacker is now exactly that state
@@ -671,9 +693,9 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
    checklist. The placeholder is fine for tuning and wrong for shipping.
 4. **Feel.** None of the combat numbers have been played. See §6.
 
-None of these is blocked on anything. Enemies is the one that unblocks the other three: finishers
-need a staggered state to consume, a death rule needs an encounter to end, and feel cannot be judged
-against a dummy that never moves.
+None of these is blocked on anything. Enemies were the thing that unblocked the rest, and they now
+exist — finishers have a real attacker to stagger, a death rule has an encounter to end, and feel
+can finally be judged against something that fights back rather than a dummy on a timer.
 
 ---
 
@@ -721,6 +743,15 @@ keys warp to ten of them — 2/3 and 11/12 share a marker because they are a pac
 | 10 `Pogo` | a ledge and three tough targets: dive, bounce, and hold to keep pogoing |
 | 11 `Bolt` | fires a projectile every ~190 ticks. Every answer works on it |
 | 12 `Shockwave` | drops a spreading area at its feet. Only i-frames answer it — dodge or leave |
+| 13 `Grunt` | the first thing here that decides for itself: patrols, closes, swings, and can be blocked or parried on its 24-tick wind-up |
+| 14 `Chaser` | never swings. Closes and holds station; its body is the weapon |
+| 15 `Ambusher` | lies still until you are within 3.5 m, then commits to one lunge. It does not steer — step aside and it misses |
+| 16 `Caster` | backs away to 6 m and throws bolts. Walking it down is the answer |
+
+Stations 1–12 are scripted: dummies and `TrainingAttacker`s on timers, which is what they are for.
+**Stations 13–16 are planner-driven** and behave differently every run — they are spaced well apart
+because two of them inside each other's 12 m sight range spend their time answering questions about
+each other rather than about you.
 
 Stations 7–9 run on a 176-tick cycle (34 startup, 6 active, 26 recovery, 110 rest) with staggered
 openings so they do not fire in unison. 34 ticks of wind-up is a little over half a second — long
@@ -908,3 +939,44 @@ None block M4; all cost money if discovered late.
    not judgeable against a dummy on a timer. The fix, when it is made, has to split the press from
    the hold — locking at `Reaction` for the whole guard would mean you could never start a swing
    out of a raised one, which is worse than the bug. Whatever is chosen, **make all three agree**.
+
+10. **Two enemies can connect on the same tick, and the second hit's stun wins.**
+    `SimClock` ticks characters in registration order, and a hit calls `CharacterSim.ReceiveHit`
+    synchronously inside the attacker's slot. So on tick N both attackers resolve before the
+    victim's `HitReact.Tick` runs — and that is where `HitInvulnerabilityTicks` is armed. Two
+    consequences, verified in code 2026-08-03:
+
+    - **Both hits deal full damage.** The i-frame gate reads `_invulnerableUntilTick`, which is
+      still unset when the second sweep resolves; `Vitals.ApplyDamage` has no same-tick dedup.
+      Post-hit invulnerability protects across later ticks, never within one.
+    - **Only one stun survives.** `_pendingStun` is a single slot and `Stun()` overwrites it, so
+      the shove comes from whichever attacker registered later.
+
+    Damage is therefore order-independent, but **knockback direction is not** — which matters for
+    host-authoritative netcode if spawn order ever differs between machines, though not for the
+    30/60/144 fps guarantee (frame rate does not change tick order).
+
+    **Deferred deliberately, 2026-08-03** — not judgeable until the orchestrator decides how many
+    enemies may attack at once, because that is the knob that makes same-tick doubles common.
+    Same-tick double damage is defensible ("two enemies genuinely both hit you"); silently dropping
+    one hit's shove is the shakier half. Options are first-wins, strongest-wins, or combine. Decide
+    it **with** the orchestrator, not before.
+
+11. **The combat orchestrator — scope, and how it survives 2D → 3D.**
+    Raised 2026-08-03. Intelligent enemies need arbitration so a group does not all swing at once.
+    The seam is clean: a sim-side system grants attack tokens, a GOAP sensor publishes
+    `HasAttackToken`, and `Swing` takes it as a precondition — refused enemies then fall back to a
+    lower-priority goal on their own, because the planner already does that.
+
+    Two constraints came out of the discussion and both narrow the design:
+
+    - **Tokens are space-agnostic; positional slots are not.** A ring of standing positions assumes
+      the top-down overworld, while the side-scroll lanes only have "left of you" and "right of
+      you". So the portable core is the token; any spatial policy has to be per-space and pluggable,
+      or it gets designed twice.
+    - **A single global cap is wrong once ranged exists.** A bolt from 12 m and a swing at 1.4 m are
+      different kinds of pressure and should not draw on the same budget.
+
+    Not started. Note that a token system's entire purpose is coordinating several enemies at once,
+    which is precisely the condition the shared-state trap in `CLAUDE.md` needed — its state must
+    live in one sim-side system the enemies *read*, never in anything each of them holds a piece of.

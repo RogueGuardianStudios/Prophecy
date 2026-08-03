@@ -105,6 +105,22 @@ it.
 **Done looks like:** references audited, then deleted — or a note here saying which asset still
 needs it and why.
 
+### Enemy GOAP diagnostics — `_debugPlanSearch`, `GoapTraceProbe`, `EnemyBrainHost._trace`
+
+Three diagnostics turned on while bringing the first planner-driven enemy up, all set by
+`EnemyBuilder` and so re-applied every time the enemy is regenerated:
+
+- `GoapAgent._debugPlanSearch` — per-frame planner search detail, on because the package's own
+  planning-failure message recommends it.
+- `GoapTraceProbe` — a component that writes `Logs/goap-trace.txt` every half second.
+- `EnemyBrainHost._trace` — writes `Logs/enemy-trace.txt` every 30 ticks.
+
+The trace writers are `#if UNITY_EDITOR`, so they cannot reach a player; `_debugPlanSearch` is a
+serialized bool and **will** ship enabled if nobody clears it.
+
+**Done looks like:** `_debugPlanSearch` wired to `false` in `EnemyBuilder.AttachGoap`, and the
+probe component dropped from the prefab once enemies plan reliably.
+
 ---
 
 ## Verification
