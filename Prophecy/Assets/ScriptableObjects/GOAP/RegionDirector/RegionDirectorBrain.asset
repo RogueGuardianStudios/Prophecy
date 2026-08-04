@@ -1,0 +1,852 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9c0626df79b547871301e6c2fa906, type: 3}
+  m_Name: RegionDirectorBrain
+  m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapBrainSO
+  DefaultStateId:
+    Part1: 1441678341
+    Part2: 1305276012
+    Part3: 2030497183
+    Part4: 796708982
+  UsesSpatialMemory: 0
+  States:
+  - Name: Direct
+    StateId:
+      Part1: 1441678341
+      Part2: 1305276012
+      Part3: 2030497183
+      Part4: 796708982
+    Actions:
+    - InstanceId:
+        Part1: 1394297951
+        Part2: 1335120864
+        Part3: 2778050979
+        Part4: 163813771
+      Name: BuildTerrainFields
+      Strategy: {fileID: 11400000, guid: c59f79996718b9e4e9a8a6dafe439efd, type: 2}
+      Settings:
+        rid: 2975720558462763562
+      Preconditions: []
+      Effects:
+      - Belief:
+          rid: 2975720558462763563
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 4017234465
+        Part2: 1146354081
+        Part3: 1177265312
+        Part4: 2631277981
+      Name: ReserveRegionClaims
+      Strategy: {fileID: 11400000, guid: 4859a0f46f38a4143834671efa44db58, type: 2}
+      Settings:
+        rid: 2975720558462763564
+      Preconditions: []
+      Effects:
+      - Belief:
+          rid: 2975720558462763565
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 3792167101
+        Part2: 1191161779
+        Part3: 3758814891
+        Part4: 1804683781
+      Name: SiteLandmark
+      Strategy: {fileID: 11400000, guid: 66c8f44779ea76a4c9588c5009e4a8c4, type: 2}
+      Settings:
+        rid: 2975720558462763566
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763563
+        TargetValue: 1
+      - Belief:
+          rid: 2975720558462763565
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763567
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 819789456
+        Part2: 1235716771
+        Part3: 1793744562
+        Part4: 2979140674
+      Name: BuildInfluenceField
+      Strategy: {fileID: 11400000, guid: 64fdee0b92398b249858fe3dc4af9cd7, type: 2}
+      Settings:
+        rid: 2975720558462763568
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763567
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763569
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 848335132
+        Part2: 1129127532
+        Part3: 2326885285
+        Part4: 3284255598
+      Name: ParentOutposts
+      Strategy: {fileID: 11400000, guid: ace8d05b38a80ab4e82314d3fcc296bf, type: 2}
+      Settings:
+        rid: 2975720558462763570
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763569
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763571
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 889110857
+        Part2: 1162990141
+        Part3: 2562219187
+        Part4: 1295681134
+      Name: RouteConnections
+      Strategy: {fileID: 11400000, guid: a240295c3ee527e48b5a586642676c5e, type: 2}
+      Settings:
+        rid: 2975720558462763572
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763569
+        TargetValue: 1
+      - Belief:
+          rid: 2975720558462763571
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763573
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 679024603
+        Part2: 1090543574
+        Part3: 3163563158
+        Part4: 4265637486
+      Name: PlaceLevelSlots
+      Strategy: {fileID: 11400000, guid: d7039bd361755db42aacb0c37596cbfc, type: 2}
+      Settings:
+        rid: 2975720558462763574
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763573
+        TargetValue: 1
+      - Belief:
+          rid: 2975720558462763571
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763575
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 2934122349
+        Part2: 1155316871
+        Part3: 1238963853
+        Part4: 1145305502
+      Name: FillPacingGaps
+      Strategy: {fileID: 11400000, guid: a872f21c4b06f2c419f692e38d2958d8, type: 2}
+      Settings:
+        rid: 2975720558462763576
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763575
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763577
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    - InstanceId:
+        Part1: 2854537347
+        Part2: 1304806544
+        Part3: 3538765958
+        Part4: 2297325100
+      Name: ReconcileRegion
+      Strategy: {fileID: 11400000, guid: ae397862dda968740b2f1d1b54522423, type: 2}
+      Settings:
+        rid: 2975720558462763578
+      Preconditions:
+      - Belief:
+          rid: 2975720558462763573
+        TargetValue: 1
+      - Belief:
+          rid: 2975720558462763575
+        TargetValue: 1
+      - Belief:
+          rid: 2975720558462763577
+        TargetValue: 1
+      Effects:
+      - Belief:
+          rid: 2975720558462763579
+        TargetValue: 1
+      Cost: 1
+      CostModifiers: []
+      PostProcesses: []
+      EditorPosition:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 0
+        height: 0
+    Goals:
+    - InstanceId:
+        Part1: 843334891
+        Part2: 1085222396
+        Part3: 3474334904
+        Part4: 449606153
+      Name: DirectRegion
+      Priority: 10
+      PriorityModifiers: []
+      DesiredState:
+      - Belief:
+          rid: 2975720558462763579
+        TargetValue: 1
+      ValidityConditions: []
+      TransitionToStateId:
+        Part1: 0
+        Part2: 0
+        Part3: 0
+        Part4: 0
+    Beliefs:
+    - InstanceId:
+        Part1: 587677171
+        Part2: 1301613461
+        Part3: 2770325925
+        Part4: 3327615105
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763580
+    - InstanceId:
+        Part1: 3033212059
+        Part2: 1253746886
+        Part3: 1718463668
+        Part4: 2660386740
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763581
+    - InstanceId:
+        Part1: 2984803612
+        Part2: 1138510239
+        Part3: 3773460376
+        Part4: 3348889001
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763582
+    - InstanceId:
+        Part1: 1908290877
+        Part2: 1101307983
+        Part3: 2148925570
+        Part4: 284106123
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763583
+    - InstanceId:
+        Part1: 4023657648
+        Part2: 1287785525
+        Part3: 2664699281
+        Part4: 1062170762
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763584
+    - InstanceId:
+        Part1: 3091751314
+        Part2: 1085748875
+        Part3: 3128134835
+        Part4: 1378254364
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763585
+    - InstanceId:
+        Part1: 2701139984
+        Part2: 1274633919
+        Part3: 2307252892
+        Part4: 2290906811
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763586
+    - InstanceId:
+        Part1: 281025533
+        Part2: 1185528695
+        Part3: 796282007
+        Part4: 1616630757
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763587
+    - InstanceId:
+        Part1: 3243271657
+        Part2: 1337590628
+        Part3: 2671984529
+        Part4: 2209570620
+      name: 'BoolCheck [BoolCheck]'
+      BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+      DefaultSettings:
+        rid: 2975720558462763588
+    RequiredBeliefs: []
+    GraphVisualData: 
+  Sensors: []
+  Transitions: []
+  MaxPlannerIterations: 2000
+  Keys:
+  - Name: TerrainFieldsReady
+    Type: 0
+    KeyId:
+      Part1: 3390958142
+      Part2: 1108650616
+      Part3: 2443513515
+      Part4: 893611922
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: ClaimsReserved
+    Type: 0
+    KeyId:
+      Part1: 609032350
+      Part2: 1336079939
+      Part3: 1174386363
+      Part4: 2894373818
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: LandmarkSited
+    Type: 0
+    KeyId:
+      Part1: 3585889687
+      Part2: 1186931101
+      Part3: 3990946473
+      Part4: 2533934306
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: InfluenceFieldBuilt
+    Type: 0
+    KeyId:
+      Part1: 983896375
+      Part2: 1300056417
+      Part3: 2169232272
+      Part4: 807067796
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: OutpostsParented
+    Type: 0
+    KeyId:
+      Part1: 3392829556
+      Part2: 1173550623
+      Part3: 2620524674
+      Part4: 3235779656
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: ConnectionsRouted
+    Type: 0
+    KeyId:
+      Part1: 1046646207
+      Part2: 1327554675
+      Part3: 3527851403
+      Part4: 1596017642
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: LevelSlotsPlaced
+    Type: 0
+    KeyId:
+      Part1: 713492231
+      Part2: 1080288036
+      Part3: 2462198156
+      Part4: 2526231956
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: PacingSatisfied
+    Type: 0
+    KeyId:
+      Part1: 1624900308
+      Part2: 1276163165
+      Part3: 3974582170
+      Part4: 1700671990
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  - Name: RegionReconciled
+    Type: 0
+    KeyId:
+      Part1: 2245551073
+      Part2: 1287043955
+      Part3: 3492722832
+      Part4: 1884801913
+    Description: 
+    IsTemporalKey: 0
+    TemporalDuration: 5
+    TemporalConfidenceWeight: 1
+    TemporalDistanceWeight: 1
+    TemporalValidityKeyId:
+      Part1: 0
+      Part2: 0
+      Part3: 0
+      Part4: 0
+  _keyManifest:
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 3390958142
+      Part2: 1108650616
+      Part3: 2443513515
+      Part4: 893611922
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 609032350
+      Part2: 1336079939
+      Part3: 1174386363
+      Part4: 2894373818
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 3585889687
+      Part2: 1186931101
+      Part3: 3990946473
+      Part4: 2533934306
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 983896375
+      Part2: 1300056417
+      Part3: 2169232272
+      Part4: 807067796
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 3392829556
+      Part2: 1173550623
+      Part3: 2620524674
+      Part4: 3235779656
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 1046646207
+      Part2: 1327554675
+      Part3: 3527851403
+      Part4: 1596017642
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 713492231
+      Part2: 1080288036
+      Part3: 2462198156
+      Part4: 2526231956
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 1624900308
+      Part2: 1276163165
+      Part3: 3974582170
+      Part4: 1700671990
+  - Slot: {fileID: 0}
+    KeyId:
+      Part1: 2245551073
+      Part2: 1287043955
+      Part3: 3492722832
+      Part4: 1884801913
+  NeuralGraphVisualData: 
+  FsmGraphVisualData: 
+  references:
+    version: 2
+    RefIds:
+    - rid: 2975720558462763562
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 3390958142
+          Part2: 1108650616
+          Part3: 2443513515
+          Part4: 893611922
+    - rid: 2975720558462763563
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 587677171
+          Part2: 1301613461
+          Part3: 2770325925
+          Part4: 3327615105
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763580
+    - rid: 2975720558462763564
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 609032350
+          Part2: 1336079939
+          Part3: 1174386363
+          Part4: 2894373818
+    - rid: 2975720558462763565
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 3033212059
+          Part2: 1253746886
+          Part3: 1718463668
+          Part4: 2660386740
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763581
+    - rid: 2975720558462763566
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 3585889687
+          Part2: 1186931101
+          Part3: 3990946473
+          Part4: 2533934306
+    - rid: 2975720558462763567
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 2984803612
+          Part2: 1138510239
+          Part3: 3773460376
+          Part4: 3348889001
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763582
+    - rid: 2975720558462763568
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 983896375
+          Part2: 1300056417
+          Part3: 2169232272
+          Part4: 807067796
+    - rid: 2975720558462763569
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 1908290877
+          Part2: 1101307983
+          Part3: 2148925570
+          Part4: 284106123
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763583
+    - rid: 2975720558462763570
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 3392829556
+          Part2: 1173550623
+          Part3: 2620524674
+          Part4: 3235779656
+    - rid: 2975720558462763571
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 4023657648
+          Part2: 1287785525
+          Part3: 2664699281
+          Part4: 1062170762
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763584
+    - rid: 2975720558462763572
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 1046646207
+          Part2: 1327554675
+          Part3: 3527851403
+          Part4: 1596017642
+    - rid: 2975720558462763573
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 3091751314
+          Part2: 1085748875
+          Part3: 3128134835
+          Part4: 1378254364
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763585
+    - rid: 2975720558462763574
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 713492231
+          Part2: 1080288036
+          Part3: 2462198156
+          Part4: 2526231956
+    - rid: 2975720558462763575
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 2701139984
+          Part2: 1274633919
+          Part3: 2307252892
+          Part4: 2290906811
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763586
+    - rid: 2975720558462763576
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 1624900308
+          Part2: 1276163165
+          Part3: 3974582170
+          Part4: 1700671990
+    - rid: 2975720558462763577
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 281025533
+          Part2: 1185528695
+          Part3: 796282007
+          Part4: 1616630757
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763587
+    - rid: 2975720558462763578
+      type: {class: RegionPhaseSettings, ns: Rokkan.WorldGen.Directors.Regional.Strategies, asm: Rokkan.WorldGen}
+      data:
+        CompletionKeyId:
+          Part1: 2245551073
+          Part2: 1287043955
+          Part3: 3492722832
+          Part4: 1884801913
+    - rid: 2975720558462763579
+      type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        InstanceId:
+          Part1: 3243271657
+          Part2: 1337590628
+          Part3: 2671984529
+          Part4: 2209570620
+        name: 'BoolCheck [BoolCheck]'
+        BeliefSO: {fileID: 11400000, guid: 9280a2672594800448b220346bba4466, type: 2}
+        DefaultSettings:
+          rid: 2975720558462763588
+    - rid: 2975720558462763580
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 3390958142
+          Part2: 1108650616
+          Part3: 2443513515
+          Part4: 893611922
+        Invert: 0
+    - rid: 2975720558462763581
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 609032350
+          Part2: 1336079939
+          Part3: 1174386363
+          Part4: 2894373818
+        Invert: 0
+    - rid: 2975720558462763582
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 3585889687
+          Part2: 1186931101
+          Part3: 3990946473
+          Part4: 2533934306
+        Invert: 0
+    - rid: 2975720558462763583
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 983896375
+          Part2: 1300056417
+          Part3: 2169232272
+          Part4: 807067796
+        Invert: 0
+    - rid: 2975720558462763584
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 3392829556
+          Part2: 1173550623
+          Part3: 2620524674
+          Part4: 3235779656
+        Invert: 0
+    - rid: 2975720558462763585
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 1046646207
+          Part2: 1327554675
+          Part3: 3527851403
+          Part4: 1596017642
+        Invert: 0
+    - rid: 2975720558462763586
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 713492231
+          Part2: 1080288036
+          Part3: 2462198156
+          Part4: 2526231956
+        Invert: 0
+    - rid: 2975720558462763587
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 1624900308
+          Part2: 1276163165
+          Part3: 3974582170
+          Part4: 1700671990
+        Invert: 0
+    - rid: 2975720558462763588
+      type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        TargetKeyId:
+          Part1: 2245551073
+          Part2: 1287043955
+          Part3: 3492722832
+          Part4: 1884801913
+        Invert: 0

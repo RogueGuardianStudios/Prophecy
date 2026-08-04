@@ -4,10 +4,16 @@
 made it scale, gave it a body and a stat sheet, gave it something to fight — and then opened the
 second play mode: the first **world transitions** landed 2026-08-03 (portals, a top-down overworld,
 the Tunic camera; see §2a and the decisions block).
-**Resume at:** the active thread is **world transitions** — next there is top-down collision
-(gap 3, now player-facing), real entrances, and "last overworld position". The **combat
-orchestrator** (§11.11) remains the queued combat thread, then finishers, stat hooks, DOTs and the
-death rule.
+**Resume at:** the active thread is **the overworld on the Stålberg grid**. HopeFell's
+`com.rokkan.worldgen` (the Townscaper-style irregular grid + four-stage generation pipeline) was
+adopted into the shared packages 2026-08-04 — 768 tests green in this project, golden-seed
+determinism intact across the 6000.3→6000.5 jump; adoption notes in `MIGRATION-HopeFell.md`.
+Next: hand-author overworld regions onto a Stålberg grid and let the tile placer populate it
+(the `Biome/Settlement/Road/River/Terrain/Landmark` region kinds are reserved and waiting), then
+a lane-space `ILevelConstructor` for side-scroll random encounters off the topology stage. After
+that: top-down collision (gap 3 — the grid's `isFloor` queries are the natural answer), real
+entrances, "last overworld position". The **combat orchestrator** (§11.11) remains the queued
+combat thread, then finishers, stat hooks, DOTs and the death rule.
 
 Enemies now exist and plan: four archetypes on one GOAP brain format, driving the simulation
 through the same `InputFrame` a gamepad produces. The roster is stable and verified — patrol,

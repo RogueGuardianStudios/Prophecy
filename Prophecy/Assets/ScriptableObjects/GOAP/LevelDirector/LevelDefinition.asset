@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64985e7a5e91ec94ca4eb5fec2d8685f, type: 3}
+  m_Name: LevelDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::RGS_Core.LevelGen.Level.LevelDefinition
+  themeName: 
+  satisfiesTags: []
+  topology: {fileID: 0}
+  layout: {fileID: 0}
+  placements:
+    _entries: []
+  phaseSchedule: []
+  gateDepth: 3
+  loopBias: 0.5
+  totalBudget: 100
+  injectionReserve: 20
+  tileSet: {fileID: 11400000, guid: b34906650db7d894d81989f5fd696fa8, type: 2}
+  enemyPool: {fileID: 0}
+  ambientTags: {fileID: 11400000, guid: 0018136bd34562845b9a435cba805dab, type: 2}
+  quests:
+  - {fileID: 11400000, guid: b0a6e5a698787e94ab06cecb686dd269, type: 2}
