@@ -259,6 +259,14 @@ namespace Rokkan.Prophecy.Editor.Build
             spawnerObject.transform.SetParent(markers, false);
 
             var spawner = spawnerObject.AddComponent<OverworldEncounterSpawner>();
+
+            // OFF while the overworld is being authored (decided 2026-08-04). Walking the map to
+            // judge coasts and terraces is impossible when idle players are hunted on an
+            // eleven-second fuse — the wanderers ate every verification pass this session too.
+            // One checkbox to bring the menace back; the whole encounter pipeline behind it is
+            // untouched and tested.
+            spawner.enabled = false;
+
             SetPrivate(spawner, "_wandererPrefab", prefab);
 
             // Sized from the ground this builder just generated — the spawner must not learn

@@ -737,7 +737,17 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    re-pointed by every host per tick — wanderers respect coasts too. `TopDownGroundTests` ×8.
    NavMesh was considered (the worldgen package supports it) and declined for movement: engine
    queries against baked data break the headless contract — the same argument that rejected
-   PhysX raycasts. It remains the right tool for future AI *routing*.
+   PhysX raycasts. **The agreed shape for when routing arrives (Matt, 2026-08-04): NavMeshAgent
+   as a steering oracle, never a mover** — `updatePosition`/`updateRotation` off, the agent
+   computes `desiredVelocity` along its path, a GOAP strategy reads that direction and writes
+   `EnemyIntent.MoveX/MoveY`, and the sim stays the only thing that moves anybody. Routing
+   through the agent, actuation through the buttons — decision 38 survives with pathfinding
+   attached.
+
+   **Wanderers are OFF (2026-08-04)** — the encounter spawner ships disabled in the overworld
+   scene while the map is being authored; an idle player was hunted on an eleven-second fuse,
+   which made judging coasts and terraces impossible. One checkbox (or one builder line) brings
+   the menace back; the pipeline behind it is untouched and tested.
 4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
    do except leave, and "last overworld position" (design bible §9) is not stored — portals name
    fixed spawns, so re-entering does not return you to where you stood.
