@@ -1,3 +1,4 @@
+using Rokkan.Prophecy.Sim;
 using Rokkan.WorldGen.StalbergGrid;
 using Rokkan.WorldGen.StalbergGrid.Data;
 using Rokkan.WorldGen.StalbergGrid.Generation;
@@ -38,8 +39,25 @@ namespace Rokkan.Prophecy.Overworld
                                  "built-in Default-Diffuse, which URP renders magenta.")]
         private Material _tileMaterial;
 
+        /// <summary>Which implementation answers the sim's ground seam.</summary>
+        public enum GroundAuthority
+        {
+            /// <summary>The baked NavMesh — one authority shared with future AI routing; step
+            /// and slope rules come from the bake's agent settings.</summary>
+            NavMesh,
+
+            /// <summary>The plain-C# raster over the grid's floor quads — headless-reproducible,
+            /// no engine data in the answers.</summary>
+            WalkGrid,
+        }
+
+        [SerializeField, Tooltip("Who bounds movement here. Both exist behind the same seam; " +
+                                 "flip and re-enter the scene to feel the difference.")]
+        private GroundAuthority _groundAuthority = GroundAuthority.NavMesh;
+
         private GridRegistry _registry;
         private OverworldWalkGrid _walkGrid;
+        private Unity.AI.Navigation.NavMeshSurface _navMeshSurface;
 
         /// <summary>The live registry, for anything that wants to query the ground — a future
         /// region lookup, the darkening repaint. Null before Awake.</summary>
@@ -94,7 +112,33 @@ namespace Rokkan.Prophecy.Overworld
             ApplyTileMaterial();
 
             BuildWalkGrid(entry);
-            Presentation.TopDownGroundSource.Current = _walkGrid;
+            BakeNavMesh();
+
+            // Both grounds exist; the toggle decides who answers the sim. The walk grid is built
+            // regardless — it costs milliseconds and keeps the A/B honest.
+            _published = _groundAuthority == GroundAuthority.NavMesh
+                ? (ITopDownGround)new NavMeshGround()
+                : _walkGrid;
+            Presentation.TopDownGroundSource.Current = _published;
+        }
+
+        private ITopDownGround _published;
+
+        /// <summary>
+        /// Bake the NavMesh over the placed tiles, at load, from their render meshes — the
+        /// colliders were stripped on purpose and the bake does not need them.
+        ///
+        /// <para>This is the authority AI routing will use later, so baking it here even when the
+        /// walk grid answers the seam keeps the two futures on one surface. The bake runs under
+        /// the transition veil; nobody sees the frame it costs.</para>
+        /// </summary>
+        private void BakeNavMesh()
+        {
+            _navMeshSurface = gameObject.AddComponent<Unity.AI.Navigation.NavMeshSurface>();
+            _navMeshSurface.collectObjects = Unity.AI.Navigation.CollectObjects.Children;
+            _navMeshSurface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.RenderMeshes;
+
+            _navMeshSurface.BuildNavMesh();
         }
 
         /// <summary>
@@ -209,7 +253,8 @@ namespace Rokkan.Prophecy.Overworld
         private void OnDestroy()
         {
             // Withdraw the ground before it dangles — a host in the NEXT scene republishes.
-            if (ReferenceEquals(Presentation.TopDownGroundSource.Current, _walkGrid))
+            if (_published != null &&
+                ReferenceEquals(Presentation.TopDownGroundSource.Current, _published))
                 Presentation.TopDownGroundSource.Current = null;
 
             // NativeContainers all the way down — the registry owns every grid's buffers and the

@@ -748,6 +748,19 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    scene while the map is being authored; an idle player was hunted on an eleven-second fuse,
    which made judging coasts and terraces impossible. One checkbox (or one builder line) brings
    the menace back; the pipeline behind it is untouched and tested.
+
+   **NavMesh integrated (2026-08-04, later the same day) — and it is the DEFAULT ground.** The
+   grid host bakes a runtime `NavMeshSurface` over the placed tiles (render meshes; the stripped
+   colliders are not needed) and `NavMeshGround` answers the seam: floor = `SamplePosition` with
+   a tight horizontal tolerance (else the coast answers for the sea beside it), step legality =
+   `NavMesh.Raycast` connectivity. A `GroundAuthority` toggle on the host flips between NavMesh
+   and the walk grid — both are always built, and the sim cannot tell them apart.
+   **Trap found live:** the default 45° bake climbs the tiles' skirt geometry, silently
+   connecting every terrace to the plain — and a flat-walking sim following that path strolls
+   inside the cliff art. `NavMeshGround.FlatWorldCeiling` (0.35 m) refuses floor above the walk
+   plane; it is explicitly the one line to delete when presentation learns to ride `HeightAt`.
+   Verified live: island walks, sea refuses, terraces refuse, the structured cape's edge holds,
+   765-vertex mesh from a sub-second bake under the veil.
 4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
    do except leave, and "last overworld position" (design bible §9) is not stored — portals name
    fixed spawns, so re-entering does not return you to where you stood.
