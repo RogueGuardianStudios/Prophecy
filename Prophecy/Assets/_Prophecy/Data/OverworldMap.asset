@@ -22,18 +22,64 @@ MonoBehaviour:
     Size: {x: 64, y: 44}
     RotationDegrees: 0
     Y: 0
+    Structured: 0
   - Name: West Reach
     Centre: {x: -35.2, y: 8}
     Size: {x: 24, y: 18}
     RotationDegrees: 15
     Y: 0
+    Structured: 1
   - Name: East Cape
     Centre: {x: 35.2, y: -6}
     Size: {x: 20, y: 16}
     RotationDegrees: -20
     Y: 0
+    Structured: 1
   - Name: North Spur
     Centre: {x: 10, y: 24.2}
     Size: {x: 18, y: 14}
     RotationDegrees: 0
     Y: 0
+    Structured: 0
+  - Name: Foothills
+    Centre: {x: -20, y: 14}
+    Size: {x: 20, y: 14}
+    RotationDegrees: 0
+    Y: 0.7
+    Structured: 0
+  - Name: Bluffs
+    Centre: {x: -24, y: 20}
+    Size: {x: 16, y: 11}
+    RotationDegrees: 0
+    Y: 1.4
+    Structured: 0
+  - Name: Highlands
+    Centre: {x: -28, y: 25}
+    Size: {x: 13, y: 9}
+    RotationDegrees: 0
+    Y: 2.1
+    Structured: 0
+  - Name: Crown
+    Centre: {x: -31, y: 29}
+    Size: {x: 10, y: 7}
+    RotationDegrees: 0
+    Y: 2.8
+    Structured: 0
+  - Name: North Rise
+    Centre: {x: 10, y: 26}
+    Size: {x: 18, y: 10}
+    RotationDegrees: 0
+    Y: 0.7
+    Structured: 0
+  - Name: North Shelf
+    Centre: {x: 14, y: 30}
+    Size: {x: 12, y: 7}
+    RotationDegrees: 0
+    Y: 1.4
+    Structured: 0
+  - Name: East Mesa
+    Centre: {x: 30, y: -6}
+    Size: {x: 10, y: 8}
+    RotationDegrees: 0
+    Y: 1.1
+    Structured: 0
