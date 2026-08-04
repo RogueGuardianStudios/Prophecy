@@ -39,10 +39,14 @@ namespace Rokkan.Prophecy.Overworld
         private Material _tileMaterial;
 
         private GridRegistry _registry;
+        private OverworldWalkGrid _walkGrid;
 
         /// <summary>The live registry, for anything that wants to query the ground — a future
-        /// walkability check, a region lookup, the darkening repaint. Null before Awake.</summary>
+        /// region lookup, the darkening repaint. Null before Awake.</summary>
         public GridRegistry Registry => _registry;
+
+        /// <summary>The walkability raster the sim collides against. Null before Awake.</summary>
+        public OverworldWalkGrid WalkGrid => _walkGrid;
 
         /// <summary>The world grid's id within <see cref="Registry"/>.</summary>
         public GridId WorldGridId { get; private set; }
@@ -88,6 +92,45 @@ namespace Rokkan.Prophecy.Overworld
 
             StripColliders();
             ApplyTileMaterial();
+
+            BuildWalkGrid(entry);
+            Presentation.TopDownGroundSource.Current = _walkGrid;
+        }
+
+        /// <summary>
+        /// Raster the grid's floor quads into the walkability grid the sim collides against.
+        ///
+        /// <para>A quad counts as floor only when all four of its vertices do — the partial quads
+        /// at a coastline stay sea, so collision runs one tile tighter than the marching-squares
+        /// art. Height is the corners' average, which within one quad differ at most by jitter.</para>
+        /// </summary>
+        private void BuildWalkGrid(GridEntry entry)
+        {
+            _walkGrid = new OverworldWalkGrid(
+                new Vector2(transform.position.x - _map.BoundsSize.x * 0.5f,
+                            transform.position.z - _map.BoundsSize.y * 0.5f),
+                _map.BoundsSize);
+
+            var grid = entry.Grid;
+
+            for (int i = 0; i < grid.Quads.Length; i++)
+            {
+                var quad = grid.Quads[i];
+
+                var a = grid.Vertices[quad.vertexIndices.x];
+                var b = grid.Vertices[quad.vertexIndices.y];
+                var c = grid.Vertices[quad.vertexIndices.z];
+                var d = grid.Vertices[quad.vertexIndices.w];
+
+                if (!a.isFloor || !b.isFloor || !c.isFloor || !d.isFloor) continue;
+
+                _walkGrid.FillQuad(
+                    new Vector2(a.position.x, a.position.z),
+                    new Vector2(b.position.x, b.position.z),
+                    new Vector2(c.position.x, c.position.z),
+                    new Vector2(d.position.x, d.position.z),
+                    (a.position.y + b.position.y + c.position.y + d.position.y) * 0.25f);
+            }
         }
 
         private System.Collections.Generic.List<StructuredRegion> CollectStructuredRegions()
@@ -165,6 +208,10 @@ namespace Rokkan.Prophecy.Overworld
 
         private void OnDestroy()
         {
+            // Withdraw the ground before it dangles — a host in the NEXT scene republishes.
+            if (ReferenceEquals(Presentation.TopDownGroundSource.Current, _walkGrid))
+                Presentation.TopDownGroundSource.Current = null;
+
             // NativeContainers all the way down — the registry owns every grid's buffers and the
             // scene unloading is the one reliable moment to let go of them.
             _registry?.Dispose();

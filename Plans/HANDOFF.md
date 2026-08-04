@@ -725,9 +725,19 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    `CloseTick` because every other volume needs them, but the dive lasts until it connects or
    lands, so no tick count could describe it. The fields sit unused and are documented as such —
    worth revisiting if a second unbounded volume ever appears.
-3. **Top-down has no collision.** `CharacterSim.Integrate` skips the sweep in
-   `MovementSpace.TopDown`. Now player-facing: the overworld's rim is visual only and the player
-   can walk off the plain into featureless void. First item on the transitions thread.
+3. **Top-down collision — CLOSED 2026-08-04, grid-backed.** The sim gained a ground seam
+   (`ITopDownGround`: `CanStep`/`HeightAt`, plain C#, null = free movement), consulted by
+   `Integrate`'s top-down branch with the same axis separation side-scroll uses, testing the
+   body's leading edge. The overworld answers it from `OverworldWalkGrid` — the Stålberg grid's
+   all-floor quads rastered once at load into 0.5 m cells, so collision and tiles derive from
+   the same source and cannot disagree. Coast partial-quads count as sea (collision one tile
+   tighter than the art, the safe direction); steps above 0.35 m refuse both ways, so terraces
+   are cliffs and authored ramps need no new rule; a body stranded off-floor may always step
+   back on. Published via `TopDownGroundSource` (the `CombatDirector.Instance` pattern),
+   re-pointed by every host per tick — wanderers respect coasts too. `TopDownGroundTests` ×8.
+   NavMesh was considered (the worldgen package supports it) and declined for movement: engine
+   queries against baked data break the headless contract — the same argument that rejected
+   PhysX raycasts. It remains the right tool for future AI *routing*.
 4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
    do except leave, and "last overworld position" (design bible §9) is not stored — portals name
    fixed spawns, so re-entering does not return you to where you stood.

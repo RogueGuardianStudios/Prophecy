@@ -5,7 +5,9 @@
         "Rokkan.Prophecy",
         "Rokkan.WorldGen",
         "RGS.Core",
-        "RGS.GOAP.Core"
+        "RGS.GOAP.Core",
+        "Unity.Collections",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

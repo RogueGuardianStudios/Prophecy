@@ -359,6 +359,50 @@ namespace Rokkan.Prophecy.Sim
         }
 
         /// <summary>
+        /// The overworld's walkability oracle, or null for free top-down movement. Re-pointed by
+        /// the host each tick, exactly as <see cref="CombatWorld"/> is — the character is a
+        /// persistent prefab and the ground it stands on arrives with a scene load.
+        /// </summary>
+        public ITopDownGround Ground;
+
+        /// <summary>
+        /// Whether the body's leading edge may make this single-axis move.
+        ///
+        /// <para>Three points across the leading face — centre and both corners — because a feet
+        /// point alone lets half a body hang over a cliff edge before anything objects. The
+        /// corners pull in slightly so brushing a wall while walking parallel to it does not
+        /// read as a collision.</para>
+        /// </summary>
+        private bool GroundPermits(Vector2 delta)
+        {
+            var from = State.Position;
+            var to = from + delta;
+
+            float half = State.BodySize.x * 0.5f;
+            float lead = Mathf.Sign(delta.x != 0f ? delta.x : delta.y) * half;
+            float across = half * 0.8f;
+
+            Vector2 centre, cornerA, cornerB;
+
+            if (delta.x != 0f)
+            {
+                centre = new Vector2(to.x + lead, to.y);
+                cornerA = new Vector2(to.x + lead, to.y - across);
+                cornerB = new Vector2(to.x + lead, to.y + across);
+            }
+            else
+            {
+                centre = new Vector2(to.x, to.y + lead);
+                cornerA = new Vector2(to.x - across, to.y + lead);
+                cornerB = new Vector2(to.x + across, to.y + lead);
+            }
+
+            return Ground.CanStep(from, centre) &&
+                   Ground.CanStep(from, cornerA) &&
+                   Ground.CanStep(from, cornerB);
+        }
+
+        /// <summary>
         /// Move by velocity, resolving each axis separately against the world.
         ///
         /// <para>Axis separation is the standard platformer approach and it is what makes wall
@@ -374,8 +418,39 @@ namespace Rokkan.Prophecy.Sim
 
             if (State.Space == MovementSpace.TopDown)
             {
-                // No gravity and no one-ways overhead; both axes are plain lateral motion.
-                State.Position += delta;
+                // No gravity and no one-ways overhead; both axes are plain lateral motion,
+                // resolved against the ground seam when a scene supplies one. No ground means
+                // free movement — every scene before the overworld, and every old test.
+                if (Ground == null)
+                {
+                    State.Position += delta;
+                    return;
+                }
+
+                // Axis separation, exactly as side-scroll below: blocked one way, the other axis
+                // still proceeds, which is what makes walls slide-alongable rather than sticky.
+                if (delta.x != 0f)
+                {
+                    if (GroundPermits(new Vector2(delta.x, 0f)))
+                        State.Position += new Vector2(delta.x, 0f);
+                    else
+                    {
+                        State.HitWallThisTick = true;
+                        State.Velocity.x = 0f;
+                    }
+                }
+
+                if (delta.y != 0f)
+                {
+                    if (GroundPermits(new Vector2(0f, delta.y)))
+                        State.Position += new Vector2(0f, delta.y);
+                    else
+                    {
+                        State.HitWallThisTick = true;
+                        State.Velocity.y = 0f;
+                    }
+                }
+
                 return;
             }
 

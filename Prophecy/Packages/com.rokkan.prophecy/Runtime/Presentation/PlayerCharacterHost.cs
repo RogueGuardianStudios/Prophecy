@@ -184,6 +184,11 @@ namespace Rokkan.Prophecy.Presentation
             var fight = CombatDirector.Instance != null ? CombatDirector.Instance.State : null;
             if (!ReferenceEquals(Sim.CombatWorld, fight)) Sim.CombatWorld = fight;
 
+            // The ground arrives the same way the fight does, for the same reason: the character
+            // persists and the scene it walks on does not.
+            if (!ReferenceEquals(Sim.Ground, TopDownGroundSource.Current))
+                Sim.Ground = TopDownGroundSource.Current;
+
             // Whoever is driving. The simulation cannot tell a gamepad from a planner, and that
             // is the property the whole AI design rests on — see IInputSource.
             var source = _input?.Value;

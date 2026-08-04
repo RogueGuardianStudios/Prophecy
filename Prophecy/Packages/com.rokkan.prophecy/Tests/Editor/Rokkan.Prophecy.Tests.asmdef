@@ -8,7 +8,8 @@
         "RGS.Core",
         "Rokkan.Core",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Rokkan.Prophecy.Overworld"
     ],
     "includePlatforms": [
         "Editor"
