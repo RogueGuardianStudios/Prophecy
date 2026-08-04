@@ -65,12 +65,14 @@ namespace Rokkan.Prophecy.Presentation
                                  "and stops existing when it unloads.")]
         private int _priority = 50;
 
-        [SerializeField, Tooltip("Seconds to close a gap. Gentle — the map should glide.")]
-        private float _damping = 0.7f;
+        [SerializeField, Tooltip("Seconds to close a gap. Gentle but present — 0.7 read as the " +
+                                 "camera towing behind once the walk speed came up to match the " +
+                                 "side-scroll run.")]
+        private float _damping = 0.45f;
 
         [SerializeField, Tooltip("Dead zone as a fraction of the screen, per axis. Small: the " +
                                  "character stays near centre so the map scrolls evenly all ways.")]
-        private Vector2 _deadZone = new Vector2(0.05f, 0.06f);
+        private Vector2 _deadZone = new Vector2(0.03f, 0.04f);
 
         private CinemachineCamera _camera;
         private CinemachinePositionComposer _composer;

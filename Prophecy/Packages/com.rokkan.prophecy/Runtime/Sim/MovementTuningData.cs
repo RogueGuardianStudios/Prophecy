@@ -249,9 +249,18 @@ namespace Rokkan.Prophecy.Sim
         // ------------------------------------------------------------------ top-down
 
         [Header("Top-down overworld")]
-        public float TopDownSpeed = 5f;
-        public float TopDownAcceleration = 50f;
-        public float TopDownFriction = 60f;
+        [Tooltip("Metres per second across the map. Matches RunSpeed on purpose: the overworld is " +
+                 "for going places, and a hero slower than their own side-scroll run reads as " +
+                 "wading. Retuned from 5 after the first walk felt like exactly that.")]
+        public float TopDownSpeed = 7.5f;
+
+        [Tooltip("Reach full speed in about a tenth of a second. The map should respond like a " +
+                 "map cursor, not like a vehicle.")]
+        public float TopDownAcceleration = 75f;
+
+        [Tooltip("Stopping is faster than starting, so releasing the stick plants you where you " +
+                 "meant to stand — an overworld has doors and portals to stop exactly on.")]
+        public float TopDownFriction = 90f;
 
         // ------------------------------------------------------------------ interact
 
