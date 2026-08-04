@@ -34,6 +34,10 @@ namespace Rokkan.Prophecy.Overworld
         [SerializeField, Tooltip("The six marching-squares tile prefabs, plus door and stair.")]
         private StalbergTileSet _tileSet;
 
+        [SerializeField, Tooltip("Applied to every placed tile. The prefabs ship pointing at the " +
+                                 "built-in Default-Diffuse, which URP renders magenta.")]
+        private Material _tileMaterial;
+
         private GridRegistry _registry;
 
         /// <summary>The live registry, for anything that wants to query the ground — a future
@@ -54,10 +58,16 @@ namespace Rokkan.Prophecy.Overworld
 
             _registry = new GridRegistry();
 
+            // Regions marked Structured are injected into the factory itself, not merely painted:
+            // a Mixed grid lays a square lattice inside each one with a conforming seam to the
+            // surrounding hex. That is the "built, not grown" look — the lever the coasts and
+            // settlements experiment on.
+            var structured = CollectStructuredRegions();
+
             var context = new CreationContext
             {
                 worldOffset = transform.position,
-                topology = TopologyKind.HexOrganic,
+                topology = structured == null ? TopologyKind.HexOrganic : TopologyKind.Mixed,
                 spacing = Mathf.Max(0.5f, _map.Spacing),
                 jitter = _map.Jitter,
                 mode = ConnectionMode.Supplementing,
@@ -68,7 +78,7 @@ namespace Rokkan.Prophecy.Overworld
             var bounds = new Bounds(transform.position,
                                     new Vector3(_map.BoundsSize.x, 0f, _map.BoundsSize.y));
 
-            WorldGridId = _registry.CreateWorldGrid(bounds, context, null, _tileSet, null, _config);
+            WorldGridId = _registry.CreateWorldGrid(bounds, context, structured, _tileSet, null, _config);
 
             var entry = _registry.Get(WorldGridId);
 
@@ -77,6 +87,31 @@ namespace Rokkan.Prophecy.Overworld
             StalbergTilePlacer.PlaceTiles(entry.Grid, _tileSet, transform);
 
             StripColliders();
+            ApplyTileMaterial();
+        }
+
+        private System.Collections.Generic.List<StructuredRegion> CollectStructuredRegions()
+        {
+            System.Collections.Generic.List<StructuredRegion> structured = null;
+
+            var regions = _map.Regions;
+            for (int i = 0; regions != null && i < regions.Length; i++)
+            {
+                if (!regions[i].Structured) continue;
+
+                structured ??= new System.Collections.Generic.List<StructuredRegion>();
+                structured.Add(new StructuredRegion
+                {
+                    center = new Vector2(regions[i].Centre.x + transform.position.x,
+                                         regions[i].Centre.y + transform.position.z),
+                    size = regions[i].Size,
+                    rotationDegrees = regions[i].RotationDegrees,
+                    regionId = (byte)(i + 1),
+                    worldY = regions[i].Y,
+                });
+            }
+
+            return structured;
         }
 
         /// <summary>
@@ -105,7 +140,9 @@ namespace Rokkan.Prophecy.Overworld
                     authored.Size, authored.RotationDegrees);
 
                 entry.Grid.Registry.AddRegion(
-                    Region.Room((byte)(i + 1), footprint, authored.Y));
+                    Region.Room((byte)(i + 1), footprint, authored.Y,
+                                shape: authored.Structured ? RegionShape.AxisAligned
+                                                           : RegionShape.Organic));
             }
 
             VertexTopologyPainter.Paint(entry.Grid, _config);
@@ -115,6 +152,15 @@ namespace Rokkan.Prophecy.Overworld
         {
             var colliders = GetComponentsInChildren<Collider>(true);
             for (int i = 0; i < colliders.Length; i++) Destroy(colliders[i]);
+        }
+
+        /// <summary>One ground material over every placed tile — see the field's tooltip.</summary>
+        private void ApplyTileMaterial()
+        {
+            if (_tileMaterial == null) return;
+
+            var renderers = GetComponentsInChildren<MeshRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = _tileMaterial;
         }
 
         private void OnDestroy()

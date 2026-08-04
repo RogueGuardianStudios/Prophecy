@@ -97,6 +97,8 @@ namespace Rokkan.Prophecy.World
 
             if (existing.IsValid())
             {
+                Debug.Log($"[Prophecy] SceneDirector adopting open world scene '{existing.name}'.");
+
                 // No old world to fade out of — start black and frozen, reveal the adopted scene.
                 _veil.SnapCovered();
                 FreezeWorld(true);
@@ -105,6 +107,8 @@ namespace Rokkan.Prophecy.World
             }
             else if (!string.IsNullOrEmpty(_firstWorldScene))
             {
+                Debug.Log($"[Prophecy] SceneDirector found no open world scene; loading " +
+                          $"'{_firstWorldScene}'.");
                 yield return Transition(_firstWorldScene, null);
             }
         }
@@ -139,6 +143,12 @@ namespace Rokkan.Prophecy.World
 
         private IEnumerator Transition(string sceneName, string spawnId)
         {
+            // Breadcrumb, deliberately permanent: "how did I end up in this scene" has already
+            // cost one long hunt, and the answer is always one of a handful of callers a stack
+            // trace names for free.
+            Debug.Log($"[Prophecy] Transition: '{CurrentWorldScene}' -> '{sceneName}' " +
+                      $"(spawn '{spawnId ?? "default"}').");
+
             IsTransitioning = true;
 
             // Fail fast, before the curtain: a typo'd scene name should be an error in the

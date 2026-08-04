@@ -19,6 +19,15 @@ namespace Rokkan.Prophecy.Editor.Build
         public static Material Portal() =>
             Ensure("GrayBox_Portal.mat", new Color(0.2f, 0.75f, 1f));
 
+        /// <summary>
+        /// The overworld's ground. The tile prefabs ship pointing at Unity's built-in
+        /// Default-Diffuse, which URP renders as eye-searing magenta — so the grid host repaints
+        /// every placed tile with this. One material for all of them until per-region palettes
+        /// (the darkening) take over.
+        /// </summary>
+        public static Material Ground() =>
+            Ensure("GrayBox_Ground.mat", new Color(0.52f, 0.58f, 0.5f));
+
         private static Material Ensure(string fileName, Color colour)
         {
             string path = $"{Folder}/{fileName}";

@@ -37,9 +37,12 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("How many may exist at once. Zelda II fields two or three.")]
         private int _maxAlive = 3;
 
-        [SerializeField, Tooltip("Seconds between spawn attempts. An attempt does nothing while " +
-                                 "the field is full.")]
-        private float _spawnEverySeconds = 4f;
+        [SerializeField, Tooltip("Seconds between spawn attempts, and the grace before the first " +
+                                 "one. An attempt does nothing while the field is full. Raised " +
+                                 "from 4: a biased wanderer crosses its spawn ring in about three " +
+                                 "seconds, so at 4 the overworld was a seven-second fuse — barely " +
+                                 "time to read the map before being carried off it.")]
+        private float _spawnEverySeconds = 8f;
 
         [SerializeField, Tooltip("Distance from the player a wanderer appears at, in metres. " +
                                  "Just past what the overworld camera shows.")]
@@ -70,6 +73,15 @@ namespace Rokkan.Prophecy.World
 
         private readonly List<GameObject> _alive = new List<GameObject>();
         private float _nextSpawnAt;
+
+        private void Start()
+        {
+            // One full interval of grace before the first spawn. Zero-initialised, the first
+            // Update spawned a wanderer on frame one — biased toward the arrival spawn — and it
+            // caught the still-orienting player about three seconds after every entry. The
+            // overworld read as broken when it was actually being lethal.
+            _nextSpawnAt = Time.time + Mathf.Max(0.5f, _spawnEverySeconds);
+        }
 
         private void Update()
         {

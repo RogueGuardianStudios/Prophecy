@@ -145,6 +145,7 @@ namespace Rokkan.Prophecy.Editor.Build
                 "Assets/ScriptableObjects/Stalberg/StalbergGridConfig.asset"));
             SetPrivate(component, "_tileSet", AssetDatabase.LoadAssetAtPath<ScriptableObject>(
                 "Assets/ScriptableObjects/Stalberg/StalbergTileSet.asset"));
+            SetPrivate(component, "_tileMaterial", GrayBoxMaterials.Ground());
         }
 
         private static void CreateLighting()

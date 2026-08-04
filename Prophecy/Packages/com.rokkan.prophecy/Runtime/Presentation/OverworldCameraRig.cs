@@ -140,6 +140,13 @@ namespace Rokkan.Prophecy.Presentation
         {
             if (_followTarget == null) return;
 
+            // Re-resolve until found, not once in Awake. Pressing Play FROM the overworld loads
+            // Bootstrap ON TOP of it (BootstrapLoader), so this scene's Awake runs before the
+            // player exists — a camera that only looked once stood still until the first
+            // re-entry, which is exactly the bug that shipped. The search costs something only
+            // while it keeps failing.
+            if (_host == null) _host = FindAnyObjectByType<PlayerCharacterHost>();
+
             ApplyFraming();
             _followTarget.position = ResolveTargetPosition();
         }

@@ -30,6 +30,11 @@ namespace Rokkan.Prophecy.Overworld
 
         [Tooltip("Floor elevation. Keep 0 until the sim understands top-down height.")]
         public float Y;
+
+        [Tooltip("Square lattice instead of organic — the footprint is injected as a structured " +
+                 "region with a conforming seam into the surrounding hex. For coasts, settlements, " +
+                 "anywhere the map should read built rather than grown.")]
+        public bool Structured;
     }
 
     /// <summary>
