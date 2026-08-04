@@ -52,15 +52,10 @@ namespace Rokkan.Prophecy.Editor
 
             // Copied from the player's asset every time rather than edited in place, so a retune of
             // the player's damage or reach reaches the enemy on the next regenerate instead of
-            // quietly diverging.
-            AssetDatabase.DeleteAsset(GruntTuningPath);
-            if (!AssetDatabase.CopyAsset(PlayerTuningPath, GruntTuningPath))
-            {
-                Debug.LogError($"[Prophecy] could not copy {PlayerTuningPath} to {GruntTuningPath}.");
-                return null;
-            }
+            // quietly diverging. CONTENT copy, not file copy — see the helper.
+            var grunt = CopyContentKeepingIdentity(PlayerTuningPath, GruntTuningPath);
+            if (grunt == null) return null;
 
-            var grunt = AssetDatabase.LoadAssetAtPath<CombatTuning>(GruntTuningPath);
             var serialized = new SerializedObject(grunt);
 
             var attacks = serialized.FindProperty("_data").FindPropertyRelative("Attacks");
@@ -80,6 +75,50 @@ namespace Rokkan.Prophecy.Editor
             Debug.Log($"[Prophecy] Enemy combat tuning generated at {GruntTuningPath} " +
                       $"(wind-up {EnemyStartupTicks} ticks).");
             return grunt;
+        }
+
+        /// <summary>
+        /// Overwrite the asset at <paramref name="targetPath"/> with the content of the one at
+        /// <paramref name="sourcePath"/>, creating it only if it does not exist yet.
+        ///
+        /// <para><b>The old delete-and-copy minted a new GUID every run</b>, and a GUID is the
+        /// asset's identity: every prefab referencing the tuning was silently re-pointed on each
+        /// regenerate, and any referencer NOT regenerated in the same pass kept a dangling GUID
+        /// and resolved to nothing — which for a moveset means an enemy that cannot attack, with
+        /// no error saying why. Copying the serialized content into the existing file changes
+        /// what the asset says without changing what it <i>is</i>.</para>
+        /// </summary>
+        private static CombatTuning CopyContentKeepingIdentity(string sourcePath, string targetPath)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<CombatTuning>(sourcePath);
+            if (source == null)
+            {
+                Debug.LogError($"[Prophecy] no CombatTuning at {sourcePath} to copy from.");
+                return null;
+            }
+
+            var target = AssetDatabase.LoadAssetAtPath<CombatTuning>(targetPath);
+
+            if (target == null)
+            {
+                // First run only — the one time a file copy is the right tool.
+                if (!AssetDatabase.CopyAsset(sourcePath, targetPath))
+                {
+                    Debug.LogError($"[Prophecy] could not copy {sourcePath} to {targetPath}.");
+                    return null;
+                }
+
+                return AssetDatabase.LoadAssetAtPath<CombatTuning>(targetPath);
+            }
+
+            EditorUtility.CopySerialized(source, target);
+
+            // CopySerialized brings the name along too, and an asset whose display name disagrees
+            // with its file name reads as a different asset in every picker.
+            target.name = System.IO.Path.GetFileNameWithoutExtension(targetPath);
+            EditorUtility.SetDirty(target);
+
+            return target;
         }
 
         public const string CasterTuningPath = "Assets/_Prophecy/Data/CombatTuning_Caster.asset";
@@ -102,14 +141,9 @@ namespace Rokkan.Prophecy.Editor
             var enemy = Generate();
             if (enemy == null) return null;
 
-            AssetDatabase.DeleteAsset(CasterTuningPath);
-            if (!AssetDatabase.CopyAsset(GruntTuningPath, CasterTuningPath))
-            {
-                Debug.LogError($"[Prophecy] could not copy {GruntTuningPath} to {CasterTuningPath}.");
-                return null;
-            }
+            var caster = CopyContentKeepingIdentity(GruntTuningPath, CasterTuningPath);
+            if (caster == null) return null;
 
-            var caster = AssetDatabase.LoadAssetAtPath<CombatTuning>(CasterTuningPath);
             var serialized = new SerializedObject(caster);
 
             var attacks = serialized.FindProperty("_data").FindPropertyRelative("Attacks");

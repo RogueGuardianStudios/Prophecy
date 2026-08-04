@@ -187,12 +187,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720558462763399
-  - rid: 2975720558462763400
+  - rid: 2975720558462763507
+  - rid: 2975720558462763508
   references:
     version: 2
     RefIds:
-    - rid: 2975720558462763399
+    - rid: 2975720558462763507
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -210,7 +210,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720558462763400
+    - rid: 2975720558462763508
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -235,10 +235,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 5261188
-      Part2: 1191342447
-      Part3: 4223104136
-      Part4: 4264242769
+      Part1: 2502573420
+      Part2: 1075143274
+      Part3: 42505357
+      Part4: 3609068419
     Actions: []
     Goals: []
     Beliefs: []

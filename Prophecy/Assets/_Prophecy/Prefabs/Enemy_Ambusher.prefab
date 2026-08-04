@@ -145,7 +145,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.PlayerCharacterHost
   _tuning: {fileID: 11400000, guid: e3e31b26c0e3f2b49b09c30e5226b71e, type: 2}
   _loadout: {fileID: 11400000, guid: 3631cec18ae1b024d992119f971cdc72, type: 2}
-  _combatTuning: {fileID: 11400000, guid: 83560cc90d9876e48b8bb20fceeaded8, type: 2}
+  _combatTuning: {fileID: 11400000, guid: 3bb16c08f5075fb4887f8f912df7c0be, type: 2}
   _clockDriver: {fileID: 0}
   _input:
     underlyingValue: {fileID: 0}
@@ -277,12 +277,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720558462763382
-  - rid: 2975720558462763383
+  - rid: 2975720558462763490
+  - rid: 2975720558462763491
   references:
     version: 2
     RefIds:
-    - rid: 2975720558462763382
+    - rid: 2975720558462763490
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -300,7 +300,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720558462763383
+    - rid: 2975720558462763491
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -325,10 +325,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 3386156922
-      Part2: 1217183750
-      Part3: 2012451006
-      Part4: 818792168
+      Part1: 1697156812
+      Part2: 1112157847
+      Part3: 2681087632
+      Part4: 3013700450
     Actions: []
     Goals: []
     Beliefs: []
