@@ -5,9 +5,15 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Presentation
 {
     /// <summary>
-    /// The overworld's camera: a fixed three-quarter view that follows the player across the map.
-    /// Think Tunic — pitched well down, yawed off the grid, a long lens flattening the perspective,
-    /// and a rotation that never, ever changes.
+    /// The overworld's camera: a fixed overhead view, square to the world, that follows the
+    /// player across the map. Pitched well down, a long lens flattening the perspective, and a
+    /// rotation that never, ever changes.
+    ///
+    /// <para><b>Square to the world, not yawed off it — revised from a Tunic 45°.</b> The
+    /// diagonal looked handsome and played wrong: input is world-axis-aligned (up on the stick is
+    /// world north), so under a yawed camera every press walked the hero diagonally across the
+    /// screen. A camera angle must never make the controls lie. The yaw field survives for
+    /// authored set-pieces; the default is straight-on.</para>
     ///
     /// <para><b>Per-space and scene-owned, not a mode on <see cref="LaneCameraRig"/>.</b> Every
     /// number on the lane rig is side-scroll vocabulary — lanes, jump-height dead zones, fall
@@ -44,9 +50,11 @@ namespace Rokkan.Prophecy.Presentation
                                                   "lower shows more of the world's faces.")]
         private float _pitch = 50f;
 
-        [SerializeField, Range(-180f, 180f), Tooltip("Rotation off the world grid. 45 is the " +
-                                                     "classic three-quarter diagonal.")]
-        private float _yaw = 45f;
+        [SerializeField, Range(-180f, 180f), Tooltip("Rotation off the world grid. Zero, so up " +
+                                                     "on the stick is up on the screen — a yawed " +
+                                                     "camera makes world-aligned input read as " +
+                                                     "walking diagonally.")]
+        private float _yaw;
 
         [Header("Framing")]
         [SerializeField, Range(0.03f, 0.4f), Tooltip("How much of the viewport's height the " +

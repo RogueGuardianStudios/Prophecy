@@ -209,13 +209,14 @@ the roster and §2a for the overworld.)*
 ## 2a. World transitions — first slice, 2026-08-03
 
 The dual-mode structure is real: walk off either end of the traversal course and you are standing
-in a top-down overworld under a Tunic camera; touch the blue cube and you are back, mid-course.
+in a top-down overworld under a fixed overhead camera; touch the blue cube and you are back,
+mid-course.
 Verified end to end in play mode — both portals, both arrival spawns, the return trip twice, the
 space switching `SideScroll` ⇄ `TopDown` each way.
 
 ```
 Runtime/World/Portal.cs                     walk-in volume; fires GoTo(scene, spawn); arming rule
-Runtime/Presentation/OverworldCameraRig.cs  the Tunic camera: fixed angle, share-derived distance
+Runtime/Presentation/OverworldCameraRig.cs  the overhead camera: fixed angle, share-derived distance
 Editor/Build/GrayBoxOverworldBuilder.cs     generates GrayBox_Overworld; menu + -executeMethod
 Editor/Build/GrayBoxMaterials.cs            the one portal material both scenes share
 Assets/_Prophecy/Scenes/GrayBox_Overworld.unity  TopDown, kill plane off, own camera at priority 50
@@ -537,10 +538,14 @@ Effective values are floats here and only the final derived numbers round.
   pluggable", applied to cameras. The rig is self-assembling (adds its own composer, owns its
   priority) so the scene generator never references Cinemachine — the same reason `EnemyBuilder`
   attaches GOAP by reflection.
-- **The overworld camera is Tunic.** Pitch 50, yaw 45, FOV 22, applied as a constant every frame —
-  Follow only, no Aim, and the map never rotates. Framing follows the project rule: the authored
-  number is the character's viewport share (0.13 — a token on a map, not the subject of a shot),
-  and the distance is derived (35.6 m).
+- **The overworld camera is a fixed overhead, square to the world.** Pitch 50, yaw **0**, FOV 22,
+  applied as a constant every frame — Follow only, no Aim, and the map never rotates. Framing
+  follows the project rule: the authored number is the character's viewport share (0.13 — a token
+  on a map, not the subject of a shot), and the distance is derived (35.6 m).
+  **Revised 2026-08-04 from a Tunic 45° yaw:** the diagonal looked handsome and played wrong —
+  input is world-axis-aligned, so under a yawed camera every press walked the hero diagonally
+  across the screen. A camera angle must never make the controls lie. The yaw field survives for
+  authored set-pieces; the default is straight-on.
 - **World transitions cut, never blend.** The brain's default blend was EaseInOut 2 s, which on a
   scene swap swoops the camera across the world between the two rigs — the cross-camera version of
   the slide `SnapToTarget` exists to prevent. Set to Cut in Bootstrap. If a camera pair ever
