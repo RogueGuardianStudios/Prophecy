@@ -239,7 +239,12 @@ namespace Rokkan.Prophecy.Presentation
                 ? (_intent.MoveX < 0f ? -1 : 1)
                 : state.Facing;
 
-            _blockedAhead = Sim.AI.EnemyPerception.ShouldTurnBack(_host.World, state.Position,
+            // Side-scroll only: "is there floor to step onto" and "is there a wall at chest
+            // height" are lane questions. Asked of a top-down plane they answer nonsense — an
+            // empty overworld bake reads as a cliff in every direction and the patrol spins on
+            // the spot forever.
+            _blockedAhead = state.Space == MovementSpace.SideScroll &&
+                            Sim.AI.EnemyPerception.ShouldTurnBack(_host.World, state.Position,
                                                                   state.BodySize, heading);
         }
     }

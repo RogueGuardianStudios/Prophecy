@@ -27,7 +27,7 @@ namespace Rokkan.Prophecy.Tests
         /// Every archetype's brain. Named rather than globbed so a brain that stops being generated
         /// fails here instead of quietly reducing the suite's coverage to whatever still exists.
         /// </summary>
-        private static readonly string[] Archetypes = { "Grunt", "Chaser", "Ambusher", "Caster" };
+        private static readonly string[] Archetypes = { "Grunt", "Chaser", "Ambusher", "Caster", "Wanderer" };
 
         private static string PathFor(string archetype) =>
             $"Assets/_Prophecy/Data/Enemies/Brain_{archetype}.asset";

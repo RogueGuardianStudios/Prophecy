@@ -56,6 +56,11 @@ namespace Rokkan.Prophecy.Editor
 
             /// <summary>Keeps its distance and throws things. Retreat is how it fights.</summary>
             Caster,
+
+            /// <summary>The overworld's menace: roams the plane in two axes, weighted toward the
+            /// player. Zelda II's map blobs. Touch is its only threat, like the chaser — and the
+            /// touch is where a real encounter trigger will land later.</summary>
+            Wanderer,
         }
 
         [MenuItem("Prophecy/Build/Generate Enemies", priority = 40)]
@@ -77,6 +82,7 @@ namespace Rokkan.Prophecy.Editor
                 Lurk = CreateOrReplace<LurkStrategy>($"{Folder}/Action_Lurk.asset"),
                 Spring = CreateOrReplace<SpringStrategy>($"{Folder}/Action_Spring.asset"),
                 KeepDistance = CreateOrReplace<KeepDistanceStrategy>($"{Folder}/Action_KeepDistance.asset"),
+                Roam = CreateOrReplace<RoamStrategy>($"{Folder}/Action_Roam.asset"),
             };
 
             var built = new System.Text.StringBuilder("[Prophecy] Enemies generated.");
@@ -105,6 +111,7 @@ namespace Rokkan.Prophecy.Editor
             public LurkStrategy Lurk;
             public SpringStrategy Spring;
             public KeepDistanceStrategy KeepDistance;
+            public RoamStrategy Roam;
         }
 
         private static string PrefabPathFor(Archetype archetype) =>
@@ -285,6 +292,14 @@ namespace Rokkan.Prophecy.Editor
                 effects: new[] { On(hasRammed) },
                 settings: new PursueSettings { StopWithin = 0.7f, HoldPosition = true });
 
+            // The overworld's entire vocabulary: roam the plane, weighted toward whatever can be
+            // seen. It advertises the idle bit and never completes — like the chaser's held
+            // pursuit, wandering is what the creature does, not a task with an end. No
+            // precondition: a wanderer with nothing in sight still wanders, which is the point.
+            var roamAction = Action("Roam", kit.Roam, cost: 5f,
+                effects: new[] { On(isPatrolling) },
+                settings: new RoamSettings { RepickTicks = 90, BiasTowardTarget = 0.55f, MoveScale = 0.75f });
+
             var state = new GoapBehavioralState
             {
                 Name = archetype.ToString(),
@@ -320,6 +335,14 @@ namespace Rokkan.Prophecy.Editor
                     state.Actions.Add(keepDistanceAction);
                     state.Actions.Add(fireAction);
                     state.Goals.Add(killGoal);
+                    state.Goals.Add(patrolGoal);
+                    break;
+
+                // One action, one goal. The bias toward the player lives inside Roam, so menace
+                // needs no second goal to switch to — the simplest brain in the roster, and the
+                // proof that "dumb is a smaller action set" scales all the way down.
+                case Archetype.Wanderer:
+                    state.Actions.Add(roamAction);
                     state.Goals.Add(patrolGoal);
                     break;
             }
@@ -504,8 +527,11 @@ namespace Rokkan.Prophecy.Editor
                 // A chaser has no attack action at all, so its body has to be the weapon — without
                 // contact damage it is a harmless thing that jogs at you. Everything else is only
                 // dangerous when it commits to a swing, which is what makes closing on them a
-                // decision rather than a punishment.
-                Wire(combatant, "_contactDamage", archetype == Archetype.Chaser ? 8 : 0);
+                // decision rather than a punishment. The wanderer shares the rule: touch is its
+                // whole threat, and today's chip damage is the placeholder where the overworld
+                // encounter trigger will land.
+                bool touchIsTheWeapon = archetype == Archetype.Chaser || archetype == Archetype.Wanderer;
+                Wire(combatant, "_contactDamage", touchIsTheWeapon ? 8 : 0);
 
                 // Without this the grunt is a DUMMY: BuildHurtbox falls back to a box on its rest
                 // position, so the capsule walks off and leaves its hittable volume at the spawn
@@ -521,6 +547,14 @@ namespace Rokkan.Prophecy.Editor
 
                 Wire(brainHost, "_host", host);
                 Wire(brainHost, "_team", 2);
+
+                // Lookout eyes, wanderer only. The spawner places it 14 m from the player —
+                // outside the default 12 m sight — so without this it is born blind to the one
+                // thing it exists to menace, drifts at random, and is retired without ever
+                // bending toward anyone. Everyone else keeps the default: a lane enemy that sees
+                // 20 m aggros half the arena.
+                if (archetype == Archetype.Wanderer)
+                    Wire(brainHost, "_tuning.SightRange", 20f);
 
                 AttachGoap(root, brain);
 

@@ -148,7 +148,10 @@ namespace Rokkan.Prophecy.Presentation
             {
                 BakedSolidCount = CollisionBaker.Bake(World, _space, _collisionMask, transform);
 
-                if (BakedSolidCount == 0)
+                // Zero solids is a broken scene in side-scroll and the CORRECT state in top-down,
+                // where nothing collides yet and a baked floor would do active harm — the whole
+                // plain projects to one giant solid that occludes every line of sight.
+                if (BakedSolidCount == 0 && _space == MovementSpace.SideScroll)
                     Debug.LogWarning($"{name}: baked 0 solids. Check the collision mask — " +
                                      "the character has nothing to stand on.", this);
             }

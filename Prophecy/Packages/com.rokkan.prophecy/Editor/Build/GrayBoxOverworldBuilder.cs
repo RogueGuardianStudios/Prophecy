@@ -100,6 +100,8 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateReturnPortal(geometry);
             CreateDescriptorAndSpawns(markers);
             CreateCamera(tuning);
+            CreateCombatDirector();
+            CreateEncounters(markers);
         }
 
         private static void CreateLighting()
@@ -131,8 +133,6 @@ namespace Rokkan.Prophecy.Editor.Build
             float halfD = PlainDepth * 0.5f;
             float rimY = rimHeight * 0.5f;
 
-            // Visual only: their colliders are removed below, because top-down has no collision
-            // yet and a baked wall that only sometimes exists would be worse than none.
             Block(parent, "Rim_North", new Vector3(0f, rimY, halfD - rimThickness * 0.5f),
                   new Vector3(PlainWidth, rimHeight, rimThickness));
             Block(parent, "Rim_South", new Vector3(0f, rimY, -halfD + rimThickness * 0.5f),
@@ -142,13 +142,13 @@ namespace Rokkan.Prophecy.Editor.Build
             Block(parent, "Rim_West", new Vector3(-halfW + rimThickness * 0.5f, rimY, 0f),
                   new Vector3(rimThickness, rimHeight, PlainDepth));
 
+            // EVERYTHING here is visual only — the ground included, and the ground especially.
+            // Top-down has no collision yet, and the bake projects onto XZ, so a floor collider
+            // becomes one giant solid covering the entire plain: every line of sight is occluded
+            // through it and no wanderer can ever see the player. An empty collision world is the
+            // honest state of this space until top-down collision is designed for real.
             for (int i = parent.childCount - 1; i >= 0; i--)
-            {
-                var child = parent.GetChild(i);
-                if (!child.name.StartsWith("Rim_")) continue;
-
-                Object.DestroyImmediate(child.GetComponent<Collider>());
-            }
+                Object.DestroyImmediate(parent.GetChild(i).GetComponent<Collider>());
         }
 
         /// <summary>
@@ -217,6 +217,42 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(component, "_tuning", tuning);
         }
 
+        /// <summary>
+        /// The fight, such as it is. Not for combat — nothing here swings — but perception runs
+        /// through the combat registry: a wanderer finds the player by querying the fight's
+        /// hurtboxes, and contact (its only threat) resolves through the same OnHit as everything
+        /// else. No director, and every wanderer is blind.
+        /// </summary>
+        private static void CreateCombatDirector()
+        {
+            var director = new GameObject("CombatDirector");
+            var component = director.AddComponent<CombatDirector>();
+            SetPrivate(component, "_space", MovementSpace.TopDown);
+        }
+
+        /// <summary>The Zelda II layer: wanderers popping up around the player.</summary>
+        private static void CreateEncounters(Transform markers)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Prophecy/Prefabs/Enemy_Wanderer.prefab");
+
+            if (prefab == null)
+                Debug.LogWarning("[Prophecy] No Enemy_Wanderer prefab — run Prophecy > Build > " +
+                                 "Generate Enemies first, then regenerate the overworld. The " +
+                                 "spawner was created unarmed.");
+
+            var spawnerObject = new GameObject("OverworldEncounters");
+            spawnerObject.transform.SetParent(markers, false);
+
+            var spawner = spawnerObject.AddComponent<OverworldEncounterSpawner>();
+            SetPrivate(spawner, "_wandererPrefab", prefab);
+
+            // Sized from the ground this builder just generated — the spawner must not learn
+            // the plain's size a second way.
+            SetPrivate(spawner, "_plainHalfExtents",
+                       new Vector2(PlainWidth * 0.5f, PlainDepth * 0.5f));
+        }
+
         /// <summary>A box by centre and full size — top-down reads better authored that way than
         /// the side-scroll builders' XY min/max.</summary>
         private static Transform Block(Transform parent, string name, Vector3 centre, Vector3 size)
@@ -277,6 +313,7 @@ namespace Rokkan.Prophecy.Editor.Build
                 case float f: property.floatValue = f; break;
                 case bool b: property.boolValue = b; break;
                 case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
+                case Vector2 v2: property.vector2Value = v2; break;
                 case Vector3 v: property.vector3Value = v; break;
                 case Object o: property.objectReferenceValue = o; break;
                 default:

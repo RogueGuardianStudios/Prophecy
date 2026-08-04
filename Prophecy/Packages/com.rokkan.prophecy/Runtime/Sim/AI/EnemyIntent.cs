@@ -24,7 +24,18 @@ namespace Rokkan.Prophecy.Sim.AI
         /// <summary>Held. -1 left, +1 right, 0 still. Clamped.</summary>
         public float MoveX;
 
-        /// <summary>Held. Crouch, for a low guard or a low attack.</summary>
+        /// <summary>
+        /// Held. The stick's vertical axis, for brains that live on a two-axis plane — the
+        /// overworld. -1 south, +1 north, 0 still. Clamped.
+        ///
+        /// <para>Side-scroll brains leave it at zero and nothing changes for them: in that space
+        /// the axis means crouch, which has its own explicit flag below so a planner can never
+        /// crouch by accident while trying to walk somewhere.</para>
+        /// </summary>
+        public float MoveY;
+
+        /// <summary>Held. Crouch, for a low guard or a low attack. Wins over <see cref="MoveY"/>,
+        /// because ducking is a decision and drifting south is not.</summary>
         public bool Crouch;
 
         /// <summary>Held. Raise the guard; whether it becomes a parry is the sim's business.</summary>
@@ -56,7 +67,8 @@ namespace Rokkan.Prophecy.Sim.AI
         public InputFrame Consume()
         {
             var frame = new InputFrame(
-                new Vector2(Mathf.Clamp(MoveX, -1f, 1f), Crouch ? -1f : 0f),
+                new Vector2(Mathf.Clamp(MoveX, -1f, 1f),
+                            Crouch ? -1f : Mathf.Clamp(MoveY, -1f, 1f)),
                 jump: _jump ? ButtonState.Press : ButtonState.None,
                 attack: _attack ? ButtonState.Press : ButtonState.None,
                 block: Guard ? ButtonState.Holding : ButtonState.None,
@@ -73,6 +85,7 @@ namespace Rokkan.Prophecy.Sim.AI
         public void Clear()
         {
             MoveX = 0f;
+            MoveY = 0f;
             Crouch = false;
             Guard = false;
             _attack = false;

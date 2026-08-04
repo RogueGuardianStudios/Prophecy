@@ -28,7 +28,7 @@ the phase plan is `Plans/Gray-Box-Build-Plan.md`; the animation rules are
 | | |
 |---|---|
 | Branch | `baseline/unity-project-and-design-docs` (**still not merged to `main`**) |
-| Tests | **522 passing, 0 failed, 0 skipped** (refresh from `Logs/test-results.txt`) |
+| Tests | **539 passing, 0 failed, 0 skipped** (refresh from `Logs/test-results.txt`) |
 | Unity | 6000.5.0f1, URP active, Input System only, Cinemachine 3.1.7 |
 | Uncommitted | An **Iron Roc Warrior** Meshy import (`Assets/MeshyImports/…162720/…162724/`) and the `GrayBox_Arena` edit that placed it in the scene — user experiments from 2026-08-03 16:27, deliberately left out of the transition commits. |
 
@@ -232,6 +232,42 @@ Tests/Editor/PortalTests.cs                 the arming rule, 5 ways
 - **`SceneDirector.Player` is new** — portals read the player's mapped feet from it rather than
   going looking.
 - **Bootstrap's brain blend is now Cut** (was EaseInOut 2 s). See the decisions block.
+
+### Second slice, same day — feel feedback answered
+
+Three user complaints ("the teleport feels bad", "movement is slow and awkward", "make it Zelda 2
+— things pop up and wander around the player"), three answers, all verified in play:
+
+```
+Runtime/Presentation/TransitionVeil.cs      black cut covering the whole transition (IMGUI, no deps)
+Runtime/Sim/AI/RoamSteering.cs              the wanderer's walk as a pure hash-seeded function
+Runtime/Goap/RoamStrategy.cs                the first two-axis GOAP action; Running forever like the chaser
+Runtime/World/OverworldEncounterSpawner.cs  pops wanderers up around the player, retires the distant
+```
+
+- **The veil.** `SceneDirector` shows it for the entire transition — including the adopt path —
+  snaps the *arriving* scene's `OverworldCameraRig` after placing the player (it initialised
+  against the pre-teleport position), and holds one frame past the snap so the first visible
+  frame is the final shot. Every early-out in `Transition`/`Enter` hides it, because a stuck
+  curtain is the worst regression this can have.
+- **Top-down tuning.** Speed 5 → 7.5 (matches `RunSpeed`), acceleration 50 → 75, friction
+  60 → 90 — asset AND code defaults, they drift apart otherwise. Overworld camera damping
+  0.7 → 0.45, dead zone tightened.
+- **The Wanderer** is the fifth archetype and the simplest brain in the roster: one `Roam`
+  action, one goal. `EnemyIntent` grew `MoveY` (crouch beats it — ducking is a decision,
+  drifting south is not); `RoamSteering.Heading(who, when, …)` is stateless because the strategy
+  is a shared asset and per-agent dice on it is the isolation trap again. Bias 0.55 toward a
+  seen target, re-rolled every 90 ticks, at 75 % speed so the player can outrun the menace.
+  **Its sight is 20 m where everyone else's is 12** — the spawner places it 14 m out, and a
+  wanderer born beyond its own sight drifts at random and is retired without ever menacing
+  anyone. That bug happened; the wiring in `EnemyBuilder` is the fix.
+- **Contact chip damage (8) is the placeholder encounter trigger.** Touching a wanderer routes
+  through the ordinary gate chain (verified: 92/100 after one touch). When overworld encounters
+  become real — touch carries you to a side-scroll battle — the spawner is where the hook lands.
+- **Top-down truths learned:** the overworld bakes NO colliders, ground included — the XZ
+  projection turns a floor into one giant solid that occludes every line of sight; ledge/wall
+  probes (`ShouldTurnBack`) are side-scroll questions and are now skipped in top-down; the
+  zero-solids warning only fires in side-scroll, where it is actually a bug.
 
 ---
 
@@ -736,6 +772,7 @@ Goal: **stance combat that feels like Zelda II, timed in ticks, testable headles
   | Chaser | Patrol, Pursue (holds station) | No attack — contact damage is the weapon |
   | Ambusher | Lurk, Spring | Aims once and commits; sidestep beats it |
   | Caster | Lurk, KeepDistance, Fire | Retreat *is* the attack; throws a 9 m/s bolt |
+  | Wanderer | Roam | The overworld's menace: two-axis meander, biased toward you; touch is the threat |
 
   The AI drives the sim through `IInputSource` — the same `InputFrame` a gamepad produces — so a
   planned attack is subject to every action lock, cancel window, cover check and i-frame a player's
