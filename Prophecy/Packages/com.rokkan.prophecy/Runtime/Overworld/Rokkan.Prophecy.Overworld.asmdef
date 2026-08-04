@@ -1,0 +1,19 @@
+{
+    "name": "Rokkan.Prophecy.Overworld",
+    "rootNamespace": "Rokkan.Prophecy.Overworld",
+    "references": [
+        "Rokkan.Prophecy",
+        "Rokkan.WorldGen",
+        "RGS.Core",
+        "RGS.GOAP.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

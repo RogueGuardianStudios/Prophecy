@@ -10,7 +10,8 @@
         "UnityEngine.TestRunner",
         "Rokkan.Animation",
         "RGS.GOAP.Core",
-        "Rokkan.Prophecy.Goap"
+        "Rokkan.Prophecy.Goap",
+        "Rokkan.Prophecy.Overworld"
     ],
     "includePlatforms": [
         "Editor"

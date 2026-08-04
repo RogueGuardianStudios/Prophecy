@@ -41,7 +41,6 @@ namespace Rokkan.Prophecy.Editor.Build
         // fits well inside it from the centre, small enough that the portal is never out of sight.
         private const float PlainWidth = 64f;    // X
         private const float PlainDepth = 44f;    // Z
-        private const float GroundThickness = 1f;
 
         [MenuItem("Prophecy/Build/Generate GrayBox_Overworld", priority = 41)]
         public static void Generate()
@@ -96,12 +95,56 @@ namespace Rokkan.Prophecy.Editor.Build
             var markers = new GameObject("Markers").transform;
 
             CreateLighting();
-            CreatePlain(geometry);
+            CreateStalbergGround();
             CreateReturnPortal(geometry);
             CreateDescriptorAndSpawns(markers);
             CreateCamera(tuning);
             CreateCombatDirector();
             CreateEncounters(markers);
+        }
+
+        /// <summary>
+        /// The ground is a Stålberg grid built at load from a hand-authored map, replacing the
+        /// flat plain-and-rim. The map asset is created here only if missing — its whole point is
+        /// to be hand-edited afterwards, so a regenerate must never flatten someone's authoring.
+        /// The starter layout is an island: one big landmass with limbs, sized to keep the
+        /// existing furniture (spawns, cube, spawner ring) comfortably on dry land.
+        /// </summary>
+        private static void CreateStalbergGround()
+        {
+            const string mapPath = "Assets/_Prophecy/Data/OverworldMap.asset";
+
+            var map = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldMap>(mapPath);
+
+            if (map == null)
+            {
+                map = ScriptableObject.CreateInstance<Rokkan.Prophecy.Overworld.OverworldMap>();
+                map.Seed = 7;
+                map.Spacing = 3f;
+                map.Jitter = 0.35f;
+                map.BoundsSize = new Vector2(PlainWidth + 32f, PlainDepth + 28f);
+                map.Regions = new[]
+                {
+                    new Rokkan.Prophecy.Overworld.AuthoredRegion
+                        { Name = "Heartland", Centre = Vector2.zero, Size = new Vector2(PlainWidth, PlainDepth) },
+                    new Rokkan.Prophecy.Overworld.AuthoredRegion
+                        { Name = "West Reach", Centre = new Vector2(-PlainWidth * 0.55f, 8f), Size = new Vector2(24f, 18f), RotationDegrees = 15f },
+                    new Rokkan.Prophecy.Overworld.AuthoredRegion
+                        { Name = "East Cape", Centre = new Vector2(PlainWidth * 0.55f, -6f), Size = new Vector2(20f, 16f), RotationDegrees = -20f },
+                    new Rokkan.Prophecy.Overworld.AuthoredRegion
+                        { Name = "North Spur", Centre = new Vector2(10f, PlainDepth * 0.55f), Size = new Vector2(18f, 14f) },
+                };
+                AssetDatabase.CreateAsset(map, mapPath);
+            }
+
+            var host = new GameObject("OverworldGrid");
+            var component = host.AddComponent<Rokkan.Prophecy.Overworld.OverworldGridHost>();
+
+            SetPrivate(component, "_map", map);
+            SetPrivate(component, "_config", AssetDatabase.LoadAssetAtPath<ScriptableObject>(
+                "Assets/ScriptableObjects/Stalberg/StalbergGridConfig.asset"));
+            SetPrivate(component, "_tileSet", AssetDatabase.LoadAssetAtPath<ScriptableObject>(
+                "Assets/ScriptableObjects/Stalberg/StalbergTileSet.asset"));
         }
 
         private static void CreateLighting()
@@ -115,41 +158,11 @@ namespace Rokkan.Prophecy.Editor.Build
             component.shadows = LightShadows.Soft;
         }
 
-        /// <summary>
-        /// The ground, top surface exactly at Y = 0 — where the sim's plane lives, since the
-        /// player's rail depth fills Y in top-down. Plus a thin raised rim, so the edge of the
-        /// world is something you can see coming rather than an invisible line the ground stops at.
-        /// </summary>
-        private static void CreatePlain(Transform parent)
-        {
-            Block(parent, "Ground",
-                  new Vector3(0f, -GroundThickness * 0.5f, 0f),
-                  new Vector3(PlainWidth, GroundThickness, PlainDepth));
-
-            const float rimHeight = 0.6f;
-            const float rimThickness = 1f;
-
-            float halfW = PlainWidth * 0.5f;
-            float halfD = PlainDepth * 0.5f;
-            float rimY = rimHeight * 0.5f;
-
-            Block(parent, "Rim_North", new Vector3(0f, rimY, halfD - rimThickness * 0.5f),
-                  new Vector3(PlainWidth, rimHeight, rimThickness));
-            Block(parent, "Rim_South", new Vector3(0f, rimY, -halfD + rimThickness * 0.5f),
-                  new Vector3(PlainWidth, rimHeight, rimThickness));
-            Block(parent, "Rim_East", new Vector3(halfW - rimThickness * 0.5f, rimY, 0f),
-                  new Vector3(rimThickness, rimHeight, PlainDepth));
-            Block(parent, "Rim_West", new Vector3(-halfW + rimThickness * 0.5f, rimY, 0f),
-                  new Vector3(rimThickness, rimHeight, PlainDepth));
-
-            // EVERYTHING here is visual only — the ground included, and the ground especially.
-            // Top-down has no collision yet, and the bake projects onto XZ, so a floor collider
-            // becomes one giant solid covering the entire plain: every line of sight is occluded
-            // through it and no wanderer can ever see the player. An empty collision world is the
-            // honest state of this space until top-down collision is designed for real.
-            for (int i = parent.childCount - 1; i >= 0; i--)
-                Object.DestroyImmediate(parent.GetChild(i).GetComponent<Collider>());
-        }
+        // The flat plain-and-rim ground this scene started with is gone: the ground is now the
+        // Stålberg grid, built at load by OverworldGridHost from the hand-authored map asset.
+        // The collider discipline survives inside the host — placed tiles are stripped, because
+        // top-down has no collision and a floor baked into the XZ projection occludes every line
+        // of sight (the lesson the plain taught).
 
         /// <summary>
         /// The cube that carries you back — the portal colour, standing proud of the plain at its
@@ -257,19 +270,6 @@ namespace Rokkan.Prophecy.Editor.Build
             // the one string to re-point.
             SetPrivate(spawner, "_encounterScene", GrayBoxTraversalBuilder.SceneName);
             SetPrivate(spawner, "_encounterSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
-        }
-
-        /// <summary>A box by centre and full size — top-down reads better authored that way than
-        /// the side-scroll builders' XY min/max.</summary>
-        private static Transform Block(Transform parent, string name, Vector3 centre, Vector3 size)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
-            cube.transform.localScale = size;
-            cube.transform.position = centre;
-
-            return cube.transform;
         }
 
         // ------------------------------------------------------------------ helpers

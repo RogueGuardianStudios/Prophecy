@@ -294,6 +294,25 @@ Runtime/World/OverworldEncounterSpawner.cs  pops wanderers up around the player,
   `SceneDirector` obeys (`IsOpaque` → swap → `HoldSatisfied` → `BeginUncover` → `IsClear`).
   **Trap fixed while building it:** error paths must not touch the veil — `Reveal()` owns the
   fade-up, and an early `BeginUncover` deadlocks its wait for the hold.
+### 2026-08-04 — the overworld stands on the Stålberg grid
+
+The flat plain is gone. `GrayBox_Overworld`'s ground is now an organic island built at scene load
+by **`OverworldGridHost`** (new assembly `Rokkan.Prophecy.Overworld` — separate for the same
+reason GOAP is: the worldgen package drags Burst/Collections, and the main runtime must not).
+The pipeline is the package's inspector-only path: `CreateWorldGrid` (HexOrganic) → authored
+regions as `Region.Room` footprints → `VertexTopologyPainter.Paint` → `StalbergTilePlacer`.
+Verified live: 3,453 vertices / 3,381 quads built on entry, twice, zero errors.
+
+- **`OverworldMap.asset` is the hand-authoring surface** (`Assets/_Prophecy/Data/`): seed,
+  spacing, jitter, bounds, and a list of named rect footprints whose union becomes the land.
+  The builder creates it **only if missing** — a regenerate must never flatten someone's
+  authoring. Starter layout: Heartland + three rotated limbs, sized so the existing furniture
+  stays on dry land.
+- **Placed tiles are collider-stripped by the host** — the flat plain's occlusion lesson,
+  enforced where the tiles are born. Registry disposed in `OnDestroy` (NativeContainers).
+- Next here: per-region tile sets (the darkening), grid-backed top-down walkability
+  (`isFloor` instead of colliders), and the reserved region kinds (Settlement/Road/River…).
+
 - **Hurtboxes are shaped for their space.** `Hurtbox.ForBody` is the standing silhouette —
   plane-Y extent is the body's HEIGHT, centre raised half a height — which in top-down dragged a
   1.8 m box behind every 0.7 m body, half a height north of where it stood. That read as "the
