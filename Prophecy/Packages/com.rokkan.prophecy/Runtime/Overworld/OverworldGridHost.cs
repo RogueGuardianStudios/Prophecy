@@ -85,12 +85,18 @@ namespace Rokkan.Prophecy.Overworld
             // settlements experiment on.
             var structured = CollectStructuredRegions();
 
+            // Rectangular is the whole lattice, so the per-region Structured toggle has nothing
+            // left to inject there — square rooms in a square world is just the world.
+            var topology = _map.Topology == MapTopology.Rectangular
+                ? TopologyKind.RectAxisAligned
+                : structured == null ? TopologyKind.HexOrganic : TopologyKind.Mixed;
+
             var context = new CreationContext
             {
                 worldOffset = transform.position,
-                topology = structured == null ? TopologyKind.HexOrganic : TopologyKind.Mixed,
+                topology = topology,
                 spacing = Mathf.Max(0.5f, _map.Spacing),
-                jitter = _map.Jitter,
+                jitter = _map.Topology == MapTopology.Rectangular ? 0f : _map.Jitter,
                 mode = ConnectionMode.Supplementing,
                 seed = _map.Seed,
                 origin = "prophecy.overworld",

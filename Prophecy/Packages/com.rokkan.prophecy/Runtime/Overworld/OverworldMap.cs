@@ -70,10 +70,26 @@ namespace Rokkan.Prophecy.Overworld
     /// in ScriptableObjects so edits survive play mode, and the overworld's shape is exactly the
     /// kind of thing that gets tuned by walking around in it.</para>
     /// </summary>
+    /// <summary>How the ground's lattice is laid.</summary>
+    public enum MapTopology
+    {
+        /// <summary>Townscaper: jittered hex-organic quads. Coastlines meander, corners round,
+        /// the map reads grown.</summary>
+        Organic,
+
+        /// <summary>A Link to the Past: a square lattice, no jitter. Every wall, cliff and ramp
+        /// boundary is an exact tile edge, and the map reads authored — because it is.</summary>
+        Rectangular,
+    }
+
     [CreateAssetMenu(menuName = "Prophecy/Overworld Map", fileName = "OverworldMap")]
     public sealed class OverworldMap : ScriptableObject
     {
         [Header("Grid")]
+        [Tooltip("Square tiles for legible Zelda boundaries, or organic quads for a grown look. " +
+                 "In Rectangular, Spacing is the tile size and Jitter is ignored.")]
+        public MapTopology Topology = MapTopology.Rectangular;
+
         [Tooltip("Seed for the organic jitter. The same seed always produces the same coastline " +
                  "— determinism is the grid package's hard contract.")]
         public uint Seed = 7;

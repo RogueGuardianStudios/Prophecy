@@ -769,6 +769,16 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    `Unity.AI.Navigation` package dependency as a bonus; it is all engine-module API).
    Verified live: ramp foot/mid/top climbable, cliff faces refuse, sea refuses, mid-ramp height
    0.40 riding through the view.
+
+   **The map went RECTANGULAR (Matt, 2026-08-04): the target grammar is A Link to the Past.**
+   Clear wall/ramp boundaries, every edge an exact tile edge. `OverworldMap.Topology` chooses
+   Organic (Townscaper) or Rectangular (the ALttP lattice — `RectAxisAligned`, jitter ignored,
+   `Spacing` = tile size, currently 2 m). No system change, only authoring: same regions, ramps,
+   collision seam and NavMesh, and the per-region `Structured` toggle simply has nothing left to
+   inject in a fully-square world. All collision probes re-verified on the lattice; rotated
+   region footprints rasterize into staircase coasts, which reads correctly Zelda. What tile art
+   will want next: distinct cliff-face and ramp/stair tiles (the package's per-region tile-set
+   variants are the pending schema for exactly this).
 4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
    do except leave, and "last overworld position" (design bible §9) is not stored — portals name
    fixed spawns, so re-entering does not return you to where you stood.

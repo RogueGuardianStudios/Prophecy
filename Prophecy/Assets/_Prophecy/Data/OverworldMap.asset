@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a6547e00349480143b6d625054419d9e, type: 3}
   m_Name: OverworldMap
   m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldMap
+  Topology: 1
   Seed: 7
-  Spacing: 3
+  Spacing: 2
   Jitter: 0.35
   BoundsSize: {x: 96, y: 72}
   Regions:
