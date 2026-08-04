@@ -527,11 +527,15 @@ namespace Rokkan.Prophecy.Editor
                 // A chaser has no attack action at all, so its body has to be the weapon — without
                 // contact damage it is a harmless thing that jogs at you. Everything else is only
                 // dangerous when it commits to a swing, which is what makes closing on them a
-                // decision rather than a punishment. The wanderer shares the rule: touch is its
-                // whole threat, and today's chip damage is the placeholder where the overworld
-                // encounter trigger will land.
-                bool touchIsTheWeapon = archetype == Archetype.Chaser || archetype == Archetype.Wanderer;
-                Wire(combatant, "_contactDamage", touchIsTheWeapon ? 8 : 0);
+                // decision rather than a punishment.
+                //
+                // The wanderer deals NO contact damage, deliberately, though touch is still its
+                // whole threat: touching one springs an overworld encounter — a scene transition,
+                // resolved by OverworldEncounterSpawner the way a portal is — and Zelda II's map
+                // blobs likewise hurt nobody on the map. Chip damage here was the earlier
+                // placeholder, and it had the wrong grammar: damage punishes the touch, where an
+                // encounter answers it.
+                Wire(combatant, "_contactDamage", archetype == Archetype.Chaser ? 8 : 0);
 
                 // Without this the grunt is a DUMMY: BuildHurtbox falls back to a box on its rest
                 // position, so the capsule walks off and leaves its hittable volume at the spawn

@@ -262,9 +262,15 @@ Runtime/World/OverworldEncounterSpawner.cs  pops wanderers up around the player,
   **Its sight is 20 m where everyone else's is 12** — the spawner places it 14 m out, and a
   wanderer born beyond its own sight drifts at random and is retired without ever menacing
   anyone. That bug happened; the wiring in `EnemyBuilder` is the fix.
-- **Contact chip damage (8) is the placeholder encounter trigger.** Touching a wanderer routes
-  through the ordinary gate chain (verified: 92/100 after one touch). When overworld encounters
-  become real — touch carries you to a side-scroll battle — the spawner is where the hook lands.
+- **Touching a wanderer IS the encounter — 2026-08-04.** The chip-damage placeholder is gone
+  (the wanderer deals no contact damage, like Zelda II's map blobs): a wanderer within 0.9 m of
+  the player's feet springs `SceneDirector.GoTo` to the side-scroll course, resolved by the
+  spawner the way a portal resolves — presentation-side, a plane-distance test, behind the veil.
+  Damage punishes a touch; an encounter *answers* it. No arming rule needed, unlike portals: the
+  transition unloads the overworld and its wanderers with it, so arriving inside one is
+  geometrically impossible. The target scene/spawn are two strings on the spawner
+  (`GrayBox_Traversal` / `centre`) — when a real battle scene exists, that is the one thing to
+  re-point. Verified in play: touch → traversal centre, health untouched at 100.
 - **Top-down truths learned:** the overworld bakes NO colliders, ground included — the XZ
   projection turns a floor into one giant solid that occludes every line of sight; ledge/wall
   probes (`ShouldTurnBack`) are side-scroll questions and are now skipped in top-down; the

@@ -7,15 +7,21 @@ namespace Rokkan.Prophecy.World
 {
     /// <summary>
     /// Zelda II's overworld menace: things pop up around the player and wander, weighted toward
-    /// them. This spawns and retires the wanderers; what a wanderer <i>does</i> is its GOAP
-    /// brain's business.
+    /// them — and touching one carries you into the side-scroll world. This spawns the wanderers,
+    /// retires the distant, and springs the encounter; what a wanderer <i>does</i> between those
+    /// moments is its GOAP brain's business.
     ///
-    /// <para><b>World furniture, like the portal and the kill plane.</b> Spawning lives in
-    /// presentation because it is the overworld's dressing, not a combat outcome — a wanderer,
-    /// once spawned, is a full simulated character under all the usual rules. When encounters
-    /// become real (touching one should carry you to a side-scroll battle, per the design bible's
-    /// dual structure), the contact that today deals chip damage becomes the trigger; this class
-    /// is where that hook will live.</para>
+    /// <para><b>The touch is a walking portal, and it is resolved like one.</b> Same feet-in-a-
+    /// volume test the <see cref="Portal"/> does, presentation-side, because an encounter is a
+    /// scene transition and not a combat outcome — the wanderer deals no damage, exactly as
+    /// Zelda II's map blobs deal none. Routing it through the combat contact system was the
+    /// earlier placeholder, and it had the wrong grammar: chip damage punishes the touch, where
+    /// an encounter <i>answers</i> it.</para>
+    ///
+    /// <para><b>No arming rule needed, unlike the portal.</b> A portal pair can spawn you inside
+    /// its partner's volume; an encounter cannot — the transition unloads this scene, wanderers
+    /// die with it, and a fresh overworld starts empty with the first spawn seconds away and a
+    /// ring away. The geometry that made ping-pong possible for portals does not exist here.</para>
     ///
     /// <para><b>Spawns land just outside the camera's frame.</b> Nearer, and things materialise
     /// on screen, which reads as a bug rather than an ambient world; farther, and the player
@@ -51,6 +57,17 @@ namespace Rokkan.Prophecy.World
                                  "standing in the rim.")]
         private float _edgeMargin = 2f;
 
+        [Header("The encounter")]
+        [SerializeField, Tooltip("Side-scroll scene a touch carries the player to.")]
+        private string _encounterScene;
+
+        [SerializeField, Tooltip("SpawnPoint id to arrive at over there.")]
+        private string _encounterSpawnId = "default";
+
+        [SerializeField, Tooltip("How close a wanderer must get, in metres on the plane. About " +
+                                 "a body's width — touching, not near.")]
+        private float _touchRadius = 0.9f;
+
         private readonly List<GameObject> _alive = new List<GameObject>();
         private float _nextSpawnAt;
 
@@ -62,6 +79,8 @@ namespace Rokkan.Prophecy.World
 
             var feet = SpaceMapping.ToWorld(player.CurrentPosition, player.Space, player.RailDepth);
 
+            if (TouchSpringsTheEncounter(director, feet)) return;
+
             Retire(feet);
 
             if (Time.time < _nextSpawnAt) return;
@@ -70,6 +89,32 @@ namespace Rokkan.Prophecy.World
             if (_wandererPrefab == null || _alive.Count >= _maxAlive) return;
 
             Spawn(feet);
+        }
+
+        /// <summary>
+        /// A wanderer within touching distance carries the player off to the side-scroll world.
+        /// One transition per frame at most — the first touch wins and the scene swap takes this
+        /// whole component with it.
+        /// </summary>
+        private bool TouchSpringsTheEncounter(SceneDirector director, Vector3 playerFeet)
+        {
+            if (string.IsNullOrEmpty(_encounterScene)) return false;
+
+            for (int i = 0; i < _alive.Count; i++)
+            {
+                var wanderer = _alive[i];
+                if (wanderer == null) continue;
+
+                var delta = wanderer.transform.position - playerFeet;
+                delta.y = 0f;   // height is the railed axis up here; a touch is a plane question
+
+                if (delta.sqrMagnitude > _touchRadius * _touchRadius) continue;
+
+                director.GoTo(_encounterScene, _encounterSpawnId);
+                return true;
+            }
+
+            return false;
         }
 
         private void Spawn(Vector3 playerFeet)

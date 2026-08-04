@@ -251,6 +251,12 @@ namespace Rokkan.Prophecy.Editor.Build
             // the plain's size a second way.
             SetPrivate(spawner, "_plainHalfExtents",
                        new Vector2(PlainWidth * 0.5f, PlainDepth * 0.5f));
+
+            // Touching a wanderer carries the player to the side-scroll course, arriving at the
+            // same mid-level spawn the return cube uses. When a real battle scene exists, this is
+            // the one string to re-point.
+            SetPrivate(spawner, "_encounterScene", GrayBoxTraversalBuilder.SceneName);
+            SetPrivate(spawner, "_encounterSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
         }
 
         /// <summary>A box by centre and full size — top-down reads better authored that way than
