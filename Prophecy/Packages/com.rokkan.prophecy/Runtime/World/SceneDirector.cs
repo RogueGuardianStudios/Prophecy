@@ -47,6 +47,7 @@ namespace Rokkan.Prophecy.World
 
         private SceneDescriptor _descriptor;
         private SpawnPoint _activeSpawn;
+        private TransitionVeil _veil;
 
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
@@ -84,15 +85,22 @@ namespace Rokkan.Prophecy.World
 
         private IEnumerator Start()
         {
+            _veil = TransitionVeil.Create(transform);
+
             // Pressing Play from a world scene loads Bootstrap on top (see BootstrapLoader), so
             // the world is already open and loading _firstWorldScene would be wrong — adopt what
             // is there. Iterating for a scene with a descriptor beats trusting the build order.
             var existing = FindOpenWorldScene();
 
             if (existing.IsValid())
+            {
+                _veil.Show();
                 yield return Enter(existing, null);
+            }
             else if (!string.IsNullOrEmpty(_firstWorldScene))
+            {
                 yield return Transition(_firstWorldScene, null);
+            }
         }
 
         /// <summary>Go to another world scene, arriving at <paramref name="spawnId"/>.</summary>
@@ -111,9 +119,15 @@ namespace Rokkan.Prophecy.World
         {
             IsTransitioning = true;
 
+            // Curtain up before anything moves. Every frame between here and the end of Enter is
+            // a half-built world — the old scene unloading, the player at stale coordinates, a
+            // camera that has not been told where to look — and none of it is for showing.
+            _veil?.Show();
+
             if (!Application.CanStreamedLevelBeLoaded(sceneName))
             {
                 Debug.LogError($"{name}: scene '{sceneName}' is not in the build settings.", this);
+                _veil?.Hide();
                 IsTransitioning = false;
                 yield break;
             }
@@ -141,6 +155,7 @@ namespace Rokkan.Prophecy.World
             if (!scene.IsValid() || !scene.isLoaded)
             {
                 Debug.LogError($"{name}: cannot enter an unloaded scene.", this);
+                _veil?.Hide();
                 yield break;
             }
 
@@ -156,6 +171,7 @@ namespace Rokkan.Prophecy.World
             {
                 Debug.LogError($"{name}: '{scene.name}' has no SceneDescriptor — cannot tell " +
                                "which movement space it is, or where the player starts.", this);
+                _veil?.Hide();
                 yield break;
             }
 
@@ -177,6 +193,18 @@ namespace Rokkan.Prophecy.World
 
                 _camera.SnapToTarget();
             }
+
+            // A scene that brought its own camera gets it put on its mark too — the arriving rig
+            // initialised against the player's PRE-teleport position, and letting damping walk it
+            // over would be the exact slide SnapToTarget exists to prevent.
+            var arrivingRig = FindAnyObjectByType<OverworldCameraRig>();
+            if (arrivingRig != null) arrivingRig.SnapToTarget();
+
+            // One more frame under the veil, so the Cinemachine brain processes the snapped
+            // cameras before anything is shown. The first visible frame is the final shot —
+            // which is the entire point of the curtain.
+            yield return null;
+            _veil?.Hide();
         }
 
         /// <summary>
