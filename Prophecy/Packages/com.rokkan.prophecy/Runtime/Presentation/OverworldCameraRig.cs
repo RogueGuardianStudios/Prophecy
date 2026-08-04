@@ -181,7 +181,13 @@ namespace Rokkan.Prophecy.Presentation
         {
             if (_host == null) return _followTarget.position;
 
-            return SpaceMapping.ToWorld(_host.CurrentPosition, _host.Space, _host.RailDepth);
+            // Ride the ground's height as the view does, so climbing a ramp raises the frame
+            // with the climber instead of leaving them to walk out of the top of it.
+            float depth = _host.RailDepth;
+            if (_host.Sim != null && _host.Sim.Ground != null)
+                depth = _host.Sim.Ground.HeightAt(_host.CurrentPosition);
+
+            return SpaceMapping.ToWorld(_host.CurrentPosition, _host.Space, depth);
         }
 
         /// <summary>Put the camera on its mark immediately — arrivals, where damping would show

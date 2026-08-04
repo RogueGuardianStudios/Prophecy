@@ -38,6 +38,32 @@ namespace Rokkan.Prophecy.Overworld
     }
 
     /// <summary>
+    /// A hand-authored ramp: a strip of ground whose floor climbs linearly from one end to the
+    /// other. The way up a terrace — the only way, since everything steeper is a cliff.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredRamp
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Ramp";
+
+        [Tooltip("Foot of the ramp on the ground plane (X, world Z).")]
+        public Vector2 Start;
+
+        [Tooltip("Head of the ramp.")]
+        public Vector2 End;
+
+        [Tooltip("Floor elevation at the foot.")]
+        public float StartY;
+
+        [Tooltip("Floor elevation at the head.")]
+        public float EndY = 0.7f;
+
+        [Tooltip("Half the ramp's width, in metres. Wide enough to walk without hugging an edge.")]
+        public float HalfWidth = 2f;
+    }
+
+    /// <summary>
     /// The hand-authored overworld, as data: grid settings plus the regions that shape it.
     ///
     /// <para>An asset rather than fields on the scene object, per the project rule — tuning lives
@@ -65,5 +91,9 @@ namespace Rokkan.Prophecy.Overworld
         [Header("The land")]
         [Tooltip("Union of these footprints becomes the floor. Order does not matter.")]
         public AuthoredRegion[] Regions = Array.Empty<AuthoredRegion>();
+
+        [Tooltip("Sloped strips connecting elevations. Painted after the regions, so a ramp " +
+                 "cuts its grade into whatever terraces it spans.")]
+        public AuthoredRamp[] Ramps = Array.Empty<AuthoredRamp>();
     }
 }

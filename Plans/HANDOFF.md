@@ -755,12 +755,20 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    a tight horizontal tolerance (else the coast answers for the sea beside it), step legality =
    `NavMesh.Raycast` connectivity. A `GroundAuthority` toggle on the host flips between NavMesh
    and the walk grid — both are always built, and the sim cannot tell them apart.
-   **Trap found live:** the default 45° bake climbs the tiles' skirt geometry, silently
-   connecting every terrace to the plain — and a flat-walking sim following that path strolls
-   inside the cliff art. `NavMeshGround.FlatWorldCeiling` (0.35 m) refuses floor above the walk
-   plane; it is explicitly the one line to delete when presentation learns to ride `HeightAt`.
-   Verified live: island walks, sea refuses, terraces refuse, the structured cape's edge holds,
-   765-vertex mesh from a sub-second bake under the veil.
+   **Ramps and height-riding landed the same day, and the FlatWorldCeiling is already gone.**
+   `OverworldMap` gained `Ramps[]` (start/end XZ, start/end Y, half width) — painted as
+   `Region.Corridor` with a Linear Y after the regions, so a ramp cuts its grade into whatever
+   terraces it spans. Presentation rides `HeightAt`: `CharacterView` and `OverworldCameraRig`
+   fill the railed axis from the ground in top-down, so climbing a ramp raises body and frame
+   together while the sim stays flat-planar. Seven ramps authored, one per elevation change.
+   **Two traps for the record:** (1) the default 45° bake climbs the tiles' skirt geometry and
+   makes every cliff decorative — the bake is slope-limited to 25° so authored ramps are the
+   only way up; (2) `NavMesh.CreateSettings`/`GetSettingsByID` return STRUCT COPIES, so a
+   NavMeshSurface pointed at "custom" settings silently bakes with defaults — the bake now goes
+   through `NavMeshBuilder.BuildNavMeshData`, which takes settings by value (and dropped the
+   `Unity.AI.Navigation` package dependency as a bonus; it is all engine-module API).
+   Verified live: ramp foot/mid/top climbable, cliff faces refuse, sea refuses, mid-ramp height
+   0.40 riding through the view.
 4. **The overworld is a proving-ground, not a place.** The scene exists (§2a) but holds nothing to
    do except leave, and "last overworld position" (design bible §9) is not stored — portals name
    fixed spawns, so re-entering does not return you to where you stood.

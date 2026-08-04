@@ -86,7 +86,16 @@ namespace Rokkan.Prophecy.Presentation
             float alpha = _host.Clock != null ? Mathf.Clamp01(_host.Clock.InterpolationAlpha) : 1f;
 
             var plane = Vector2.Lerp(_host.PreviousPosition, _host.CurrentPosition, alpha);
-            transform.position = SpaceMapping.ToWorld(plane, _host.Space, _host.RailDepth);
+
+            // In top-down the railed axis is height, and height belongs to the ground: the body
+            // rides the floor under its feet, which is what makes an authored ramp a climb
+            // rather than a walk into a wall's interior. The sim never reads this — HeightAt is
+            // presentation's half of the ground seam.
+            float depth = _host.RailDepth;
+            if (_host.Space == MovementSpace.TopDown && _host.Sim.Ground != null)
+                depth = _host.Sim.Ground.HeightAt(plane);
+
+            transform.position = SpaceMapping.ToWorld(plane, _host.Space, depth);
         }
 
         private void ApplyFacing()

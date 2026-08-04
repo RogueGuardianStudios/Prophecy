@@ -7,8 +7,7 @@
         "RGS.Core",
         "RGS.GOAP.Core",
         "Unity.Collections",
-        "Unity.Mathematics",
-        "Unity.AI.Navigation"
+        "Unity.Mathematics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

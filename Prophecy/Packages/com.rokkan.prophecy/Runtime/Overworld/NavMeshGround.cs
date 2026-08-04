@@ -32,19 +32,12 @@ namespace Rokkan.Prophecy.Overworld
         /// nearby, not the mesh HERE — the coast is not walkable from half a metre out at sea.</summary>
         private const float HorizontalTolerance = 0.3f;
 
-        /// <summary>
-        /// Floor above this is out of reach — NOT because the mesh says so, but because the sim
-        /// walks a flat plane. The bake happily connects the terraces through their gently-sloped
-        /// tile skirts, and a flat-walking body following that path would stroll inside the
-        /// cliff art. When presentation learns to ride <see cref="HeightAt"/>, this clamp is the
-        /// one line to delete — the mesh already knows the way up.
-        /// </summary>
-        private const float FlatWorldCeiling = 0.35f;
-
         public bool CanStep(Vector2 from, Vector2 to)
         {
+            // The FlatWorldCeiling that used to sit here is gone: presentation now rides
+            // HeightAt, the bake is slope-limited so skirts stay cliffs, and the authored ramps
+            // are the mesh's only way between elevations. The mesh is finally trusted whole.
             if (!TryFindFloor(to, out var toFloor)) return false;
-            if (toFloor.y > FlatWorldCeiling) return false;
 
             // Standing off the mesh — teleport, old save, bug — must never trap: any step onto
             // real floor is an escape. Same rule as the walk grid, for the same reason.

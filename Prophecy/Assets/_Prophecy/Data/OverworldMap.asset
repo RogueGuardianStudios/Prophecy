@@ -83,3 +83,46 @@ MonoBehaviour:
     RotationDegrees: 0
     Y: 1.1
     Structured: 0
+  Ramps:
+  - Name: Foothills Road
+    Start: {x: -14, y: 3}
+    End: {x: -14, y: 11}
+    StartY: 0
+    EndY: 0.7
+    HalfWidth: 2.5
+  - Name: Bluffs Climb
+    Start: {x: -19, y: 16}
+    End: {x: -19, y: 22}
+    StartY: 0.7
+    EndY: 1.4
+    HalfWidth: 2
+  - Name: Highlands Steps
+    Start: {x: -25, y: 22}
+    End: {x: -25, y: 27}
+    StartY: 1.4
+    EndY: 2.1
+    HalfWidth: 2
+  - Name: Crown Approach
+    Start: {x: -30, y: 26}
+    End: {x: -30, y: 30}
+    StartY: 2.1
+    EndY: 2.8
+    HalfWidth: 1.8
+  - Name: North Road
+    Start: {x: 8, y: 18}
+    End: {x: 8, y: 24}
+    StartY: 0
+    EndY: 0.7
+    HalfWidth: 2.5
+  - Name: Shelf Path
+    Start: {x: 13, y: 27}
+    End: {x: 13, y: 31}
+    StartY: 0.7
+    EndY: 1.4
+    HalfWidth: 2
+  - Name: Mesa Trail
+    Start: {x: 23, y: -6}
+    End: {x: 29, y: -6}
+    StartY: 0
+    EndY: 1.1
+    HalfWidth: 2

@@ -57,7 +57,6 @@ namespace Rokkan.Prophecy.Overworld
 
         private GridRegistry _registry;
         private OverworldWalkGrid _walkGrid;
-        private Unity.AI.Navigation.NavMeshSurface _navMeshSurface;
 
         /// <summary>The live registry, for anything that wants to query the ground — a future
         /// region lookup, the darkening repaint. Null before Awake.</summary>
@@ -134,12 +133,37 @@ namespace Rokkan.Prophecy.Overworld
         /// </summary>
         private void BakeNavMesh()
         {
-            _navMeshSurface = gameObject.AddComponent<Unity.AI.Navigation.NavMeshSurface>();
-            _navMeshSurface.collectObjects = Unity.AI.Navigation.CollectObjects.Children;
-            _navMeshSurface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.RenderMeshes;
+            // Slope-limited on purpose: the default 45° walker climbs the tiles' skirt geometry
+            // and connects every terrace to the plain everywhere, making the cliffs decorative.
+            // At 25° the skirts stay cliffs and the authored ramps (a few degrees) are the only
+            // way up — elevation you must find the road to.
+            //
+            // Baked through NavMeshBuilder rather than a NavMeshSurface, and not only for the
+            // lighter dependency: CreateSettings/GetSettingsByID hand back STRUCT COPIES, so a
+            // surface pointed at "custom" settings quietly bakes with the registry's defaults —
+            // which is exactly the 45°-skirt bug this replaced. BuildNavMeshData takes the
+            // settings by value; what you set is what bakes.
+            var settings = UnityEngine.AI.NavMesh.GetSettingsByID(0);
+            settings.agentSlope = 25f;
+            settings.agentClimb = 0.3f;
+            settings.agentRadius = 0.35f;
+            settings.agentHeight = 1.8f;
 
-            _navMeshSurface.BuildNavMesh();
+            var sources = new System.Collections.Generic.List<UnityEngine.AI.NavMeshBuildSource>();
+            UnityEngine.AI.NavMeshBuilder.CollectSources(
+                transform, ~0, UnityEngine.AI.NavMeshCollectGeometry.RenderMeshes, 0,
+                new System.Collections.Generic.List<UnityEngine.AI.NavMeshBuildMarkup>(), sources);
+
+            var bounds = new Bounds(Vector3.zero,
+                                    new Vector3(_map.BoundsSize.x + 8f, 24f, _map.BoundsSize.y + 8f));
+
+            var data = UnityEngine.AI.NavMeshBuilder.BuildNavMeshData(
+                settings, sources, bounds, transform.position, Quaternion.identity);
+
+            _navMeshInstance = UnityEngine.AI.NavMesh.AddNavMeshData(data);
         }
+
+        private UnityEngine.AI.NavMeshDataInstance _navMeshInstance;
 
         /// <summary>
         /// Raster the grid's floor quads into the walkability grid the sim collides against.
@@ -232,6 +256,22 @@ namespace Rokkan.Prophecy.Overworld
                                                            : RegionShape.Organic));
             }
 
+            // Ramps go in after the regions so their linear grade paints over the terraces it
+            // spans — the corridor's Y function is the whole reason elevations are climbable.
+            var ramps = _map.Ramps;
+            var offset = new Vector2(transform.position.x, transform.position.z);
+
+            for (int i = 0; ramps != null && i < ramps.Length; i++)
+            {
+                var ramp = ramps[i];
+
+                entry.Grid.Registry.AddRegion(Region.Corridor(
+                    (byte)(regions.Length + i + 1),
+                    ramp.Start + offset, ramp.StartY,
+                    ramp.End + offset, ramp.EndY,
+                    Mathf.Max(0.5f, ramp.HalfWidth)));
+            }
+
             VertexTopologyPainter.Paint(entry.Grid, _config);
         }
 
@@ -256,6 +296,10 @@ namespace Rokkan.Prophecy.Overworld
             if (_published != null &&
                 ReferenceEquals(Presentation.TopDownGroundSource.Current, _published))
                 Presentation.TopDownGroundSource.Current = null;
+
+            // The baked data would otherwise outlive its island and answer for a scene that is
+            // no longer there.
+            _navMeshInstance.Remove();
 
             // NativeContainers all the way down — the registry owns every grid's buffers and the
             // scene unloading is the one reliable moment to let go of them.
