@@ -39,11 +39,30 @@ namespace Rokkan.Prophecy.Sim.Combat
 
         public bool IsValid => HalfExtents.x > 0f && HalfExtents.y > 0f;
 
-        /// <summary>Build one from a character's feet position and body size.</summary>
+        /// <summary>
+        /// Build one from a character's feet position and body size. <b>Side-scroll shaped:</b>
+        /// the plane is XY, so the box stands the body's height tall and is raised to be centred
+        /// on it.
+        /// </summary>
         public static Hurtbox ForBody(int ownerId, Vector2 feet, Vector2 bodySize, int team = 0)
         {
             var half = bodySize * 0.5f;
             return new Hurtbox(ownerId, new Vector2(feet.x, feet.y + half.y), half, 0f, team);
+        }
+
+        /// <summary>
+        /// The top-down shape: the body's footprint, centred on the feet.
+        ///
+        /// <para>In top-down the plane is XZ and height is the railed axis, so
+        /// <see cref="ForBody"/>'s shape is wrong twice over — its plane-Y extent is the body's
+        /// HEIGHT (a 1.8 m box dragged through the world for a 0.7 m body) and its centre sits
+        /// half a height north of where the character stands. Seen from above, a body occupies
+        /// its width both ways, exactly where its feet are.</para>
+        /// </summary>
+        public static Hurtbox ForFootprint(int ownerId, Vector2 feet, Vector2 bodySize, int team = 0)
+        {
+            float half = bodySize.x * 0.5f;
+            return new Hurtbox(ownerId, feet, new Vector2(half, half), 0f, team);
         }
     }
 

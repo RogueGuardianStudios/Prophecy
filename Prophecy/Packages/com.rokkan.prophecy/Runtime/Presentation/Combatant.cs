@@ -211,7 +211,8 @@ namespace Rokkan.Prophecy.Presentation
             state.Team = _team;
         }
 
-        /// <summary>The volume attacks resolve against, in the sim's plane.</summary>
+        /// <summary>The volume attacks resolve against, in the sim's plane — shaped for the
+        /// space it is played in: a standing silhouette in side-scroll, a footprint from above.</summary>
         public Hurtbox BuildHurtbox()
         {
             if (IsSimulated)
@@ -219,7 +220,10 @@ namespace Rokkan.Prophecy.Presentation
                 SyncIdentity();
 
                 var state = _simHost.Sim.State;
-                return Hurtbox.ForBody(_combatId, state.Position, state.BodySize, _team);
+
+                return state.Space == MovementSpace.TopDown
+                    ? Hurtbox.ForFootprint(_combatId, state.Position, state.BodySize, _team)
+                    : Hurtbox.ForBody(_combatId, state.Position, state.BodySize, _team);
             }
 
             var plane = SpaceMapping.ToPlane(_restPosition, _space);

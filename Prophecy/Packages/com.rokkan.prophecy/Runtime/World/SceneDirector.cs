@@ -1,4 +1,5 @@
 using System.Collections;
+using RGS.Core.Sim;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using UnityEngine;
@@ -48,6 +49,7 @@ namespace Rokkan.Prophecy.World
         private SceneDescriptor _descriptor;
         private SpawnPoint _activeSpawn;
         private TransitionVeil _veil;
+        private SimClockDriver _worldClock;
 
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
@@ -86,6 +88,7 @@ namespace Rokkan.Prophecy.World
         private IEnumerator Start()
         {
             _veil = TransitionVeil.Create(transform);
+            _worldClock = FindAnyObjectByType<SimClockDriver>();
 
             // Pressing Play from a world scene loads Bootstrap on top (see BootstrapLoader), so
             // the world is already open and loading _firstWorldScene would be wrong — adopt what
@@ -94,13 +97,32 @@ namespace Rokkan.Prophecy.World
 
             if (existing.IsValid())
             {
-                _veil.Show();
+                // No old world to fade out of — start black and frozen, reveal the adopted scene.
+                _veil.SnapCovered();
+                FreezeWorld(true);
                 yield return Enter(existing, null);
+                yield return Reveal();
             }
             else if (!string.IsNullOrEmpty(_firstWorldScene))
             {
                 yield return Transition(_firstWorldScene, null);
             }
+        }
+
+        /// <summary>
+        /// Stop or resume the simulation itself — the player, every enemy, every projectile.
+        ///
+        /// <para>Zelda II freezes the world the moment a transition begins: the thing that
+        /// touched you holds its pose while the screen does its work. Pausing the clock's feed
+        /// is what makes that one switch — everything simulated stops together, interpolation
+        /// holds the last rendered pose, and nothing accumulates a backlog to burst through on
+        /// resume. The veil deliberately runs on unscaled time, so the curtain itself is immune
+        /// to the freeze it accompanies.</para>
+        /// </summary>
+        private void FreezeWorld(bool frozen)
+        {
+            if (_worldClock == null) _worldClock = FindAnyObjectByType<SimClockDriver>();
+            if (_worldClock != null) _worldClock.Paused = frozen;
         }
 
         /// <summary>Go to another world scene, arriving at <paramref name="spawnId"/>.</summary>
@@ -119,18 +141,22 @@ namespace Rokkan.Prophecy.World
         {
             IsTransitioning = true;
 
-            // Curtain up before anything moves. Every frame between here and the end of Enter is
-            // a half-built world — the old scene unloading, the player at stale coordinates, a
-            // camera that has not been told where to look — and none of it is for showing.
-            _veil?.Show();
-
+            // Fail fast, before the curtain: a typo'd scene name should be an error in the
+            // console, not a fade to black and back for nothing.
             if (!Application.CanStreamedLevelBeLoaded(sceneName))
             {
                 Debug.LogError($"{name}: scene '{sceneName}' is not in the build settings.", this);
-                _veil?.Hide();
                 IsTransitioning = false;
                 yield break;
             }
+
+            // The world freezes the moment the transition begins — the wanderer that caught you
+            // holds its pose, mid-stride, while the screen does its work — and the effect plays
+            // over that stopped frame. Movement resumes only when the reveal has finished.
+            FreezeWorld(true);
+
+            _veil?.BeginCover();
+            while (_veil != null && !_veil.IsOpaque) yield return null;
 
             if (!string.IsNullOrEmpty(CurrentWorldScene))
             {
@@ -146,16 +172,37 @@ namespace Rokkan.Prophecy.World
             while (load != null && !load.isDone) yield return null;
 
             yield return Enter(SceneManager.GetSceneByName(sceneName), spawnId);
+            yield return Reveal();
+        }
 
+        /// <summary>
+        /// Wait out the black, fade the new world in, and only then declare the transition over.
+        ///
+        /// <para><c>IsTransitioning</c> stays true through the reveal on purpose: portals and
+        /// encounters check it, and a player who can re-trigger a transition while the previous
+        /// one is still fading in would stack curtains.</para>
+        /// </summary>
+        private IEnumerator Reveal()
+        {
+            while (_veil != null && !_veil.HoldSatisfied) yield return null;
+
+            _veil?.BeginUncover();
+            while (_veil != null && !_veil.IsClear) yield return null;
+
+            // The world starts moving again only now, with the animation fully over — arriving
+            // reads as a held establishing shot, then life resumes.
+            FreezeWorld(false);
             IsTransitioning = false;
         }
 
         private IEnumerator Enter(Scene scene, string spawnId)
         {
+            // Error paths leave the veil alone: every caller follows Enter with Reveal, which
+            // owns the fade-up. Uncovering here instead once deadlocked the pair — Reveal waits
+            // for the hold, and a veil already uncovering can never satisfy it.
             if (!scene.IsValid() || !scene.isLoaded)
             {
                 Debug.LogError($"{name}: cannot enter an unloaded scene.", this);
-                _veil?.Hide();
                 yield break;
             }
 
@@ -171,7 +218,6 @@ namespace Rokkan.Prophecy.World
             {
                 Debug.LogError($"{name}: '{scene.name}' has no SceneDescriptor — cannot tell " +
                                "which movement space it is, or where the player starts.", this);
-                _veil?.Hide();
                 yield break;
             }
 
@@ -200,11 +246,10 @@ namespace Rokkan.Prophecy.World
             var arrivingRig = FindAnyObjectByType<OverworldCameraRig>();
             if (arrivingRig != null) arrivingRig.SnapToTarget();
 
-            // One more frame under the veil, so the Cinemachine brain processes the snapped
-            // cameras before anything is shown. The first visible frame is the final shot —
-            // which is the entire point of the curtain.
+            // One more frame under the black, so the Cinemachine brain processes the snapped
+            // cameras before the reveal can begin. The first visible frame is the final shot —
+            // which is the entire point of the curtain. Reveal() owns the fade-up.
             yield return null;
-            _veil?.Hide();
         }
 
         /// <summary>

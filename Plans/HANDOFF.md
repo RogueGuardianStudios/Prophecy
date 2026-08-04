@@ -276,6 +276,25 @@ Runtime/World/OverworldEncounterSpawner.cs  pops wanderers up around the player,
   probes (`ShouldTurnBack`) are side-scroll questions and are now skipped in top-down; the
   zero-solids warning only fires in side-scroll, where it is actually a bug.
 
+### Third pass, 2026-08-04 — the transition became a scene, and hurtboxes learned their shape
+
+- **The veil is an animation, and the world freezes under it.** Fade out 0.4 s over the still
+  world, hold black ≥ 0.25 s while the swap happens (a slow load stretches the black, never the
+  fade), fade in 0.4 s, and only then does `IsTransitioning` drop. The simulation is **paused for
+  the entire sequence** via `SimClockDriver.Paused` (new shared API — migration entry 7): the
+  thing that touched you holds its pose, everything freezes together, and resuming costs nothing
+  because the pause withholds time rather than skipping ticks. The veil itself runs on unscaled
+  time — the curtain is immune to the freeze it accompanies. The veil owns its pacing;
+  `SceneDirector` obeys (`IsOpaque` → swap → `HoldSatisfied` → `BeginUncover` → `IsClear`).
+  **Trap fixed while building it:** error paths must not touch the veil — `Reveal()` owns the
+  fade-up, and an early `BeginUncover` deadlocks its wait for the hold.
+- **Hurtboxes are shaped for their space.** `Hurtbox.ForBody` is the standing silhouette —
+  plane-Y extent is the body's HEIGHT, centre raised half a height — which in top-down dragged a
+  1.8 m box behind every 0.7 m body, half a height north of where it stood. That read as "the
+  hit boxes are too large"; it was the wrong silhouette entirely. `Hurtbox.ForFootprint` is the
+  view from above (width both ways, centred on the feet) and `Combatant.BuildHurtbox` picks by
+  `state.Space`. `TopDownHurtboxTests` pins both shapes.
+
 ---
 
 ## 3. Decisions already made — do not re-litigate
