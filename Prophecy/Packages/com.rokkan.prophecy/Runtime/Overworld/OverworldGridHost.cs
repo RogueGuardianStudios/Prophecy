@@ -151,7 +151,10 @@ namespace Rokkan.Prophecy.Overworld
             // settings by value; what you set is what bakes.
             var settings = UnityEngine.AI.NavMesh.GetSettingsByID(0);
             settings.agentSlope = 25f;
-            settings.agentClimb = 0.3f;
+            // 0.45, not 0.3: on a fine lattice the painter quantizes ramp grades and region
+            // seams into benches with small cliff lips, and 0.3 refused some of them. Still
+            // well under the 0.7 terrace step, so real cliffs stay real.
+            settings.agentClimb = 0.45f;
             settings.agentRadius = 0.35f;
             settings.agentHeight = 1.8f;
 
@@ -256,10 +259,16 @@ namespace Rokkan.Prophecy.Overworld
                                 authored.Centre.y + transform.position.z),
                     authored.Size, authored.RotationDegrees);
 
+                // AxisAligned paint shape only means something on an organic lattice, where it
+                // buys the structured look plus a perimeter wall-ring inset. On a Rectangular
+                // map everything is already square, and the inset just eats a ring of coast —
+                // 1,351 vertices of it, at one point severing an arm from the island.
+                bool paintAxisAligned = authored.Structured && _map.Topology == MapTopology.Organic;
+
                 entry.Grid.Registry.AddRegion(
                     Region.Room((byte)(i + 1), footprint, authored.Y,
-                                shape: authored.Structured ? RegionShape.AxisAligned
-                                                           : RegionShape.Organic));
+                                shape: paintAxisAligned ? RegionShape.AxisAligned
+                                                        : RegionShape.Organic));
             }
 
             // Ramps go in after the regions so their linear grade paints over the terraces it

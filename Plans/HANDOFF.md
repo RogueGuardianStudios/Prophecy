@@ -4,7 +4,59 @@
 made it scale, gave it a body and a stat sheet, gave it something to fight — and then opened the
 second play mode: the first **world transitions** landed 2026-08-03 (portals, a top-down overworld,
 the Tunic camera; see §2a and the decisions block).
-**Resume at:** the active thread is **the overworld on the Stålberg grid**. HopeFell's
+**Resume at (2026-08-04, end of day): the overworld moves to a 3D TILE STRUCTURE — decided by
+Matt, design below, not yet built.** The Stålberg continuous-elevation approach fought back
+(see "the reachability saga"); the fix is discrete per-cell levels with ramps as tile KINDS, so
+connectivity is authored data rather than geometric inference. Everything else — transitions,
+portals, encounter loop, ground seam, camera — is finished and stays.
+
+### The 3D tile structure — agreed direction, next session's build
+
+- **Data:** a plain grid, `level[x,z]` (integer elevation, one step = one authored unit) plus a
+  per-cell kind: Ground, or Ramp with a facing (a ramp cell joins level N to N+1 along its axis).
+  Cliff faces are not data — they are the automatic consequence of two neighbours differing.
+- **Compile the existing `OverworldMap` into it** — keep the authoring surface (regions quantize
+  to levels, authored ramps become runs of ramp cells). The asset survives; only the compiler
+  behind it changes.
+- **Walkability comes straight from the data**: neighbours connect iff same level, or a ramp
+  cell joins them. Exact, plain C#, headless — `ITopDownGround` gets its third and best
+  implementation, and the NavMesh (still baked for AI routing) can never disagree with it
+  because both derive from the same cells.
+- **Rendering:** flat tiles at `level × step`; cliff-face pieces where neighbours differ; a
+  distinct ramp/stair tile for ramp cells — the ALttP grammar as art, finally legible. The
+  existing Stålberg tile prefabs can serve as placeholders for ground/edges.
+- **The worldgen package is NOT discarded**: it remains for the side-scroll encounter topology
+  pipeline (`ILevelConstructor` seam), and its organic mode stays available for biome interiors
+  if ever wanted. Only the overworld's GROUND changes system.
+
+### Why (the reachability saga, 2026-08-04 afternoon — read before re-attempting Stålberg elevation)
+
+Matt's ask "use the NavMesh to test reachability" produced an audit (CalculatePath from spawn to
+every terrace) that drove out four real defects and one conclusion:
+
+1. **The painter's region sort was UNSTABLE on equal keys** (`List.Sort` by origin only) — which
+   overlapping same-origin region won a vertex was an introsort artifact; two terraces lost
+   their elevation entirely to flat regions beneath them. FIXED in the package: tie-break by
+   region id (registration order). Golden seeds unaffected, 776 green. Migration entry 8.
+2. **AxisAligned paint shape in Rectangular mode ate coastline** — 1,351 perimeter wall-ring
+   vertices; the host now paints AxisAligned only on Organic maps. FIXED.
+3. **Ramps flush at plateau edges pinch off** under the agent radius — extended past both ends.
+   PARTIALLY effective.
+4. **A mid-plateau ramp paints a trench**, and its walls pinch against neighbouring cliffs;
+   grade-vs-plateau lips of 0.2–0.6 m are NOT merged by agentClimb (0.45 tried). Re-siting
+   individual ramps fixed some and re-broke others — final audit **4/7 reachable** (Foothills,
+   North Rise, North Shelf, East Mesa OK; Bluffs, Highlands, Crown cut off).
+
+The conclusion: with continuous painted elevation, connectivity is an emergent property of mesh
+geometry, and every authoring edit re-rolls it. Discrete levels + ramp-kind cells make
+connectivity a stated fact. That is the 3D tile structure.
+
+**Current live state:** Rectangular lattice at 1 m tiles (14,403 placed), all seven elevations
+painting correct heights, 4/7 reachable, wanderers off, NavMesh authority with slope 25° /
+climb 0.45. The reachability audit exists only as RunCommand snippets in the session log —
+worth enshrining as `Prophecy > Overworld > Audit Reachability` when the tile build lands.
+
+The previous thread text follows for context: the overworld on the Stålberg grid. HopeFell's
 `com.rokkan.worldgen` (the Townscaper-style irregular grid + four-stage generation pipeline) was
 adopted into the shared packages 2026-08-04 — 768 tests green in this project, golden-seed
 determinism intact across the 6000.3→6000.5 jump; adoption notes in `MIGRATION-HopeFell.md`.
