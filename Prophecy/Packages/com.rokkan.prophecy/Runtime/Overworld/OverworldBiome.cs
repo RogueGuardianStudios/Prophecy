@@ -35,6 +35,10 @@ namespace Rokkan.Prophecy.Overworld
                  "cross-faded at biome borders by the baked LUT.")]
         public Color GroundColor = new Color(0.45f, 0.66f, 0.45f);
 
+        [Tooltip("What fills this biome's thicket cells — trees, briars, stones. Weighted, " +
+                 "seeded, one per cell. Empty falls back to the palette's DefaultScatter.")]
+        public OverworldBiomeVariant[] Scatter;
+
         public OverworldBiomeVariant[] Cap;
         public OverworldBiomeVariant[] Ramp;
         public OverworldBiomeVariant[] Stairs;

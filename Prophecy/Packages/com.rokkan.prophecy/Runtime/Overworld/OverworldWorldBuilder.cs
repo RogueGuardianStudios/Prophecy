@@ -29,11 +29,12 @@ namespace Rokkan.Prophecy.Overworld
         public Vector3 WorldOffset;
         public bool StairsForRamps;
 
-        // The global merged meshes and the prop root, rebuilt whole on every rebuild (they
-        // are cheap — a few meshes and a handful of prop instances).
+        // The global merged meshes, the prop root and the scatter root, rebuilt whole on
+        // every rebuild (they are cheap — a few meshes and the prop/tree instances).
         public GameObject RoadsObject;
         public GameObject WaterfallsObject;
         public GameObject PropsObject;
+        public GameObject ScatterObject;
 
         // The one ground material every cap wears, and its baked biome LUT. The texture
         // refreshes in place on rebuilds, so untouched chunks' caps recolour without being
@@ -92,6 +93,7 @@ namespace Rokkan.Prophecy.Overworld
             BuildRoads(output);
             BuildWaterfalls(output);
             SpawnProps(output);
+            SpawnScatter(output);
 
             return output;
         }
@@ -153,9 +155,15 @@ namespace Rokkan.Prophecy.Overworld
                 DestroySmart(output.PropsObject);
                 output.PropsObject = null;
             }
+            if (output.ScatterObject != null)
+            {
+                DestroySmart(output.ScatterObject);
+                output.ScatterObject = null;
+            }
             BuildRoads(output);
             BuildWaterfalls(output);
             SpawnProps(output);
+            SpawnScatter(output);
         }
 
         // ---------------------------------------------------------------- placement
@@ -419,6 +427,83 @@ namespace Rokkan.Prophecy.Overworld
                 instance.transform.position = new Vector3(world.x, y, world.y);
                 instance.transform.rotation = Quaternion.Euler(0f, prop.YawDegrees, 0f);
             }
+        }
+
+        /// <summary>
+        /// The forest fill: every THICKET cell grows one scatter pick — the cell's dominant
+        /// biome's Scatter list, else the palette's DefaultScatter — with seeded jitter and
+        /// yaw, deterministic per cell forever. Open walkable ground is NEVER scattered:
+        /// travelling space belongs to hand-placed props and shaders (Matt, 2026-08-05).
+        /// </summary>
+        private static void SpawnScatter(OverworldBuildOutput output)
+        {
+            if (output.Biomes == null) return;
+            var grid = output.Grid;
+
+            GameObject root = null;
+
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (!grid.ThicketAt(x, z)) continue;
+
+                    var variants = ScatterFor(output.Biomes, grid.DominantBiomeAt(x, z));
+                    if (variants == null || variants.Length == 0) continue;
+
+                    uint salt = (uint)((z * grid.Width + x) * 31 + 29);
+                    var rng = new RGS.Core.Random.RGS_Random(
+                        RGS.Core.Random.RGS_Random.DeriveSeed(output.Map.Seed, salt));
+
+                    var prefab = WeightedPick(variants, rng.GetNextNormalized());
+                    if (prefab == null) continue;
+
+                    if (root == null)
+                    {
+                        root = new GameObject("Scatter");
+                        root.transform.SetParent(output.SceneryRoot, false);
+                        output.ScatterObject = root;
+                    }
+
+                    var centre = grid.CellCentre(x, z);
+                    var jitter = new Vector2((rng.GetNextNormalized() - 0.5f) * 0.6f,
+                                             (rng.GetNextNormalized() - 0.5f) * 0.6f);
+                    var world = centre + jitter;
+                    float y = grid.SurfaceHeight(x, z, world);
+
+                    var instance = Object.Instantiate(prefab, root.transform);
+                    instance.transform.position = new Vector3(world.x, y, world.y);
+                    instance.transform.rotation =
+                        Quaternion.Euler(0f, rng.GetNextNormalized() * 360f, 0f);
+                }
+            }
+        }
+
+        private static OverworldBiomeVariant[] ScatterFor(OverworldBiomePalette palette, int biome)
+        {
+            var b = palette.ByIndex(biome);
+            if (b != null && b.Scatter != null && b.Scatter.Length > 0) return b.Scatter;
+            return palette.DefaultScatter;
+        }
+
+        private static GameObject WeightedPick(OverworldBiomeVariant[] variants, float roll01)
+        {
+            float total = 0f;
+            for (int i = 0; i < variants.Length; i++)
+                if (variants[i] != null && variants[i].Prefab != null && variants[i].Weight > 0f)
+                    total += variants[i].Weight;
+            if (total <= 0f) return null;
+
+            float roll = roll01 * total;
+            for (int i = 0; i < variants.Length; i++)
+            {
+                if (variants[i] == null || variants[i].Prefab == null ||
+                    variants[i].Weight <= 0f) continue;
+                roll -= variants[i].Weight;
+                if (roll <= 0f) return variants[i].Prefab;
+            }
+
+            return null;
         }
 
         // ---------------------------------------------------------------- teardown helpers

@@ -455,6 +455,90 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void AThicketBlocksItsGroundAndTheRoadCutsThrough()
+        {
+            var map = PlainMap(8f);
+            map.Roads = new[]
+            {
+                new AuthoredRoad { Name = "Path",
+                                   Points = new[] { new Vector2(-4f, 0.5f), new Vector2(4f, 0.5f) },
+                                   HalfWidth = 0.4f },
+            };
+            map.Thickets = new[]
+            {
+                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                                      Size = new Vector2(4f, 4f) },
+            };
+            map.CellOverrides = new[]
+            {
+                // A painted clearing inside the grove, and a painted lone tree outside it.
+                new AuthoredCellOverride { X = 3, Z = 3, Thicket = ThicketOverride.Remove },
+                new AuthoredCellOverride { X = 7, Z = 7, Thicket = ThicketOverride.Add },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var ground = new TileGridGround(grid);
+
+            Assert.IsTrue(grid.ThicketAt(2, 2), "The grove plants its ground cells…");
+            Assert.IsFalse(grid.ThicketAt(3, 4),
+                "…but never a road cell — the road is the carved path through the forest.");
+            Assert.IsFalse(grid.ThicketAt(3, 3), "The painted clearing is open…");
+            Assert.IsTrue(grid.ThicketAt(7, 7), "…and the painted lone cell is planted.");
+
+            Assert.IsFalse(ground.CanStep(grid.CellCentre(3, 4), grid.CellCentre(3, 5)),
+                "Walking off the road into the trees refuses.");
+            Assert.IsTrue(ground.CanStep(grid.CellCentre(2, 4), grid.CellCentre(3, 4)),
+                "Walking the road through the grove is open.");
+        }
+
+        [Test]
+        public void ScatterFillsThicketsDeterministically()
+        {
+            var map = PlainMap(8f);
+            map.Thickets = new[]
+            {
+                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                                      Size = new Vector2(3f, 3f) },
+            };
+
+            var tree = new GameObject("TreePrefab");
+            _cleanup.Add(tree);
+            var palette = ScriptableObject.CreateInstance<OverworldBiomePalette>();
+            palette.DefaultScatter = new[]
+            {
+                new OverworldBiomeVariant { Prefab = tree, Weight = 1f },
+            };
+
+            var walkable1 = new GameObject("W1").transform;
+            var scenery1 = new GameObject("S1").transform;
+            var walkable2 = new GameObject("W2").transform;
+            var scenery2 = new GameObject("S2").transform;
+            _cleanup.Add(walkable1.gameObject); _cleanup.Add(scenery1.gameObject);
+            _cleanup.Add(walkable2.gameObject); _cleanup.Add(scenery2.gameObject);
+
+            var first = OverworldWorldBuilder.Build(map, DummyTiles(), walkable1, scenery1,
+                                                    Vector3.zero, true, palette);
+            var second = OverworldWorldBuilder.Build(map, DummyTiles(), walkable2, scenery2,
+                                                     Vector3.zero, true, palette);
+
+            int thicketCells = 0;
+            for (int z = 0; z < first.Grid.Height; z++)
+                for (int x = 0; x < first.Grid.Width; x++)
+                    if (first.Grid.ThicketAt(x, z)) thicketCells++;
+
+            Assert.Greater(thicketCells, 0, "The grove must exist.");
+            Assert.IsNotNull(first.ScatterObject, "The scatter root spawned.");
+            Assert.AreEqual(thicketCells, first.ScatterObject.transform.childCount,
+                "One pick per thicket cell — the forest is exactly its mass.");
+
+            var a = first.ScatterObject.transform.GetChild(0);
+            var b = second.ScatterObject.transform.GetChild(0);
+            Assert.AreEqual(a.position, b.position,
+                "Same map, same seed: the same tree in the same place, every build.");
+            Assert.AreEqual(a.rotation, b.rotation, "Down to its yaw.");
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);

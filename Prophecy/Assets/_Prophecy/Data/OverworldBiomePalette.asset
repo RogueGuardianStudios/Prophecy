@@ -14,3 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldBiomePalette
   Biomes:
   - {fileID: 11400000, guid: c6f276946cb2c2f44ae3041978e1e70f, type: 2}
+  DefaultScatter:
+  - Prefab: {fileID: 8252939163899602683, guid: 7b44befd02443d14dba3f7c236947cf1, type: 3}
+    Weight: 1

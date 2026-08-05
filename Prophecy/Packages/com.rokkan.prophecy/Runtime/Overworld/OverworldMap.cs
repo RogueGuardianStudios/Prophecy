@@ -176,6 +176,37 @@ namespace Rokkan.Prophecy.Overworld
         public float Feather = 6f;
     }
 
+    /// <summary>
+    /// A hand-authored impassable mass — the ALttP forest blob. Thicket cells REFUSE walking
+    /// (the same no-surface rule prop footprints use) and the biome's scatter fills them with
+    /// trees; open walkable ground is never scattered, because open space is for travelling
+    /// (Matt, 2026-08-05) — dress it with hand-placed props or shaders instead.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredThicket
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Thicket";
+
+        [Tooltip("Centre of the footprint on the ground plane, in metres. X is world X, Y is world Z.")]
+        public Vector2 Centre;
+
+        [Tooltip("Footprint size in metres.")]
+        public Vector2 Size = new Vector2(6f, 6f);
+
+        [Tooltip("Rotation of the footprint about its centre, in degrees.")]
+        public float RotationDegrees;
+    }
+
+    /// <summary>What a painted cell says about thicket. Add plants, Remove carves a clearing
+    /// out of a shape-authored mass.</summary>
+    public enum ThicketOverride : byte
+    {
+        None,
+        Add,
+        Remove,
+    }
+
     /// <summary>What a painted cell says about its terrain. None = whatever the shapes made.</summary>
     public enum TerrainOverride : byte
     {
@@ -215,6 +246,10 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Painted biome: −1 = none, otherwise a palette index. A painted cell " +
                  "dominates the feathered areas — the hand beats the field.")]
         public int Biome = -1;
+
+        [Tooltip("Painted thicket: Add plants an impassable scatter-filled cell, Remove " +
+                 "carves a clearing from a shape-authored mass.")]
+        public ThicketOverride Thicket;
     }
 
     /// <summary>
@@ -303,5 +338,9 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Feathered biome influence patches — the splat. Overlaps blend; the biome " +
                  "paint brush pins individual cells over them.")]
         public AuthoredBiomeArea[] BiomeAreas = Array.Empty<AuthoredBiomeArea>();
+
+        [Tooltip("Impassable scatter-filled masses — forests, briars. Walking refuses; the " +
+                 "biome's scatter list fills them.")]
+        public AuthoredThicket[] Thickets = Array.Empty<AuthoredThicket>();
     }
 }

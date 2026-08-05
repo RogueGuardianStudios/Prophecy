@@ -34,6 +34,12 @@ namespace Rokkan.Prophecy.Overworld
         /// by the paint engine directly (it writes the override's Biome field), not by
         /// <see cref="OverworldPaintBrushes.Apply"/>.</summary>
         Biome,
+
+        /// <summary>Plant an impassable scatter-filled cell. Engine-handled, like Biome.</summary>
+        ThicketAdd,
+
+        /// <summary>Carve a clearing out of a thicket. Engine-handled.</summary>
+        ThicketRemove,
     }
 
     /// <summary>

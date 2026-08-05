@@ -120,6 +120,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 return;
             }
 
+            if (brush == PaintBrush.ThicketAdd || brush == PaintBrush.ThicketRemove)
+            {
+                Entry(cell).Thicket = brush == PaintBrush.ThicketAdd
+                    ? ThicketOverride.Add
+                    : ThicketOverride.Remove;
+                return;
+            }
+
             // Relative brushes read the stroke-start compile, PLUS this stroke's own edit if
             // one already landed on the cell — visited-set guarantees it hasn't.
             var kind = _grid.KindAt(cell.x, cell.y);
@@ -173,6 +181,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _mirror[new Vector2Int(o.X, o.Z)] = new AuthoredCellOverride
                 {
                     X = o.X, Z = o.Z, Terrain = o.Terrain, Level = o.Level, Road = o.Road,
+                    Biome = o.Biome, Thicket = o.Thicket,
                 };
             }
 
@@ -241,6 +250,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 int hoverBiome = _grid.DominantBiomeAt(c.x, c.y);
                 var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
                            (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
+                           (_grid.ThicketAt(c.x, c.y) ? "  thicket" : "") +
                            (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
                            (hoverBiome >= 0 ? $"  biome {hoverBiome}" : "") +
                            (_mirror.ContainsKey(c) ? "  painted" : "");
@@ -368,6 +378,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             int biome = _grid.DominantBiomeAt(x, z);
             if (biome >= 0)
                 colour = Color.Lerp(colour, BiomeTint(biome), 0.3f);
+
+            if (_grid.ThicketAt(x, z))
+                colour = Color.Lerp(colour, new Color(0.08f, 0.25f, 0.1f), 0.55f);
 
             if (_mirror.ContainsKey(new Vector2Int(x, z)))
                 colour = Color.Lerp(colour, new Color(1f, 0.35f, 0.75f), 0.22f);

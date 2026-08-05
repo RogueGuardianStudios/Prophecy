@@ -191,7 +191,22 @@ planner emit; `OverworldBiomePicker` rolls variants from DeriveSeed(map.Seed, ce
 Proven live: the 'Test Moor' biome (one recoloured cap variant) + the 'Mesa Moor' demo area —
 the mesa wears moor-brown caps, everything else falls back gray-box. One rendering trap paid:
 a variant material without `_ENVIRONMENTREFLECTIONS_OFF` reads NAVY from overhead (sky
-reflection); matte-flag every gray-box material fully.**
+reflection); matte-flag every gray-box material fully.** **S3 BUILT same evening:** the LUT
+(one texel per cell, R/G indices + B lean, A reserved for Consumed) bakes pure
+(`OverworldGroundLut.Bake`), and `Prophecy/OverworldGround` — a hand-written URP shader with
+manual four-tap bilinear (indices cannot filter, colours can), triplanar detail hook, inline
+ShadowCaster/DepthOnly — drives ONE shared cap material; rebuilds refresh the texture in
+place. The Test Moor's ground moved to the shader (GroundColor) and the mesa cross-fades
+moor-brown into heartland green over the feather. Missing palette entries render magenta on
+purpose. **S4 BUILT (Matt's scatter rule: scatter fills NON-WALKABLE masses only — open space
+is for travelling; dress it with hand props or shaders):** `AuthoredThicket` rects + Trees +/−
+brushes plant THICKET cells — blocked exactly like prop footprints (ground-only, never a road
+cell: the road is the carved path through the forest, and painted Remove carves clearings) —
+and `SpawnScatter` fills each with one seeded weighted pick from the biome's `Scatter` list
+(fallback: the palette's `DefaultScatter`, wired to Prop_Tree), jittered position and yaw,
+deterministic per cell forever. Demo: the 'Westwood' grove — 80 trees, one solid impassable
+canopy. Also fixed en route: the canvas mirror was not copying the Biome field, so any paint
+commit silently erased painted biomes.
 
 **ELEVATED WATER AND WATERFALLS (2026-08-05, Matt: "focus on the elevated water and
 waterfall"):** water gained a LEVEL with zero new authoring. A sea cell always stored a level;

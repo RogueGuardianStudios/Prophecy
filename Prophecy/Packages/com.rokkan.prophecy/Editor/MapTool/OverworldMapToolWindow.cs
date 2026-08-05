@@ -238,8 +238,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             EditorGUILayout.LabelField("Paint — in the Scene view or on the minimap below",
                                        EditorStyles.boldLabel);
 
-            _canvas.ActiveBrush = (PaintBrush)GUILayout.Toolbar((int)_canvas.ActiveBrush,
-                new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −", "Clear", "Biome" });
+            _canvas.ActiveBrush = (PaintBrush)GUILayout.SelectionGrid((int)_canvas.ActiveBrush,
+                new[] { "Raise", "Lower", "Set Level", "Water", "Road +",
+                        "Road −", "Clear", "Biome", "Trees +", "Trees −" }, 5);
 
             using (new EditorGUILayout.HorizontalScope())
             {

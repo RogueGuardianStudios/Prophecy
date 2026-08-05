@@ -162,6 +162,33 @@ namespace Rokkan.Prophecy.Overworld
             if (InBounds(x, z)) _blocked.Add(z * _width + x);
         }
 
+        public void ClearBlocked(int x, int z)
+        {
+            if (InBounds(x, z)) _blocked.Remove(z * _width + x);
+        }
+
+        // Thicket cells: blocked like a prop footprint AND scatter-filled by the biome. The
+        // separate set exists because the scatter needs to know which blocked cells are
+        // thicket (fill with trees) versus prop footprints (already filled by the prop).
+        private readonly HashSet<int> _thicket = new HashSet<int>();
+
+        /// <summary>Whether this cell is an impassable scatter-filled mass.</summary>
+        public bool ThicketAt(int x, int z) => InBounds(x, z) && _thicket.Contains(z * _width + x);
+
+        public void SetThicket(int x, int z)
+        {
+            if (!InBounds(x, z)) return;
+            _thicket.Add(z * _width + x);
+            _blocked.Add(z * _width + x);
+        }
+
+        public void ClearThicket(int x, int z)
+        {
+            if (!InBounds(x, z)) return;
+            _thicket.Remove(z * _width + x);
+            _blocked.Remove(z * _width + x);
+        }
+
         // The biome splat, resolved: per cell a dominant biome, a secondary, and how far the
         // blend leans toward the secondary. Geometry reads only the dominant (discrete,
         // deterministic); the terrain shader reads the blend. 255 = no biome — the gray-box
@@ -333,9 +360,58 @@ namespace Rokkan.Prophecy.Overworld
             RasterRoads(grid, map, offset);
             ApplyRoadOverrides(grid, map);
             RasterBiomes(grid, map, offset);
+            RasterThickets(grid, map, offset);
             RasterProps(grid, map, offset);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Impassable scatter-filled masses: shape rects plant them on flat GROUND cells only
+        /// (a thicket never grows on water, a slope, or a road — the road wins, it is the
+        /// carved path through the forest), and the painted overrides add or carve per cell.
+        /// Thicket blocks exactly like a prop footprint — the ground seam refuses, the escape
+        /// rule frees a stranded body.
+        /// </summary>
+        private static void RasterThickets(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var thickets = map.Thickets;
+
+            for (int i = 0; thickets != null && i < thickets.Length; i++)
+            {
+                var thicket = thickets[i];
+                var centre = thicket.Centre + offset;
+                float rad = -thicket.RotationDegrees * Mathf.Deg2Rad;
+                float cos = Mathf.Cos(rad);
+                float sin = Mathf.Sin(rad);
+                var half = thicket.Size * 0.5f;
+
+                for (int z = 0; z < grid.Height; z++)
+                {
+                    for (int x = 0; x < grid.Width; x++)
+                    {
+                        var p = grid.CellCentre(x, z) - centre;
+                        float localX = p.x * cos - p.y * sin;
+                        float localZ = p.x * sin + p.y * cos;
+                        if (Mathf.Abs(localX) > half.x || Mathf.Abs(localZ) > half.y) continue;
+
+                        if (grid.KindAt(x, z) == TileCellKind.Ground && !grid.RoadAt(x, z))
+                            grid.SetThicket(x, z);
+                    }
+                }
+            }
+
+            var overrides = map.CellOverrides;
+            for (int i = 0; overrides != null && i < overrides.Length; i++)
+            {
+                var cell = overrides[i];
+                if (cell.Thicket == ThicketOverride.Remove)
+                    grid.ClearThicket(cell.X, cell.Z);
+                else if (cell.Thicket == ThicketOverride.Add &&
+                         grid.KindAt(cell.X, cell.Z) == TileCellKind.Ground &&
+                         !grid.RoadAt(cell.X, cell.Z))
+                    grid.SetThicket(cell.X, cell.Z);
+            }
         }
 
         /// <summary>

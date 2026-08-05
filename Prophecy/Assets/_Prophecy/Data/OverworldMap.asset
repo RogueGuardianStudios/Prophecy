@@ -169,516 +169,602 @@ MonoBehaviour:
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 56
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 57
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 59
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 60
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 61
     Z: 8
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 53
     Z: 9
     Terrain: 2
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 9
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 59
     Z: 9
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 60
     Z: 9
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 61
     Z: 9
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 62
     Z: 9
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 10
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 59
     Z: 10
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 60
     Z: 10
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 61
     Z: 10
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 62
     Z: 10
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 11
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 61
     Z: 11
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 12
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 13
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 58
     Z: 14
     Terrain: 1
     Level: 0
     Road: 0
     Biome: -1
+    Thicket: 0
   - X: 8
     Z: 39
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 39
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 13
     Z: 39
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 40
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 40
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 40
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 40
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 13
     Z: 40
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 41
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 41
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 41
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 41
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 13
     Z: 41
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 6
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 13
     Z: 42
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 6
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 43
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 6
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 44
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 45
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 45
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 45
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 45
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 45
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 13
     Z: 46
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 7
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 12
     Z: 47
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 48
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 48
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 48
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 8
     Z: 49
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 9
     Z: 49
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 49
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 50
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 51
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 11
     Z: 51
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 52
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 53
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   - X: 10
     Z: 54
     Terrain: 0
     Level: 0
     Road: 0
     Biome: 1
+    Thicket: 0
   Props:
   - Name: Prop_Tree
     Prefab: {fileID: 8252939163899602683, guid: 7b44befd02443d14dba3f7c236947cf1, type: 3}
@@ -694,3 +780,8 @@ MonoBehaviour:
     Size: {x: 14, y: 12}
     RotationDegrees: 0
     Feather: 5
+  Thickets:
+  - Name: Westwood
+    Centre: {x: -20, y: -12}
+    Size: {x: 10, y: 8}
+    RotationDegrees: 0
