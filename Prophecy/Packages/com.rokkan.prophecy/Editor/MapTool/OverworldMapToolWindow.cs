@@ -116,6 +116,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     "Assets/_Prophecy/Data/OverworldMap.asset");
             if (_tiles == null)
                 _tiles = AssetDatabase.LoadAssetAtPath<OverworldTileSet>(OverworldTileBuilder.TileSetPath);
+            if (_palette == null)
+                _palette = AssetDatabase.LoadAssetAtPath<OverworldPropPalette>(
+                    "Assets/_Prophecy/Data/OverworldPropPalette.asset");
 
             _canvas.SyncFromMap(_map);
 

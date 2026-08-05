@@ -28,6 +28,15 @@ namespace Rokkan.Prophecy.Editor.Build
         public static Material Ground() =>
             Ensure("GrayBox_Ground.mat", new Color(0.52f, 0.58f, 0.5f));
 
+        /// <summary>Mock prop wood — trunks, posts, signs.</summary>
+        public static Material PropWood() =>
+            Ensure("GrayBox_PropWood.mat", new Color(0.45f, 0.32f, 0.2f));
+
+        /// <summary>Mock prop foliage — a deliberately darker green than the ground caps, so a
+        /// tree reads as a thing ON the grass, not a lump of it.</summary>
+        public static Material PropFoliage() =>
+            Ensure("GrayBox_PropFoliage.mat", new Color(0.16f, 0.42f, 0.2f));
+
         private static Material Ensure(string fileName, Color colour)
         {
             string path = $"{Folder}/{fileName}";
