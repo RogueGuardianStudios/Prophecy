@@ -46,15 +46,14 @@ namespace Rokkan.Prophecy.Overworld
                                  "rebuild exists to provide; NavMesh remains for comparison.")]
         private GroundAuthority _groundAuthority = GroundAuthority.TileGrid;
 
-        private OverworldTileGrid _grid;
+        private OverworldBuildOutput _built;
         private ITopDownGround _published;
         private Transform _walkableRoot;
-        private Transform _sceneryRoot;
         private UnityEngine.AI.NavMeshDataInstance _navMeshInstance;
 
         /// <summary>The compiled tile grid — region queries, the darkening repaint, and the
         /// encounter spawner's placement checks all read from here. Null before Awake.</summary>
-        public OverworldTileGrid Grid => _grid;
+        public OverworldTileGrid Grid => _built?.Grid;
 
         private void Awake()
         {
@@ -72,153 +71,25 @@ namespace Rokkan.Prophecy.Overworld
                 return;
             }
 
-            _grid = OverworldTileGridCompiler.Compile(_map, transform.position);
-
             // Walkable tops and scenery under separate roots, so the NavMesh bakes from the
             // walkable half alone — a cliff face that is never a bake source can never be
-            // climbed, whatever the slope limit says.
+            // climbed, whatever the slope limit says. The assembly itself lives in
+            // OverworldWorldBuilder, shared with the editor's live preview: what the map tool
+            // shows IS what this host builds.
             _walkableRoot = new GameObject("Ground_Walkable").transform;
             _walkableRoot.SetParent(transform, false);
-            _sceneryRoot = new GameObject("Ground_Scenery").transform;
-            _sceneryRoot.SetParent(transform, false);
+            var sceneryRoot = new GameObject("Ground_Scenery").transform;
+            sceneryRoot.SetParent(transform, false);
 
-            var placements = TilePiecePlanner.Plan(_grid, _stairsForRamps);
-            for (int i = 0; i < placements.Count; i++) Place(placements[i]);
-
-            BuildRoads();
-            BuildWaterfalls();
+            _built = OverworldWorldBuilder.Build(_map, _tiles, _walkableRoot, sceneryRoot,
+                                                 transform.position, _stairsForRamps);
 
             BakeNavMesh();
 
             _published = _groundAuthority == GroundAuthority.NavMesh
                 ? (ITopDownGround)new NavMeshGround()
-                : new TileGridGround(_grid);
+                : new TileGridGround(_built.Grid);
             Presentation.TopDownGroundSource.Current = _published;
-        }
-
-        private void Place(TilePlacement placement)
-        {
-            var prefab = _tiles.For(placement.Piece);
-
-            bool walkable = placement.Piece == OverworldTilePiece.Cap ||
-                            placement.Piece == OverworldTilePiece.Ramp ||
-                            placement.Piece == OverworldTilePiece.Stairs;
-
-            var instance = Instantiate(prefab, walkable ? _walkableRoot : _sceneryRoot);
-            instance.transform.position = placement.Position;
-            instance.transform.rotation = Quaternion.Euler(0f, placement.Yaw, 0f);
-            instance.transform.localScale = placement.Scale;
-        }
-
-        /// <summary>How far road paint rides above the walk surface. Enough that the strip and
-        /// the cap are never the same depth, far less than any rim.</summary>
-        private const float RoadLift = 0.02f;
-
-        /// <summary>
-        /// Roads are paint, not ground: one merged mesh of per-cell quads riding just above the
-        /// walk surface — the cap, or the bridge deck where the course crosses a river — parented
-        /// under scenery so the NavMesh never sees them. Built after the tiles because it reads
-        /// the same compiled cells; a regenerated map re-draws its roads by construction.
-        /// </summary>
-        private void BuildRoads()
-        {
-            var vertices = new System.Collections.Generic.List<Vector3>();
-            var triangles = new System.Collections.Generic.List<int>();
-
-            for (int z = 0; z < _grid.Height; z++)
-            {
-                for (int x = 0; x < _grid.Width; x++)
-                {
-                    if (!_grid.RoadAt(x, z)) continue;
-
-                    int level = _grid.TryOverlayAt(x, z, out int overlay) ? overlay : _grid.LevelAt(x, z);
-                    float y = level * OverworldTileGrid.Step + RoadLift;
-                    var corner = _grid.CornerPoint(x, z);
-
-                    int v = vertices.Count;
-                    vertices.Add(new Vector3(corner.x, y, corner.y));
-                    vertices.Add(new Vector3(corner.x, y, corner.y + OverworldTileGrid.CellSize));
-                    vertices.Add(new Vector3(corner.x + OverworldTileGrid.CellSize, y,
-                                             corner.y + OverworldTileGrid.CellSize));
-                    vertices.Add(new Vector3(corner.x + OverworldTileGrid.CellSize, y, corner.y));
-                    triangles.Add(v); triangles.Add(v + 1); triangles.Add(v + 2);
-                    triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 3);
-                }
-            }
-
-            if (vertices.Count == 0) return;
-
-            var mesh = new Mesh { name = "Roads" };
-            mesh.SetVertices(vertices);
-            mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
-            {
-                name = "Road_Surface",
-                color = new Color(0.72f, 0.62f, 0.47f),
-            };
-            material.SetFloat("_Smoothness", 0f);
-            material.SetFloat("_SpecularHighlights", 0f);
-            material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
-            material.SetFloat("_EnvironmentReflections", 0f);
-            material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
-
-            var roads = new GameObject("Roads");
-            roads.transform.SetParent(_sceneryRoot, false);
-            roads.AddComponent<MeshFilter>().sharedMesh = mesh;
-            roads.AddComponent<MeshRenderer>().sharedMaterial = material;
-        }
-
-        /// <summary>
-        /// Waterfall sheets — vertical quads where elevated water drops to lower water, meshed
-        /// here for the same reason roads are: they are not tile-set pieces, and the planner's
-        /// placements carry no pitch. They wear the water tile's own material, so a palette or
-        /// shader change to the sea carries the falls with it.
-        /// </summary>
-        private void BuildWaterfalls()
-        {
-            var falls = TilePiecePlanner.PlanWaterfalls(_grid);
-            if (falls.Count == 0) return;
-
-            var vertices = new System.Collections.Generic.List<Vector3>();
-            var triangles = new System.Collections.Generic.List<int>();
-            var uvs = new System.Collections.Generic.List<Vector2>();
-
-            for (int i = 0; i < falls.Count; i++)
-            {
-                var fall = falls[i];
-                var right = new Vector3(-fall.Toward.y, 0f, fall.Toward.x) * (OverworldTileGrid.CellSize * 0.5f);
-                var down = Vector3.down * fall.Drop;
-
-                int v = vertices.Count;
-                vertices.Add(fall.TopCentre - right);
-                vertices.Add(fall.TopCentre + right);
-                vertices.Add(fall.TopCentre + right + down);
-                vertices.Add(fall.TopCentre - right + down);
-                // Every vertex samples the middle of the water tile's UV island: the sheet
-                // wears the sea's flat colour, and stays with it through any reskin.
-                for (int u = 0; u < 4; u++) uvs.Add(new Vector2(0.5f, 0.5f));
-                triangles.Add(v); triangles.Add(v + 1); triangles.Add(v + 2);
-                triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 3);
-            }
-
-            var mesh = new Mesh { name = "Waterfalls" };
-            mesh.SetVertices(vertices);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-
-            var water = _tiles.For(OverworldTilePiece.Water);
-            var renderer = water != null ? water.GetComponentInChildren<MeshRenderer>() : null;
-
-            var sheets = new GameObject("Waterfalls");
-            sheets.transform.SetParent(_sceneryRoot, false);
-            sheets.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var sheetRenderer = sheets.AddComponent<MeshRenderer>();
-            if (renderer != null) sheetRenderer.sharedMaterial = renderer.sharedMaterial;
         }
 
         /// <summary>
