@@ -539,6 +539,63 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheNamedShapesAreTheProvinces()
+        {
+            var heartland = ScriptableObject.CreateInstance<OverworldProvince>();
+            heartland.DisplayName = "Heartland";
+            var westwood = ScriptableObject.CreateInstance<OverworldProvince>();
+            westwood.DisplayName = "Westwood";
+
+            var map = PlainMap(8f);
+            map.Regions[0].Province = heartland;
+            map.Thickets = new[]
+            {
+                new AuthoredThicket { Name = "Westwood", Centre = new Vector2(2f, 2f),
+                                      Size = new Vector2(3f, 3f), Province = westwood },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.AreSame(heartland, grid.ProvinceAt(1, 1),
+                "The terrain region's cells answer with its province…");
+            Assert.AreSame(westwood, grid.ProvinceAt(6, 6),
+                "…and the thicket, rastered later, wins its own footprint — the Westwood IS " +
+                "a province, not a rectangle drawn twice.");
+
+            var bare = OverworldTileGridCompiler.Compile(PlainMap(8f), Vector3.zero);
+            Assert.IsNull(bare.ProvinceAt(4, 4), "No reference, no province: wilderness.");
+        }
+
+        [Test]
+        public void PaintedBlocksAreBareAndTheHandUnblocksAnything()
+        {
+            var map = PlainMap(8f);
+            map.Thickets = new[]
+            {
+                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                                      Size = new Vector2(3f, 3f) },
+            };
+            map.CellOverrides = new[]
+            {
+                // A bare painted block out in the open, and the hand unblocking one grove cell.
+                new AuthoredCellOverride { X = 6, Z = 6, Block = BlockOverride.Add },
+                new AuthoredCellOverride { X = 4, Z = 4, Block = BlockOverride.Remove },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var ground = new TileGridGround(grid);
+
+            Assert.IsTrue(grid.BlockedAt(6, 6), "The painted block blocks…");
+            Assert.IsFalse(grid.ThicketAt(6, 6), "…with NO scatter — bare unwalkable ground.");
+            Assert.IsFalse(ground.CanStep(grid.CellCentre(5, 6), grid.CellCentre(6, 6)));
+
+            Assert.IsFalse(grid.BlockedAt(4, 4),
+                "Block − unblocked a grove cell — the hand's last word over the thicket…");
+            Assert.IsFalse(grid.ThicketAt(4, 4), "…and it carries no scatter either.");
+            Assert.IsTrue(grid.ThicketAt(3, 4), "The rest of the grove stands.");
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);

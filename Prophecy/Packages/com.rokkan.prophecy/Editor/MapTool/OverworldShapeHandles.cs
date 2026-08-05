@@ -30,9 +30,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
         public const int KindRamp = 2;
         public const int KindRiver = 3;
         public const int KindRoad = 4;
+        public const int KindBiomeArea = 5;
+        public const int KindThicket = 6;
+
+        private static readonly Color BiomeAreaColour = new Color(0.95f, 0.6f, 0.2f, 0.9f);
+        private static readonly Color ThicketColour = new Color(0.1f, 0.5f, 0.2f, 0.9f);
 
         public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
                                 bool regions, bool ramps, bool layers, bool rivers, bool roads,
+                                bool biomeAreas, bool thickets,
                                 int selectedKind, int selectedIndex,
                                 System.Action<int, int> select)
         {
@@ -40,6 +46,32 @@ namespace Rokkan.Prophecy.Editor.MapTool
             var offset = new Vector2(worldOffset.x, worldOffset.z);
 
             bool Selected(int kind, int i) => selectedKind == kind && selectedIndex == i;
+
+            for (int i = 0; biomeAreas && map.BiomeAreas != null && i < map.BiomeAreas.Length; i++)
+                DrawRect(map, preview, offset,
+                         () => (map.BiomeAreas[i].Centre, map.BiomeAreas[i].Size,
+                                map.BiomeAreas[i].RotationDegrees, 0f),
+                         (c, s, r) =>
+                         {
+                             map.BiomeAreas[i].Centre = c;
+                             map.BiomeAreas[i].Size = s;
+                             map.BiomeAreas[i].RotationDegrees = r;
+                         },
+                         BiomeAreaColour, map.BiomeAreas[i].Name,
+                         Selected(KindBiomeArea, i), () => select(KindBiomeArea, i));
+
+            for (int i = 0; thickets && map.Thickets != null && i < map.Thickets.Length; i++)
+                DrawRect(map, preview, offset,
+                         () => (map.Thickets[i].Centre, map.Thickets[i].Size,
+                                map.Thickets[i].RotationDegrees, 0f),
+                         (c, s, r) =>
+                         {
+                             map.Thickets[i].Centre = c;
+                             map.Thickets[i].Size = s;
+                             map.Thickets[i].RotationDegrees = r;
+                         },
+                         ThicketColour, map.Thickets[i].Name,
+                         Selected(KindThicket, i), () => select(KindThicket, i));
 
             for (int i = 0; regions && map.Regions != null && i < map.Regions.Length; i++)
                 DrawRect(map, preview, offset,

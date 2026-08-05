@@ -40,6 +40,13 @@ namespace Rokkan.Prophecy.Overworld
 
         /// <summary>Carve a clearing out of a thicket. Engine-handled.</summary>
         ThicketRemove,
+
+        /// <summary>Block a cell bare — unwalkable, NO scatter. Engine-handled.</summary>
+        BlockAdd,
+
+        /// <summary>Unblock anything — thicket, prop footprint, painted block. The hand's
+        /// last word. Engine-handled.</summary>
+        BlockRemove,
     }
 
     /// <summary>

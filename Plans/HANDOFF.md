@@ -173,8 +173,20 @@ influence → majority auto-fills → hand-pin required tiles and important prop
 the HIGH cell owns its walls, land owns its shore. **PROVINCE is the gameplay region — 
 EXCLUSIVE, never blended** (biome is how it looks; province is whose rules apply): an
 `OverworldProvince` ScriptableObject (name, spawn table, cadence, encounter section — tunable
-in play mode like all tuning) with BOUNDS on the map (shapes + paint, later-wins, wilderness
-default). Named Province because the map's `Regions` array already means terrain patches.
+in play mode like all tuning). **CORRECTED BY MATT, then BUILT: provinces have NO bounds of
+their own — the NAMED SHAPES are the provinces.** Terrain regions, biome areas and thickets
+carry an optional `Province` reference; the compiler stamps cells in raster order (later
+wins), and 'the Westwood' is a province because the grove is, not because a rectangle was
+drawn twice. AUTHORED FROM THE TOOL (Matt's requirement): Select mode grew a selection panel —
+rename any shape, assign or NEW-button-create its Province — biome areas and thickets gained
+scene-view rect handles (they had none), and the minimap gained a Province View toggle +
+hover names. Also added on Matt's call: a plain UNWALKABLE paint channel — Block + paints
+bare blocked cells (no scatter: rocks, rubble, not-this-way), and **Block − is the hand's
+LAST WORD, unblocking anything including thickets and prop footprints** (applied dead last in
+the compile). Demo: Province_Heartland (EMPTY table = safe — the authored end of wanderers
+eating playtests) on the Heartland region, Province_Westwood on the grove; probed live.
+REMAINING for provinces: the spawner/contact WIRING (player's province drives what spawns;
+contact cell drives where you fight; road contact = the safe crossing).
 **Encounters resolve at CONTACT TIME by LOCATION (Matt): the systems are separate.** The
 player's province drives WHAT spawns around them (empty table = safe province — the authored
 end of wanderers eating verification passes); wanderers roam FREE, no leash; on contact the

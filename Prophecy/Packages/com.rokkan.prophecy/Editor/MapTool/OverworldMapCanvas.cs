@@ -26,6 +26,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
         /// <summary>The palette index the Biome brush pins.</summary>
         public int PaintBiome;
 
+        /// <summary>Tint cells by their governing province — the gameplay view.</summary>
+        public bool ShowProvinces;
+
         /// <summary>A momentary substitute for the active brush — the Scene painter sets this
         /// while Shift is held so Raise flips to Lower without touching the picked brush.</summary>
         public PaintBrush? BrushOverride;
@@ -128,6 +131,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 return;
             }
 
+            if (brush == PaintBrush.BlockAdd || brush == PaintBrush.BlockRemove)
+            {
+                Entry(cell).Block = brush == PaintBrush.BlockAdd
+                    ? BlockOverride.Add
+                    : BlockOverride.Remove;
+                return;
+            }
+
             // Relative brushes read the stroke-start compile, PLUS this stroke's own edit if
             // one already landed on the cell — visited-set guarantees it hasn't.
             var kind = _grid.KindAt(cell.x, cell.y);
@@ -181,7 +192,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _mirror[new Vector2Int(o.X, o.Z)] = new AuthoredCellOverride
                 {
                     X = o.X, Z = o.Z, Terrain = o.Terrain, Level = o.Level, Road = o.Road,
-                    Biome = o.Biome, Thicket = o.Thicket,
+                    Biome = o.Biome, Thicket = o.Thicket, Block = o.Block,
                 };
             }
 
@@ -248,11 +259,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
             {
                 var c = hover.Value;
                 int hoverBiome = _grid.DominantBiomeAt(c.x, c.y);
+                var hoverProvince = _grid.ProvinceAt(c.x, c.y);
                 var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
                            (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
-                           (_grid.ThicketAt(c.x, c.y) ? "  thicket" : "") +
+                           (_grid.ThicketAt(c.x, c.y) ? "  thicket"
+                               : _grid.BlockedAt(c.x, c.y) ? "  blocked" : "") +
                            (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
                            (hoverBiome >= 0 ? $"  biome {hoverBiome}" : "") +
+                           (hoverProvince != null ? $"  [{hoverProvince.DisplayName}]" : "") +
                            (_mirror.ContainsKey(c) ? "  painted" : "");
                 GUI.Label(new Rect(rect.x + 4f, rect.yMax - 20f, rect.width - 8f, 18f), info,
                           EditorStyles.miniBoldLabel);
@@ -381,6 +395,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             if (_grid.ThicketAt(x, z))
                 colour = Color.Lerp(colour, new Color(0.08f, 0.25f, 0.1f), 0.55f);
+            else if (_grid.BlockedAt(x, z))
+                colour = Color.Lerp(colour, new Color(0.3f, 0.12f, 0.12f), 0.55f);
+
+            if (ShowProvinces)
+            {
+                var province = _grid.ProvinceAt(x, z);
+                if (province != null)
+                    colour = Color.Lerp(colour, province.MapTint, 0.45f);
+            }
 
             if (_mirror.ContainsKey(new Vector2Int(x, z)))
                 colour = Color.Lerp(colour, new Color(1f, 0.35f, 0.75f), 0.22f);

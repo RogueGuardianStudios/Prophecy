@@ -189,6 +189,39 @@ namespace Rokkan.Prophecy.Overworld
             _blocked.Remove(z * _width + x);
         }
 
+        // The province stamp: which named place's RULES govern each cell. Stored as an index
+        // into the compiled list so the cells stay bytes; 255 = wilderness (no province).
+        private readonly List<OverworldProvince> _provinceList = new List<OverworldProvince>();
+        private byte[] _provinceCells;
+
+        /// <summary>The province governing this cell, or null for wilderness.</summary>
+        public OverworldProvince ProvinceAt(int x, int z)
+        {
+            if (_provinceCells == null || !InBounds(x, z)) return null;
+            byte index = _provinceCells[z * _width + x];
+            return index == 255 ? null : _provinceList[index];
+        }
+
+        public void SetProvince(int x, int z, OverworldProvince province)
+        {
+            if (!InBounds(x, z) || province == null) return;
+            if (_provinceCells == null)
+            {
+                _provinceCells = new byte[_width * _height];
+                for (int i = 0; i < _provinceCells.Length; i++) _provinceCells[i] = 255;
+            }
+
+            int index = _provinceList.IndexOf(province);
+            if (index < 0)
+            {
+                if (_provinceList.Count >= 255) return;
+                index = _provinceList.Count;
+                _provinceList.Add(province);
+            }
+
+            _provinceCells[z * _width + x] = (byte)index;
+        }
+
         // The biome splat, resolved: per cell a dominant biome, a secondary, and how far the
         // blend leans toward the secondary. Geometry reads only the dominant (discrete,
         // deterministic); the terrain shader reads the blend. 255 = no biome — the gray-box
@@ -361,9 +394,82 @@ namespace Rokkan.Prophecy.Overworld
             ApplyRoadOverrides(grid, map);
             RasterBiomes(grid, map, offset);
             RasterThickets(grid, map, offset);
+            RasterProvinces(grid, map, offset);
             RasterProps(grid, map, offset);
+            ApplyBlockOverrides(grid, map);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Painted walkability, applied dead LAST: Add blocks a cell bare (no scatter — bare
+        /// unwalkable ground); Remove unblocks ANYTHING, including thicket masses and prop
+        /// footprints — the hand's last word over every other source of blocking.
+        /// </summary>
+        private static void ApplyBlockOverrides(OverworldTileGrid grid, OverworldMap map)
+        {
+            var overrides = map.CellOverrides;
+
+            for (int i = 0; overrides != null && i < overrides.Length; i++)
+            {
+                var cell = overrides[i];
+                if (cell.Block == BlockOverride.Add)
+                {
+                    grid.SetBlocked(cell.X, cell.Z);
+                }
+                else if (cell.Block == BlockOverride.Remove)
+                {
+                    grid.ClearThicket(cell.X, cell.Z);   // also clears its blocked flag
+                    grid.ClearBlocked(cell.X, cell.Z);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Provinces are the named shapes themselves — a shape with a Province reference
+        /// stamps its cells with those rules, in raster order (regions, then biome areas by
+        /// their HARD rect, then thickets), later wins. No separate bounds ever exist to
+        /// drift from the places they describe.
+        /// </summary>
+        private static void RasterProvinces(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            void StampRect(Vector2 centre, Vector2 size, float rotationDegrees,
+                           OverworldProvince province)
+            {
+                if (province == null) return;
+                var worldCentre = centre + offset;
+                float rad = -rotationDegrees * Mathf.Deg2Rad;
+                float cos = Mathf.Cos(rad);
+                float sin = Mathf.Sin(rad);
+                var half = size * 0.5f;
+
+                for (int z = 0; z < grid.Height; z++)
+                {
+                    for (int x = 0; x < grid.Width; x++)
+                    {
+                        var p = grid.CellCentre(x, z) - worldCentre;
+                        float localX = p.x * cos - p.y * sin;
+                        float localZ = p.x * sin + p.y * cos;
+                        if (Mathf.Abs(localX) <= half.x && Mathf.Abs(localZ) <= half.y)
+                            grid.SetProvince(x, z, province);
+                    }
+                }
+            }
+
+            var regions = map.Regions;
+            for (int i = 0; regions != null && i < regions.Length; i++)
+                StampRect(regions[i].Centre, regions[i].Size, regions[i].RotationDegrees,
+                          regions[i].Province);
+
+            var areas = map.BiomeAreas;
+            for (int i = 0; areas != null && i < areas.Length; i++)
+                StampRect(areas[i].Centre, areas[i].Size, areas[i].RotationDegrees,
+                          areas[i].Province);
+
+            var thickets = map.Thickets;
+            for (int i = 0; thickets != null && i < thickets.Length; i++)
+                StampRect(thickets[i].Centre, thickets[i].Size, thickets[i].RotationDegrees,
+                          thickets[i].Province);
         }
 
         /// <summary>

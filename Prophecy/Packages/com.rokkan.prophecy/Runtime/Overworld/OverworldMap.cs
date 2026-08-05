@@ -35,6 +35,10 @@ namespace Rokkan.Prophecy.Overworld
                  "region with a conforming seam into the surrounding hex. For coasts, settlements, " +
                  "anywhere the map should read built rather than grown.")]
         public bool Structured;
+
+        [Tooltip("The gameplay rules for this named place — wanderers, cadence, encounter " +
+                 "section. The shape IS the province's bounds; later shapes win overlaps.")]
+        public OverworldProvince Province;
     }
 
     /// <summary>
@@ -174,6 +178,10 @@ namespace Rokkan.Prophecy.Overworld
 
         [Tooltip("Metres past the rect edge over which influence fades to zero.")]
         public float Feather = 6f;
+
+        [Tooltip("Optional gameplay rules for this named place. Province claims use the HARD " +
+                 "rect only — provinces are exclusive, feather is a visual notion.")]
+        public OverworldProvince Province;
     }
 
     /// <summary>
@@ -196,11 +204,25 @@ namespace Rokkan.Prophecy.Overworld
 
         [Tooltip("Rotation of the footprint about its centre, in degrees.")]
         public float RotationDegrees;
+
+        [Tooltip("Optional gameplay rules for this named place — the Westwood is a province, " +
+                 "not just trees.")]
+        public OverworldProvince Province;
     }
 
     /// <summary>What a painted cell says about thicket. Add plants, Remove carves a clearing
     /// out of a shape-authored mass.</summary>
     public enum ThicketOverride : byte
+    {
+        None,
+        Add,
+        Remove,
+    }
+
+    /// <summary>What a painted cell says about plain walkability. Add blocks with NO scatter
+    /// (bare unwalkable ground — rocks, rubble, "not this way"); Remove is the hand's last
+    /// word and unblocks ANYTHING — thicket, prop footprint, all of it.</summary>
+    public enum BlockOverride : byte
     {
         None,
         Add,
@@ -250,6 +272,10 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Painted thicket: Add plants an impassable scatter-filled cell, Remove " +
                  "carves a clearing from a shape-authored mass.")]
         public ThicketOverride Thicket;
+
+        [Tooltip("Painted walkability: Add blocks bare (no scatter); Remove unblocks " +
+                 "anything — the hand's last word.")]
+        public BlockOverride Block;
     }
 
     /// <summary>

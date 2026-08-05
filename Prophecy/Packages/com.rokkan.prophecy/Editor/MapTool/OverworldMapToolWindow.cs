@@ -41,6 +41,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
         [SerializeField] private bool _showLayers = true;
         [SerializeField] private bool _showRivers = true;
         [SerializeField] private bool _showRoads = true;
+        [SerializeField] private bool _showBiomeAreas = true;
+        [SerializeField] private bool _showThickets = true;
+        [SerializeField] private bool _showProvinceView;
 
         [SerializeField] private OverworldPropPalette _palette;
         [SerializeField] private OverworldBiomePalette _biomePalette;
@@ -125,6 +128,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
 
             _canvas.SyncFromMap(_map);
+            _canvas.ShowProvinces = _showProvinceView;
 
             SceneView.duringSceneGui += OnSceneGui;
             EditorApplication.update += OnEditorUpdate;
@@ -210,6 +214,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             // ------------------------------------------------------------ the minimap
             EditorGUILayout.Space();
+            bool provinceView = GUILayout.Toggle(_showProvinceView,
+                "Province View — tint the map by whose rules govern each cell", "Button");
+            if (provinceView != _showProvinceView)
+            {
+                _showProvinceView = provinceView;
+                _canvas.ShowProvinces = provinceView;
+                _canvas.MarkStale();
+            }
             var canvasRect = GUILayoutUtility.GetRect(position.width, 100f, position.width,
                                                       float.MaxValue, GUILayout.ExpandHeight(true));
             _canvas.OnGUI(canvasRect, _map, this, _worldOrigin, _mode == ToolMode.Paint);
@@ -239,8 +251,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                                        EditorStyles.boldLabel);
 
             _canvas.ActiveBrush = (PaintBrush)GUILayout.SelectionGrid((int)_canvas.ActiveBrush,
-                new[] { "Raise", "Lower", "Set Level", "Water", "Road +",
-                        "Road −", "Clear", "Biome", "Trees +", "Trees −" }, 5);
+                new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −",
+                        "Clear", "Biome", "Trees +", "Trees −", "Block +", "Block −" }, 6);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -279,6 +291,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _showLayers = GUILayout.Toggle(_showLayers, "Layers", "Button");
                 _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
                 _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
+                _showBiomeAreas = GUILayout.Toggle(_showBiomeAreas, "Biomes", "Button");
+                _showThickets = GUILayout.Toggle(_showThickets, "Thickets", "Button");
             }
 
             EditorGUILayout.HelpBox(
@@ -288,6 +302,130 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 "Shift+click deletes.", MessageType.None);
 
             _stairsForRamps = EditorGUILayout.Toggle("Stairs For Ramps", _stairsForRamps);
+
+            SelectionPanel();
+        }
+
+        /// <summary>The selected shape's inspector: rename it, and give a named place its
+        /// PROVINCE — the gameplay rules — right here, because the shapes ARE the provinces
+        /// and the tool is where they are authored.</summary>
+        private void SelectionPanel()
+        {
+            string kindLabel = null;
+            string shapeName = null;
+            OverworldProvince province = null;
+            bool takesProvince = false;
+
+            switch (_selectedKind)
+            {
+                case OverworldShapeHandles.KindRegion when InRange(_map.Regions):
+                    kindLabel = "Terrain";
+                    shapeName = _map.Regions[_selectedIndex].Name;
+                    province = _map.Regions[_selectedIndex].Province;
+                    takesProvince = true;
+                    break;
+                case OverworldShapeHandles.KindBiomeArea when InRange(_map.BiomeAreas):
+                    kindLabel = "Biome Area";
+                    shapeName = _map.BiomeAreas[_selectedIndex].Name;
+                    province = _map.BiomeAreas[_selectedIndex].Province;
+                    takesProvince = true;
+                    break;
+                case OverworldShapeHandles.KindThicket when InRange(_map.Thickets):
+                    kindLabel = "Thicket";
+                    shapeName = _map.Thickets[_selectedIndex].Name;
+                    province = _map.Thickets[_selectedIndex].Province;
+                    takesProvince = true;
+                    break;
+                case OverworldShapeHandles.KindRamp when InRange(_map.Ramps):
+                    kindLabel = "Ramp";
+                    shapeName = _map.Ramps[_selectedIndex].Name;
+                    break;
+                case OverworldShapeHandles.KindRiver when InRange(_map.Rivers):
+                    kindLabel = "River";
+                    shapeName = _map.Rivers[_selectedIndex].Name;
+                    break;
+                case OverworldShapeHandles.KindRoad when InRange(_map.Roads):
+                    kindLabel = "Road";
+                    shapeName = _map.Roads[_selectedIndex].Name;
+                    break;
+                case OverworldShapeHandles.KindLayer when InRange(_map.Layers):
+                    kindLabel = "Layer";
+                    shapeName = _map.Layers[_selectedIndex].Name;
+                    break;
+            }
+
+            if (kindLabel == null)
+            {
+                EditorGUILayout.LabelField("Nothing selected.", EditorStyles.miniLabel);
+                return;
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField($"Selected {kindLabel}", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            string newName = EditorGUILayout.TextField("Name", shapeName);
+            OverworldProvince newProvince = province;
+            if (takesProvince)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    newProvince = (OverworldProvince)EditorGUILayout.ObjectField(
+                        "Province", province, typeof(OverworldProvince), false);
+                    if (GUILayout.Button("New", GUILayout.Width(44f)))
+                        newProvince = CreateProvinceAsset(newName);
+                }
+            }
+
+            if (!EditorGUI.EndChangeCheck() && newProvince == province) return;
+
+            Undo.RecordObject(_map, "Edit Overworld Shape");
+            switch (_selectedKind)
+            {
+                case OverworldShapeHandles.KindRegion:
+                    _map.Regions[_selectedIndex].Name = newName;
+                    _map.Regions[_selectedIndex].Province = newProvince;
+                    break;
+                case OverworldShapeHandles.KindBiomeArea:
+                    _map.BiomeAreas[_selectedIndex].Name = newName;
+                    _map.BiomeAreas[_selectedIndex].Province = newProvince;
+                    break;
+                case OverworldShapeHandles.KindThicket:
+                    _map.Thickets[_selectedIndex].Name = newName;
+                    _map.Thickets[_selectedIndex].Province = newProvince;
+                    break;
+                case OverworldShapeHandles.KindRamp:
+                    _map.Ramps[_selectedIndex].Name = newName; break;
+                case OverworldShapeHandles.KindRiver:
+                    _map.Rivers[_selectedIndex].Name = newName; break;
+                case OverworldShapeHandles.KindRoad:
+                    _map.Roads[_selectedIndex].Name = newName; break;
+                case OverworldShapeHandles.KindLayer:
+                    _map.Layers[_selectedIndex].Name = newName; break;
+            }
+            EditorUtility.SetDirty(_map);
+            _canvas.MarkStale();
+            if (PreviewActive) _preview.MarkAll();
+        }
+
+        private bool InRange<T>(T[] array) =>
+            array != null && _selectedIndex >= 0 && _selectedIndex < array.Length;
+
+        /// <summary>A fresh province asset named for its place, with a legible random tint.</summary>
+        private static OverworldProvince CreateProvinceAsset(string placeName)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/_Prophecy/Data/Provinces"))
+                AssetDatabase.CreateFolder("Assets/_Prophecy/Data", "Provinces");
+
+            var province = ScriptableObject.CreateInstance<OverworldProvince>();
+            province.DisplayName = placeName;
+            province.MapTint = Color.HSVToRGB(
+                (Mathf.Abs(placeName.GetHashCode()) % 100) / 100f, 0.55f, 0.95f);
+            string path = AssetDatabase.GenerateUniqueAssetPath(
+                $"Assets/_Prophecy/Data/Provinces/Province_{placeName.Replace(" ", "")}.asset");
+            AssetDatabase.CreateAsset(province, path);
+            AssetDatabase.SaveAssets();
+            return province;
         }
 
         private void PropControls()
@@ -371,6 +509,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
                                                _showRegions, _showRamps, _showLayers,
                                                _showRivers, _showRoads,
+                                               _showBiomeAreas, _showThickets,
                                                _selectedKind, _selectedIndex,
                                                (kind, index) =>
                                                {
