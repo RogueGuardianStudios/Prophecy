@@ -252,7 +252,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             _canvas.ActiveBrush = (PaintBrush)GUILayout.SelectionGrid((int)_canvas.ActiveBrush,
                 new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −",
-                        "Clear", "Biome", "Trees +", "Trees −", "Block +", "Block −" }, 6);
+                        "Clear", "Biome", "Greeble +", "Greeble −",
+                        "Unwalkable +", "Unwalkable −" }, 6);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -292,7 +293,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
                 _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
                 _showBiomeAreas = GUILayout.Toggle(_showBiomeAreas, "Biomes", "Button");
-                _showThickets = GUILayout.Toggle(_showThickets, "Thickets", "Button");
+                _showThickets = GUILayout.Toggle(_showThickets, "Greebles", "Button");
             }
 
             EditorGUILayout.HelpBox(
@@ -331,7 +332,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     takesProvince = true;
                     break;
                 case OverworldShapeHandles.KindThicket when InRange(_map.Thickets):
-                    kindLabel = "Thicket";
+                    kindLabel = "Greeble Mass";
                     shapeName = _map.Thickets[_selectedIndex].Name;
                     province = _map.Thickets[_selectedIndex].Province;
                     takesProvince = true;

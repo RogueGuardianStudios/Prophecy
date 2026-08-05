@@ -262,8 +262,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 var hoverProvince = _grid.ProvinceAt(c.x, c.y);
                 var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
                            (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
-                           (_grid.ThicketAt(c.x, c.y) ? "  thicket"
-                               : _grid.BlockedAt(c.x, c.y) ? "  blocked" : "") +
+                           (_grid.ThicketAt(c.x, c.y) ? "  greeble"
+                               : _grid.BlockedAt(c.x, c.y) ? "  unwalkable" : "") +
                            (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
                            (hoverBiome >= 0 ? $"  biome {hoverBiome}" : "") +
                            (hoverProvince != null ? $"  [{hoverProvince.DisplayName}]" : "") +
