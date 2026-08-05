@@ -232,7 +232,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                                        EditorStyles.boldLabel);
 
             _canvas.ActiveBrush = (PaintBrush)GUILayout.Toolbar((int)_canvas.ActiveBrush,
-                new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −", "Clear" });
+                new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −", "Clear", "Biome" });
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -240,6 +240,17 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     _canvas.PaintLevel = EditorGUILayout.IntSlider("Set To Level",
                                                                    _canvas.PaintLevel, 0, 4);
                 _canvas.BrushSize = EditorGUILayout.IntSlider("Brush Size", _canvas.BrushSize, 1, 6);
+            }
+
+            if (_canvas.ActiveBrush == PaintBrush.Biome)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _canvas.PaintBiome = EditorGUILayout.IntSlider("Biome Index",
+                                                                   _canvas.PaintBiome, 0, 7);
+                    var swatch = GUILayoutUtility.GetRect(18f, 18f, GUILayout.Width(18f));
+                    EditorGUI.DrawRect(swatch, OverworldMapCanvas.BiomeTint(_canvas.PaintBiome));
+                }
             }
 
             EditorGUILayout.HelpBox(

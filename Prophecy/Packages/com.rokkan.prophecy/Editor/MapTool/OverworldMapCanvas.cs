@@ -23,6 +23,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
         public int PaintLevel;
         public int BrushSize = 1;
 
+        /// <summary>The palette index the Biome brush pins.</summary>
+        public int PaintBiome;
+
         /// <summary>A momentary substitute for the active brush — the Scene painter sets this
         /// while Shift is held so Raise flips to Lower without touching the picked brush.</summary>
         public PaintBrush? BrushOverride;
@@ -108,6 +111,12 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (brush == PaintBrush.Clear)
             {
                 _mirror.Remove(cell);
+                return;
+            }
+
+            if (brush == PaintBrush.Biome)
+            {
+                Entry(cell).Biome = PaintBiome;
                 return;
             }
 
@@ -229,9 +238,11 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (hover.HasValue)
             {
                 var c = hover.Value;
+                int hoverBiome = _grid.DominantBiomeAt(c.x, c.y);
                 var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
                            (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
                            (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
+                           (hoverBiome >= 0 ? $"  biome {hoverBiome}" : "") +
                            (_mirror.ContainsKey(c) ? "  painted" : "");
                 GUI.Label(new Rect(rect.x + 4f, rect.yMax - 20f, rect.width - 8f, 18f), info,
                           EditorStyles.miniBoldLabel);
@@ -354,10 +365,19 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (_grid.RoadAt(x, z))
                 colour = Color.Lerp(colour, new Color(0.78f, 0.66f, 0.45f), 0.6f);
 
+            int biome = _grid.DominantBiomeAt(x, z);
+            if (biome >= 0)
+                colour = Color.Lerp(colour, BiomeTint(biome), 0.3f);
+
             if (_mirror.ContainsKey(new Vector2Int(x, z)))
                 colour = Color.Lerp(colour, new Color(1f, 0.35f, 0.75f), 0.22f);
 
             return colour;
         }
+
+        /// <summary>A stable, distinct tint per biome index — until the palette asset brings
+        /// authored colours, hue-spread does the job.</summary>
+        public static Color BiomeTint(int index) =>
+            Color.HSVToRGB((index * 0.137f) % 1f, 0.65f, 0.95f);
     }
 }

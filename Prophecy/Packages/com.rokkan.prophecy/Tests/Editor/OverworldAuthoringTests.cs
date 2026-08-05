@@ -291,6 +291,53 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void BiomeInfluenceBlendsAndTheHandBeatsTheField()
+        {
+            var map = PlainMap(8f);
+            map.BiomeAreas = new[]
+            {
+                // Two areas meeting mid-map: full influence in their own halves, blending
+                // through the feather between them.
+                new AuthoredBiomeArea { Name = "West", BiomeIndex = 1,
+                                        Centre = new Vector2(-3f, 0f), Size = new Vector2(2f, 8f),
+                                        Feather = 4f },
+                new AuthoredBiomeArea { Name = "East", BiomeIndex = 2,
+                                        Centre = new Vector2(3f, 0f), Size = new Vector2(2f, 8f),
+                                        Feather = 4f },
+            };
+            map.CellOverrides = new[]
+            {
+                // One painted cell deep inside East territory, pinned to biome 5.
+                new AuthoredCellOverride { X = 6, Z = 4, Biome = 5 },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.AreEqual(1, grid.DominantBiomeAt(0, 4), "The west edge is pure West…");
+            Assert.AreEqual(2, grid.DominantBiomeAt(7, 4), "…the east edge pure East.");
+
+            grid.BiomeBlendAt(0, 4, out _, out int secondary, out float lean);
+            Assert.IsTrue(secondary < 0 || lean < 0.1f, "Deep in one field the blend is pure.");
+
+            grid.BiomeBlendAt(4, 4, out int mid, out int midSecondary, out float midLean);
+            Assert.IsTrue(mid >= 0 && midSecondary >= 0,
+                "Between the fields both influences register…");
+            Assert.Greater(midLean, 0.2f, "…with a real blend, not a hard flip.");
+
+            Assert.AreEqual(5, grid.DominantBiomeAt(6, 4),
+                "A painted cell dominates any field — the hand beats the splat.");
+        }
+
+        [Test]
+        public void NoAuthoredBiomeMeansNoBiomeAnywhere()
+        {
+            var grid = OverworldTileGridCompiler.Compile(PlainMap(8f), Vector3.zero);
+
+            Assert.AreEqual(-1, grid.DominantBiomeAt(4, 4),
+                "With nothing authored the splat is silent and everything stays gray-box.");
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);

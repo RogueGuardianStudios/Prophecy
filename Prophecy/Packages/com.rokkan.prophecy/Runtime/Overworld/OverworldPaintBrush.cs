@@ -29,6 +29,11 @@ namespace Rokkan.Prophecy.Overworld
 
         /// <summary>Remove the cell's override entirely; the shapes' answer returns.</summary>
         Clear,
+
+        /// <summary>Pin the cell's biome — the hand's weight in the influence splat. Handled
+        /// by the paint engine directly (it writes the override's Biome field), not by
+        /// <see cref="OverworldPaintBrushes.Apply"/>.</summary>
+        Biome,
     }
 
     /// <summary>

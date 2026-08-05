@@ -154,6 +154,36 @@ NavMesh never sees prop blocking (one-line carving `NavMeshObstacle` in SpawnPro
 consumes routing); block footprints are axis-aligned, yaw is cosmetic; the rect rotation
 disc's sign and the canvas's north-up orientation want one visual confirmation pass in use.
 
+**BIOMES AND PROVINCES — DESIGN SETTLED WITH MATT, 2026-08-05 (build in progress):** the pause
+after the tool's first drives produced the ontology conversation, and two nouns came out of it.
+**BIOME is a SPLAT, not a bucket** (Matt's heatmap idea, upgraded from one scalar to per-biome
+influence fields so any biome can border any biome): authored as feathered influence shapes +
+a biome paint brush (the hybrid grain, one more channel), compiled to per-cell dominant +
+secondary + blend. TWO consumers: (1) the GEOMETRY LUT — dominant biome + DeriveSeed(map seed,
+cell index) → weighted variant pick from an `OverworldBiome` asset holding the SAME 17 slots
+as the base tile set, empty slot → gray-box fallback (this is worldgen's picker stack lifted
+whole — Biome/BiomePalette/BiomeVariantPicker were built for exactly this, just noise-fed);
+(2) the SHADER LUT — raw blend weights baked to one world-space texture driving a single
+triplanar terrain shader for base materials and cross-faded transitions (which is what hides
+the discrete geometry flip at dominance boundaries); Consumed darkening reserved as a future
+channel of the same texture. Variation law: variants may change GEOMETRY as long as the mating
+envelope holds (cut-end planes, rim tiers 0.20/0.22/0.24, skirt reaches, flat walkable tops —
+the contract constants are cross-biome law); the workflow is gray-box everything → paint
+influence → majority auto-fills → hand-pin required tiles and important props. Edge pieces:
+the HIGH cell owns its walls, land owns its shore. **PROVINCE is the gameplay region — 
+EXCLUSIVE, never blended** (biome is how it looks; province is whose rules apply): an
+`OverworldProvince` ScriptableObject (name, spawn table, cadence, encounter section — tunable
+in play mode like all tuning) with BOUNDS on the map (shapes + paint, later-wins, wilderness
+default). Named Province because the map's `Regions` array already means terrain patches.
+**Encounters resolve at CONTACT TIME by LOCATION (Matt): the systems are separate.** The
+player's province drives WHAT spawns around them (empty table = safe province — the authored
+end of wanderers eating verification passes); wanderers roam FREE, no leash; on contact the
+CONTACT CELL is polled — road flag → the safe side-scroll section (Zelda II's road rule:
+wanderers can catch you on a road, you just get the safe crossing), otherwise the cell's
+province → its encounter section. The wanderer carries WHO you fight; the location carries
+WHERE. Build order: biome splat S1 (influence data/compiler/brush) → S2 (biome asset +
+picker) → S3 (triplanar + LUT) → S4 (seeded scatter) → provinces.
+
 **ELEVATED WATER AND WATERFALLS (2026-08-05, Matt: "focus on the elevated water and
 waterfall"):** water gained a LEVEL with zero new authoring. A sea cell always stored a level;
 it was just always 0. Now a river INHERITS the level of the terrain along its course,

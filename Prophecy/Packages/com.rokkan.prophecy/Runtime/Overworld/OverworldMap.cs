@@ -146,6 +146,36 @@ namespace Rokkan.Prophecy.Overworld
         public float HalfWidth = 1f;
     }
 
+    /// <summary>
+    /// One feathered patch of biome INFLUENCE — the splat model. Influence is 1 inside the
+    /// rect, fading to 0 over <see cref="Feather"/> metres beyond it; overlapping areas of
+    /// different biomes blend, and the compiler resolves each cell's dominant + secondary +
+    /// blend. Geometry follows the DOMINANT biome (discrete, deterministic); the terrain
+    /// shader gets the raw blend, which is what hides the flip.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredBiomeArea
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Biome Area";
+
+        [Tooltip("Which biome this area spreads. Palette slot index — the OverworldBiome " +
+                 "asset arrives with the variant picker; the index is stable either way.")]
+        public int BiomeIndex;
+
+        [Tooltip("Centre of the footprint on the ground plane, in metres. X is world X, Y is world Z.")]
+        public Vector2 Centre;
+
+        [Tooltip("Footprint size in metres — full influence inside.")]
+        public Vector2 Size = new Vector2(20f, 20f);
+
+        [Tooltip("Rotation of the footprint about its centre, in degrees.")]
+        public float RotationDegrees;
+
+        [Tooltip("Metres past the rect edge over which influence fades to zero.")]
+        public float Feather = 6f;
+    }
+
     /// <summary>What a painted cell says about its terrain. None = whatever the shapes made.</summary>
     public enum TerrainOverride : byte
     {
@@ -181,6 +211,10 @@ namespace Rokkan.Prophecy.Overworld
         public int Level;
 
         public RoadOverride Road;
+
+        [Tooltip("Painted biome: −1 = none, otherwise a palette index. A painted cell " +
+                 "dominates the feathered areas — the hand beats the field.")]
+        public int Biome = -1;
     }
 
     /// <summary>
@@ -265,5 +299,9 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Placed objects standing on the tiles: towns, trees, detail. Height derives " +
                  "from the ground at spawn.")]
         public AuthoredProp[] Props = Array.Empty<AuthoredProp>();
+
+        [Tooltip("Feathered biome influence patches — the splat. Overlaps blend; the biome " +
+                 "paint brush pins individual cells over them.")]
+        public AuthoredBiomeArea[] BiomeAreas = Array.Empty<AuthoredBiomeArea>();
     }
 }

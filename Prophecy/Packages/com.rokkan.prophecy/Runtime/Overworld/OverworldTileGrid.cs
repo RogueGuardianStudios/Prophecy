@@ -162,6 +162,62 @@ namespace Rokkan.Prophecy.Overworld
             if (InBounds(x, z)) _blocked.Add(z * _width + x);
         }
 
+        // The biome splat, resolved: per cell a dominant biome, a secondary, and how far the
+        // blend leans toward the secondary. Geometry reads only the dominant (discrete,
+        // deterministic); the terrain shader reads the blend. 255 = no biome — the gray-box
+        // fallback everywhere until influence is authored.
+        public const byte NoBiome = 255;
+
+        private byte[] _biomeA;
+        private byte[] _biomeB;
+        private byte[] _biomeBlend;
+
+        /// <summary>The cell's dominant biome, or −1 where none has influence.</summary>
+        public int DominantBiomeAt(int x, int z)
+        {
+            if (_biomeA == null || !InBounds(x, z)) return -1;
+            byte a = _biomeA[z * _width + x];
+            return a == NoBiome ? -1 : a;
+        }
+
+        /// <summary>The full blend at a cell: dominant, secondary (−1 when pure), and the lean
+        /// toward the secondary in 0..1. For the shader LUT bake.</summary>
+        public void BiomeBlendAt(int x, int z, out int dominant, out int secondary, out float lean)
+        {
+            dominant = DominantBiomeAt(x, z);
+            secondary = -1;
+            lean = 0f;
+            if (dominant < 0 || _biomeB == null) return;
+
+            int i = z * _width + x;
+            if (_biomeB[i] != NoBiome)
+            {
+                secondary = _biomeB[i];
+                lean = _biomeBlend[i] / 255f;
+            }
+        }
+
+        public void SetBiome(int x, int z, int dominant, int secondary, float lean)
+        {
+            if (!InBounds(x, z)) return;
+            if (_biomeA == null)
+            {
+                _biomeA = new byte[_width * _height];
+                _biomeB = new byte[_width * _height];
+                for (int i = 0; i < _biomeA.Length; i++)
+                {
+                    _biomeA[i] = NoBiome;
+                    _biomeB[i] = NoBiome;
+                }
+                _biomeBlend = new byte[_width * _height];
+            }
+
+            int idx = z * _width + x;
+            _biomeA[idx] = dominant < 0 ? NoBiome : (byte)dominant;
+            _biomeB[idx] = secondary < 0 ? NoBiome : (byte)secondary;
+            _biomeBlend[idx] = (byte)Mathf.Clamp(Mathf.RoundToInt(lean * 255f), 0, 255);
+        }
+
         public bool TryCellAt(Vector2 worldXZ, out int x, out int z)
         {
             x = Mathf.FloorToInt((worldXZ.x - _origin.x) / CellSize);
@@ -276,9 +332,97 @@ namespace Rokkan.Prophecy.Overworld
             RasterLayers(grid, map, offset);
             RasterRoads(grid, map, offset);
             ApplyRoadOverrides(grid, map);
+            RasterBiomes(grid, map, offset);
             RasterProps(grid, map, offset);
 
             return grid;
+        }
+
+        /// <summary>
+        /// The biome splat: every authored area contributes feathered influence per cell (1
+        /// inside its rect, fading over Feather metres beyond); a painted cell adds a hand's
+        /// weight of its own biome on top — the hand beats the field. The two strongest
+        /// influences become the cell's dominant/secondary/blend. Purely additive data: with
+        /// nothing authored no cell has a biome, and everything renders gray-box exactly as
+        /// before.
+        /// </summary>
+        private static void RasterBiomes(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var areas = map.BiomeAreas;
+            var overrides = map.CellOverrides;
+            bool anyAreas = areas != null && areas.Length > 0;
+            bool anyPaint = false;
+            for (int i = 0; overrides != null && i < overrides.Length; i++)
+                if (overrides[i].Biome >= 0) { anyPaint = true; break; }
+            if (!anyAreas && !anyPaint) return;
+
+            // A hand-painted cell outweighs any field: full influence is 1, the hand adds 2.
+            const float PaintWeight = 2f;
+
+            var influence = new Dictionary<int, float>();
+
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    influence.Clear();
+                    var centre = grid.CellCentre(x, z);
+
+                    for (int i = 0; anyAreas && i < areas.Length; i++)
+                    {
+                        float w = AreaInfluence(areas[i], centre - offset);
+                        if (w <= 0f) continue;
+                        influence.TryGetValue(areas[i].BiomeIndex, out float sum);
+                        influence[areas[i].BiomeIndex] = sum + w;
+                    }
+
+                    for (int i = 0; anyPaint && i < overrides.Length; i++)
+                    {
+                        if (overrides[i].Biome < 0 ||
+                            overrides[i].X != x || overrides[i].Z != z) continue;
+                        influence.TryGetValue(overrides[i].Biome, out float sum);
+                        influence[overrides[i].Biome] = sum + PaintWeight;
+                    }
+
+                    if (influence.Count == 0) continue;
+
+                    int bestBiome = -1, secondBiome = -1;
+                    float bestW = 0f, secondW = 0f;
+                    foreach (var kv in influence)
+                    {
+                        if (kv.Value > bestW)
+                        {
+                            secondBiome = bestBiome; secondW = bestW;
+                            bestBiome = kv.Key; bestW = kv.Value;
+                        }
+                        else if (kv.Value > secondW)
+                        {
+                            secondBiome = kv.Key; secondW = kv.Value;
+                        }
+                    }
+
+                    float lean = secondBiome < 0 ? 0f : secondW / (bestW + secondW);
+                    grid.SetBiome(x, z, bestBiome, secondBiome, lean);
+                }
+            }
+        }
+
+        /// <summary>Feathered rect influence: 1 inside, 1→0 over Feather metres past the edge,
+        /// using the rasterizer's rotation convention.</summary>
+        private static float AreaInfluence(AuthoredBiomeArea area, Vector2 point)
+        {
+            var p = point - area.Centre;
+            float rad = -area.RotationDegrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(rad);
+            float sin = Mathf.Sin(rad);
+            float localX = p.x * cos - p.y * sin;
+            float localZ = p.x * sin + p.y * cos;
+
+            var half = area.Size * 0.5f;
+            float d = Mathf.Max(Mathf.Abs(localX) - half.x, Mathf.Abs(localZ) - half.y);
+            if (d <= 0f) return 1f;
+            if (area.Feather <= 0f) return 0f;
+            return Mathf.Clamp01(1f - d / area.Feather);
         }
 
         /// <summary>
