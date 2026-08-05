@@ -215,17 +215,19 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // No wireframe on the water: it is the one piece that stretches (to the whole sea),
             // and its triangulation diagonal became a sixty-metre dark stripe across the map.
+            // Everywhere else the wireframe is a SUBTLE darkening, not near-black: a one-texel
+            // high-contrast line crawls under minification on every tile in the world — it was
+            // the moving shimmer. Faint lines still guide painting; they just stop strobing.
             if (tile.Id != "WTR_Fill")
             {
-                var edge = new Color32(50, 50, 54, 255);
                 for (int t = 0; t < tile.TriangleRegions.Count; t++)
                 {
                     Vector2 a = tile.Uvs[tile.Triangles[t * 3]] * GuideSize;
                     Vector2 b = tile.Uvs[tile.Triangles[t * 3 + 1]] * GuideSize;
                     Vector2 c = tile.Uvs[tile.Triangles[t * 3 + 2]] * GuideSize;
-                    DrawLine(px, a, b, edge);
-                    DrawLine(px, b, c, edge);
-                    DrawLine(px, c, a, edge);
+                    DrawLine(px, a, b);
+                    DrawLine(px, b, c);
+                    DrawLine(px, c, a);
                 }
             }
 
@@ -261,10 +263,16 @@ namespace Rokkan.Prophecy.Editor.Build
             Object.DestroyImmediate(tex);
 
             AssetDatabase.ImportAsset(relPath);
+            // Trilinear + anisotropic: the tile textures are seen at heavy grazing minification
+            // from the overhead camera, and the default bilinear sampling makes every drawn line
+            // crawl between mip levels while the camera moves.
             if (AssetImporter.GetAtPath(relPath) is TextureImporter importer &&
-                importer.textureCompression != TextureImporterCompression.Uncompressed)
+                (importer.textureCompression != TextureImporterCompression.Uncompressed ||
+                 importer.filterMode != FilterMode.Trilinear || importer.anisoLevel != 8))
             {
                 importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.filterMode = FilterMode.Trilinear;
+                importer.anisoLevel = 8;
                 importer.SaveAndReimport();
             }
 
@@ -301,7 +309,7 @@ namespace Rokkan.Prophecy.Editor.Build
         private static bool SameColour(Color32 a, Color32 b) =>
             a.r == b.r && a.g == b.g && a.b == b.b;
 
-        private static void DrawLine(Color32[] px, Vector2 a, Vector2 b, Color32 colour)
+        private static void DrawLine(Color32[] px, Vector2 a, Vector2 b)
         {
             int x0 = Mathf.Clamp(Mathf.RoundToInt(a.x), 0, GuideSize - 1);
             int y0 = Mathf.Clamp(Mathf.RoundToInt(a.y), 0, GuideSize - 1);
@@ -314,7 +322,8 @@ namespace Rokkan.Prophecy.Editor.Build
 
             while (true)
             {
-                px[y0 * GuideSize + x0] = colour;
+                int i = y0 * GuideSize + x0;
+                px[i] = Color32.Lerp(px[i], new Color32(0, 0, 0, 255), 0.18f);
                 if (x0 == x1 && y0 == y1) break;
                 int e2 = err * 2;
                 if (e2 >= dy) { err += dy; x0 += sx; }

@@ -83,10 +83,31 @@ namespace Rokkan.Prophecy.Editor.Build
         private const float CapT = 0.15f;      // ground slab thickness
         private const float BaseT = 0.15f;     // ramp/stair base slab (no knife edge at the foot)
         private const float CheekSkirt = 0.2f; // skirt below the cheek's diagonal
-        private const float PostBulge = 0.25f; // outer post bulge into the low quadrants
+        private const float PostBulge = 0.27f; // outer post bulge into the low quadrants — NOT a
+                                               // multiple of the stair tread depth (1/8): at a
+                                               // stair mouth the jamb post crosses the run cell,
+                                               // and a bulge on a riser's plane z-fights with it
         private const float NotchBulge = 0.2f; // inner post bulge into the notch
         private const float PostRimH = 0.24f;  // post lips ride proud of face lips — flush
                                                // rims are coplanar rim tops, which z-fight
+        private const float CheekRimH = 0.22f; // between face (0.20) and post (0.24): the cheek's
+                                               // lip crosses both where the notch meets the wall,
+                                               // and three tiers means no two tops share a plane
+        private const float CheekProudEnd = 0.02f; // the tall end stands this far out of the wall
+                                               // face it meets — an end cap IN the wall's plane
+                                               // is a z-fighting patch at every stair mouth
+        private const float PostRimBackZ = WallT + 0.02f; // WallT happens to equal RimOver, so a
+                                               // post rim ending at WallT shares the face rim's
+                                               // back plane — push it past
+        private const float PostFlatT = WallT + 0.01f; // the post body's flat mating planes ride
+                                               // just past WallT: at WallT exactly they share the
+                                               // cheek's (and faces') back planes
+        private const float CheekProudFace = 0.005f; // the cheek's front rides off the cell
+                                               // boundary plane, which also carries the exposed
+                                               // cut ends of the wall pieces beside the mouth
+        private const float EndSkirtInset = 0.005f; // a face end's below-foot band pulls off the
+                                               // cell-boundary plane it shares with a stacked
+                                               // neighbour's end
         private const float BankDrop = 0.4f;   // shore bank vertical drop (45°)
         private const float BankReach = 0.4f;  // shore bank horizontal reach into the sea cell
         private const float ShoreBottom = -0.9f;
@@ -335,30 +356,37 @@ namespace Rokkan.Prophecy.Editor.Build
 
         // ---------------------------------------------------------------- cliff pieces
 
-        /// <summary>The rim lip along a top edge running down +X. Shared by faces, posts and the cheek.</summary>
-        private static void RimAlongX(B b, float topY, float halfW, Rect front, Rect top, Rect back, Rect ends)
+        /// <summary>The rim lip along a top edge running down +X. Shared by faces, posts and the
+        /// cheek. rimH lets the cheek run its own tier; extendNeg/extendPos stretch one end past
+        /// halfW for the cheek's proud tall end.</summary>
+        private static void RimAlongX(B b, float topY, float halfW, Rect front, Rect top, Rect back, Rect ends,
+                                      float rimH = RimH, float extendNeg = 0f, float extendPos = 0f)
         {
-            float rimMidY = topY + RimH * 0.5f;
+            float rimMidY = topY + rimH * 0.5f;
             float rimMidZ = (RimOver - RimProud) * 0.5f;
             float rimD = RimOver + RimProud;
+            float xNeg = -halfW - extendNeg;
+            float xPos = halfW + extendPos;
+            float w = xPos - xNeg;
+            float xMid = (xPos + xNeg) * 0.5f;
 
-            b.AxisQuad(new Vector3(0f, rimMidY, -RimProud), Vector3.right, Vector3.up, halfW * 2f, RimH,
+            b.AxisQuad(new Vector3(xMid, rimMidY, -RimProud), Vector3.right, Vector3.up, w, rimH,
                        TileRegion.Rim, front);
-            b.AxisQuad(new Vector3(0f, topY + RimH, rimMidZ), Vector3.right, Vector3.forward, halfW * 2f, rimD,
+            b.AxisQuad(new Vector3(xMid, topY + rimH, rimMidZ), Vector3.right, Vector3.forward, w, rimD,
                        TileRegion.Rim, top);
-            b.AxisQuad(new Vector3(0f, rimMidY, RimOver), -Vector3.right, Vector3.up, halfW * 2f, RimH,
+            b.AxisQuad(new Vector3(xMid, rimMidY, RimOver), -Vector3.right, Vector3.up, w, rimH,
                        TileRegion.Rim, back);
             // Rim ends are visible wherever a run terminates in the open — the jambs of every
             // stair cutting — so they wear the lip's colour, not trim darkness.
-            b.AxisQuad(new Vector3(halfW, rimMidY, rimMidZ), Vector3.forward, Vector3.up, rimD, RimH,
+            b.AxisQuad(new Vector3(xPos, rimMidY, rimMidZ), Vector3.forward, Vector3.up, rimD, rimH,
                        TileRegion.Rim, ends);
-            b.AxisQuad(new Vector3(-halfW, rimMidY, rimMidZ), -Vector3.forward, Vector3.up, rimD, RimH,
+            b.AxisQuad(new Vector3(xNeg, rimMidY, rimMidZ), -Vector3.forward, Vector3.up, rimD, rimH,
                        TileRegion.Rim, ends);
 
             // The proud strip's underside — without it a low camera sees an unlit slit where the
             // lip overhangs the face.
-            b.AxisQuad(new Vector3(0f, topY, -RimProud * 0.5f), -Vector3.right, Vector3.forward,
-                       halfW * 2f, RimProud, TileRegion.Rim, back);
+            b.AxisQuad(new Vector3(xMid, topY, -RimProud * 0.5f), -Vector3.right, Vector3.forward,
+                       w, RimProud, TileRegion.Rim, back);
         }
 
         /// <summary>Straight cliff face, n steps. Pivot: edge midpoint at the footline; front −Z.</summary>
@@ -393,11 +421,18 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // Side cut ends wear the rock face colour: in a run they butt invisibly, but
             // wherever the cliff line steps DOWN in height the taller piece's end is exposed —
-            // trim-dark there reads as a hole in the wall.
-            b.AxisQuad(new Vector3(0.5f, bodyMidY, WallT * 0.5f), Vector3.forward, Vector3.up, WallT, bodyH,
+            // trim-dark there reads as a hole in the wall. The skirt band of each end is a
+            // SEPARATE quad, inset EndSkirtInset: in a greedy stack the upper piece's end skirt
+            // lies in the lower piece's end plane (the per-tier proud offset moves fronts, not
+            // ends), and everywhere else that band is buried below the walk line anyway.
+            b.AxisQuad(new Vector3(0.5f, h * 0.5f, WallT * 0.5f), Vector3.forward, Vector3.up, WallT, h,
                        TileRegion.Face, face);
-            b.AxisQuad(new Vector3(-0.5f, bodyMidY, WallT * 0.5f), -Vector3.forward, Vector3.up, WallT, bodyH,
+            b.AxisQuad(new Vector3(-0.5f, h * 0.5f, WallT * 0.5f), -Vector3.forward, Vector3.up, WallT, h,
                        TileRegion.Face, face);
+            b.AxisQuad(new Vector3(0.5f - EndSkirtInset, -SkirtD * 0.5f, WallT * 0.5f), Vector3.forward, Vector3.up,
+                       WallT, SkirtD, TileRegion.Skirt, skirt);
+            b.AxisQuad(new Vector3(-(0.5f - EndSkirtInset), -SkirtD * 0.5f, WallT * 0.5f), -Vector3.forward, Vector3.up,
+                       WallT, SkirtD, TileRegion.Skirt, skirt);
             b.AxisQuad(new Vector3(0f, -SkirtD, WallT * 0.5f), -Vector3.right, Vector3.forward, 1f, WallT,
                        TileRegion.Trim, CellX(trim, 3, 5));
 
@@ -430,9 +465,9 @@ namespace Rokkan.Prophecy.Editor.Build
             b.Note(TileRegion.Skirt, skirt, "buried continuation of both faces, 0.5 m");
             b.Note(TileRegion.Trim, trim, "flat back planes (+Z, +X), underside, rim backs and ends");
 
-            float w = bulge + WallT;                 // footprint span on each axis
+            float w = bulge + PostFlatT;             // footprint span on each axis
             float faceMidY = h * 0.5f;
-            float cx = (WallT - bulge) * 0.5f;       // footprint centre offset from the corner line
+            float cx = (PostFlatT - bulge) * 0.5f;   // footprint centre offset from the corner line
 
             // The two outward rock faces and their skirts.
             b.AxisQuad(new Vector3(cx, faceMidY, -bulge), Vector3.right, Vector3.up, w, h,
@@ -449,19 +484,20 @@ namespace Rokkan.Prophecy.Editor.Build
             // planes are in plain view.
             float bodyMidY = (h - SkirtD) * 0.5f;
             float bodyH = h + SkirtD;
-            b.AxisQuad(new Vector3(cx, bodyMidY, WallT), -Vector3.right, Vector3.up, w, bodyH,
+            b.AxisQuad(new Vector3(cx, bodyMidY, PostFlatT), -Vector3.right, Vector3.up, w, bodyH,
                        TileRegion.Face, CellX(face, 0, 2));
-            b.AxisQuad(new Vector3(WallT, bodyMidY, cx), Vector3.forward, Vector3.up, w, bodyH,
+            b.AxisQuad(new Vector3(PostFlatT, bodyMidY, cx), Vector3.forward, Vector3.up, w, bodyH,
                        TileRegion.Face, CellX(face, 1, 2));
             b.AxisQuad(new Vector3(cx, -SkirtD, cx), -Vector3.right, Vector3.forward, w, w,
                        TileRegion.Trim, CellX(trim, 2, 4));
 
-            // Rim cap: a box over the whole footprint, proud on the two low sides — and 0.02
-            // TALLER than the face rims it overlaps, so the knuckle stands clear instead of
-            // sharing a coplanar top with them.
+            // Rim cap: a box over the whole footprint, proud on the two low sides — 0.04 TALLER
+            // than the face rims it overlaps, and its back planes ride PostRimBackZ past WallT,
+            // because WallT equals RimOver and a back plane at WallT sits exactly in the face
+            // rim's back plane.
             float rimMin = -bulge - RimProud;
-            float rimW = WallT - rimMin;
-            float rimCx = (WallT + rimMin) * 0.5f;
+            float rimW = PostRimBackZ - rimMin;
+            float rimCx = (PostRimBackZ + rimMin) * 0.5f;
             float rimMidY = h + PostRimH * 0.5f;
             b.AxisQuad(new Vector3(rimCx, rimMidY, rimMin), Vector3.right, Vector3.up, rimW, PostRimH,
                        TileRegion.Rim, CellX(rimFront, 0, 2));
@@ -469,9 +505,9 @@ namespace Rokkan.Prophecy.Editor.Build
                        TileRegion.Rim, CellX(rimFront, 1, 2));
             b.AxisQuad(new Vector3(rimCx, h + PostRimH, rimCx), Vector3.right, Vector3.forward, rimW, rimW,
                        TileRegion.Rim, rimTop);
-            b.AxisQuad(new Vector3(rimCx, rimMidY, WallT), -Vector3.right, Vector3.up, rimW, PostRimH,
+            b.AxisQuad(new Vector3(rimCx, rimMidY, PostRimBackZ), -Vector3.right, Vector3.up, rimW, PostRimH,
                        TileRegion.Rim, CellX(rimFront, 0, 2));
-            b.AxisQuad(new Vector3(WallT, rimMidY, rimCx), Vector3.forward, Vector3.up, rimW, PostRimH,
+            b.AxisQuad(new Vector3(PostRimBackZ, rimMidY, rimCx), Vector3.forward, Vector3.up, rimW, PostRimH,
                        TileRegion.Rim, CellX(rimFront, 1, 2));
 
             return b.Data;
@@ -509,38 +545,45 @@ namespace Rokkan.Prophecy.Editor.Build
             Vector3 M(Vector3 v) => mirrored ? new Vector3(-v.x, v.y, v.z) : v;
 
             // One cell long: it flanks only the recessed top cell, its diagonal matching that
-            // cell's rise.
+            // cell's rise. The tall end reaches CheekProudEnd PAST the cell boundary: it meets a
+            // terrace face there, and an end cap sitting IN that face's plane flickers. The FRONT
+            // rides CheekProudFace into the notch for the same reason — the cell-boundary plane
+            // it would otherwise sit in also carries the mouth-side wall pieces' exposed cut
+            // ends, and the jamb strip flickered.
             const float hl = 0.5f;
+            const float tall = -(hl + CheekProudEnd);
+            const float zF = -CheekProudFace;
 
             // Front: triangle above the ramp line (from (−0.5, 0) up to (+0.5, 0.7)), then the
             // parallelogram skirt strip below it.
-            b.Tri(M(new Vector3(-hl, 0f, 0f)), M(new Vector3(-hl, RampRise, 0f)), M(new Vector3(hl, RampRise, 0f)),
+            b.Tri(M(new Vector3(tall, 0f, zF)), M(new Vector3(tall, RampRise, zF)), M(new Vector3(hl, RampRise, zF)),
                   new Vector2(face.xMin, face.yMin), new Vector2(face.xMin, face.yMax),
                   new Vector2(face.xMax, face.yMax), TileRegion.Face, -Vector3.forward);
-            b.Quad(M(new Vector3(-hl, -CheekSkirt, 0f)), M(new Vector3(-hl, 0f, 0f)),
-                   M(new Vector3(hl, RampRise, 0f)), M(new Vector3(hl, RampRise - CheekSkirt, 0f)),
+            b.Quad(M(new Vector3(tall, -CheekSkirt, zF)), M(new Vector3(tall, 0f, zF)),
+                   M(new Vector3(hl, RampRise, zF)), M(new Vector3(hl, RampRise - CheekSkirt, zF)),
                    TileRegion.Skirt, skirt, -Vector3.forward);
 
-            RimAlongX(b, RampRise, hl, rimFront, rimTop, rimBack, CellX(trim, 3, 4));
+            RimAlongX(b, RampRise, hl, rimFront, rimTop, rimBack, CellX(trim, 3, 4),
+                      CheekRimH, mirrored ? 0f : CheekProudEnd, mirrored ? CheekProudEnd : 0f);
 
             // Back: same outline at z = WallT, facing +Z.
-            b.Tri(M(new Vector3(-hl, 0f, WallT)), M(new Vector3(-hl, RampRise, WallT)), M(new Vector3(hl, RampRise, WallT)),
+            b.Tri(M(new Vector3(tall, 0f, WallT)), M(new Vector3(tall, RampRise, WallT)), M(new Vector3(hl, RampRise, WallT)),
                   new Vector2(CellX(trim, 0, 4).xMin, trim.yMin), new Vector2(CellX(trim, 0, 4).xMin, trim.yMax),
                   new Vector2(CellX(trim, 0, 4).xMax, trim.yMax), TileRegion.Trim, Vector3.forward);
-            b.Quad(M(new Vector3(-hl, -CheekSkirt, WallT)), M(new Vector3(-hl, 0f, WallT)),
+            b.Quad(M(new Vector3(tall, -CheekSkirt, WallT)), M(new Vector3(tall, 0f, WallT)),
                    M(new Vector3(hl, RampRise, WallT)), M(new Vector3(hl, RampRise - CheekSkirt, WallT)),
                    TileRegion.Trim, CellX(trim, 0, 4), Vector3.forward);
 
             // Ends (tall then head). These are VISIBLE — the tall end is the jamb at the mouth
             // of every stair cutting — so they wear the rock face region, not trim.
-            b.Quad(M(new Vector3(-hl, -CheekSkirt, WallT)), M(new Vector3(-hl, RampRise, WallT)),
-                   M(new Vector3(-hl, RampRise, 0f)), M(new Vector3(-hl, -CheekSkirt, 0f)),
+            b.Quad(M(new Vector3(tall, -CheekSkirt, WallT)), M(new Vector3(tall, RampRise, WallT)),
+                   M(new Vector3(tall, RampRise, zF)), M(new Vector3(tall, -CheekSkirt, zF)),
                    TileRegion.Face, face, M(new Vector3(-1f, 0f, 0f)));
-            b.Quad(M(new Vector3(hl, RampRise - CheekSkirt, 0f)), M(new Vector3(hl, RampRise, 0f)),
+            b.Quad(M(new Vector3(hl, RampRise - CheekSkirt, zF)), M(new Vector3(hl, RampRise, zF)),
                    M(new Vector3(hl, RampRise, WallT)), M(new Vector3(hl, RampRise - CheekSkirt, WallT)),
                    TileRegion.Face, face, M(new Vector3(1f, 0f, 0f)));
-            b.Quad(M(new Vector3(-hl, -CheekSkirt, WallT)), M(new Vector3(-hl, -CheekSkirt, 0f)),
-                   M(new Vector3(hl, RampRise - CheekSkirt, 0f)), M(new Vector3(hl, RampRise - CheekSkirt, WallT)),
+            b.Quad(M(new Vector3(tall, -CheekSkirt, WallT)), M(new Vector3(tall, -CheekSkirt, zF)),
+                   M(new Vector3(hl, RampRise - CheekSkirt, zF)), M(new Vector3(hl, RampRise - CheekSkirt, WallT)),
                    TileRegion.Trim, CellX(trim, 2, 4), new Vector3(0f, -1f, 0f));
 
             return b.Data;

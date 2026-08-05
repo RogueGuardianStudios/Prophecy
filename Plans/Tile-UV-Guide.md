@@ -98,7 +98,7 @@ Band rule, one high cell at the corner. Also placed back-to-back in pairs for di
 | Region | UV rect (u0, v0 → u1, v1) | Pixels @1024 | What maps there |
 |---|---|---|---|
 | Rim | (0.01, 0.85 → 0.99, 1.00) | (10, 865) → (1014, 1019) | lip fronts (−Z then −X) on the top strip, lip top cap on the square below |
-| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.40 × 2.0 m each (−Z face left, −X face right) |
+| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.42 × 2.0 m each (−Z face left, −X face right) |
 | Skirt | (0.01, 0.22 → 0.99, 0.40) | (10, 225) → (1014, 410) | buried continuation of both faces, 0.5 m |
 | Trim | (0.01, 0.01 → 0.99, 0.20) | (10, 10) → (1014, 205) | flat back planes (+Z, +X), underside, rim backs and ends |
 
@@ -109,7 +109,7 @@ Band rule, one high cell at the corner. Also placed back-to-back in pairs for di
 | Region | UV rect (u0, v0 → u1, v1) | Pixels @1024 | What maps there |
 |---|---|---|---|
 | Rim | (0.01, 0.85 → 0.99, 1.00) | (10, 865) → (1014, 1019) | lip fronts (−Z then −X) on the top strip, lip top cap on the square below |
-| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.40 × 4.0 m each (−Z face left, −X face right) |
+| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.42 × 4.0 m each (−Z face left, −X face right) |
 | Skirt | (0.01, 0.22 → 0.99, 0.40) | (10, 225) → (1014, 410) | buried continuation of both faces, 0.5 m |
 | Trim | (0.01, 0.01 → 0.99, 0.20) | (10, 10) → (1014, 205) | flat back planes (+Z, +X), underside, rim backs and ends |
 
@@ -120,7 +120,7 @@ Band rule, one high cell at the corner. Also placed back-to-back in pairs for di
 | Region | UV rect (u0, v0 → u1, v1) | Pixels @1024 | What maps there |
 |---|---|---|---|
 | Rim | (0.01, 0.85 → 0.99, 1.00) | (10, 865) → (1014, 1019) | lip fronts (−Z then −X) on the top strip, lip top cap on the square below |
-| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.40 × 6.0 m each (−Z face left, −X face right) |
+| Face | (0.01, 0.42 → 0.99, 0.82) | (10, 430) → (1014, 840) | the two rock faces, 0.42 × 6.0 m each (−Z face left, −X face right) |
 | Skirt | (0.01, 0.22 → 0.99, 0.40) | (10, 225) → (1014, 410) | buried continuation of both faces, 0.5 m |
 | Trim | (0.01, 0.01 → 0.99, 0.20) | (10, 10) → (1014, 205) | flat back planes (+Z, +X), underside, rim backs and ends |
 
