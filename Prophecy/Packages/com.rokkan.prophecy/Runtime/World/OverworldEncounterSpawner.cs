@@ -71,6 +71,11 @@ namespace Rokkan.Prophecy.World
                                  "a body's width — touching, not near.")]
         private float _touchRadius = 0.9f;
 
+        [SerializeField, Tooltip("A touch only counts on the same floor: the feet must be within " +
+                                 "this height of the wanderer. Half a terrace step, so a body on " +
+                                 "a bridge deck is out of reach of the road below it.")]
+        private float _touchHeightTolerance = 1f;
+
         private readonly List<GameObject> _alive = new List<GameObject>();
         private float _nextSpawnAt;
 
@@ -89,7 +94,7 @@ namespace Rokkan.Prophecy.World
             var player = director != null ? director.Player : null;
             if (player == null || director.IsTransitioning) return;
 
-            var feet = SpaceMapping.ToWorld(player.CurrentPosition, player.Space, player.RailDepth);
+            var feet = player.FeetWorldPosition;
 
             if (TouchSpringsTheEncounter(director, feet)) return;
 
@@ -118,7 +123,14 @@ namespace Rokkan.Prophecy.World
                 if (wanderer == null) continue;
 
                 var delta = wanderer.transform.position - playerFeet;
-                delta.y = 0f;   // height is the railed axis up here; a touch is a plane question
+
+                // Mostly a plane question — but not entirely, since layers arrived: a body on a
+                // bridge deck is not touching the wanderer walking beneath it. Half a terrace
+                // step separates "same floor" from "different floor". (A field, not the grid's
+                // Step: this assembly sits below the overworld one, the same seam that keeps the
+                // sim off the grid.)
+                if (Mathf.Abs(delta.y) > _touchHeightTolerance) continue;
+                delta.y = 0f;
 
                 if (delta.sqrMagnitude > _touchRadius * _touchRadius) continue;
 

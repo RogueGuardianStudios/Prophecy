@@ -203,12 +203,37 @@ namespace Rokkan.Prophecy.Presentation
         /// Move the character and reset its motion — scene transitions and respawns. Goes through
         /// the sim's own Teleport so no stale velocity or coyote credit survives the move, and
         /// collapses the interpolation window so the view does not smear across the jump.
+        ///
+        /// <para>In top-down the arrival's world HEIGHT picks the ground layer: a spawn point
+        /// inside a cave or on a bridge deck sits at that surface's Y, and asking the ground
+        /// which surface is nearest seeds the token the walk-based resolution can never learn
+        /// from a teleport.</para>
         /// </summary>
         public void TeleportTo(Vector3 worldPosition, int facing = 0)
         {
             var plane = SpaceMapping.ToPlane(worldPosition, _space);
-            Sim.Teleport(plane, facing);
+            int layer = _space == MovementSpace.TopDown && TopDownGroundSource.Current != null
+                ? TopDownGroundSource.Current.LayerFor(plane, worldPosition.y)
+                : 0;
+            Sim.Teleport(plane, facing, layer);
             PreviousPosition = CurrentPosition = plane;
+        }
+
+        /// <summary>
+        /// Where the feet are in world space, including the ground's height on the surface the
+        /// body is actually standing on. Portals test against this — with the flat rail depth a
+        /// portal on a bridge deck never fires, and one on a cave floor fires for a body walking
+        /// the terrace above it.
+        /// </summary>
+        public Vector3 FeetWorldPosition
+        {
+            get
+            {
+                var world = SpaceMapping.ToWorld(CurrentPosition, _space, _railDepth);
+                if (_space == MovementSpace.TopDown && TopDownGroundSource.Current != null && Sim != null)
+                    world.y = TopDownGroundSource.Current.HeightAt(CurrentPosition, Sim.State.GroundLayer);
+                return world;
+            }
         }
 
         /// <summary>

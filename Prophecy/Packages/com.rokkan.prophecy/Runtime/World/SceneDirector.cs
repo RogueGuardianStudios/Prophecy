@@ -40,6 +40,17 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("Loaded on start-up, unless a world scene is already open.")]
         private string _firstWorldScene = "GrayBox_Traversal";
 
+        /// <summary>
+        /// Spawn id meaning "back where the player left this scene". Zelda II's encounter rule:
+        /// the fight interrupts the journey, it does not restart it. The director remembers the
+        /// feet (with their surface height — a departure from a bridge deck or a cave floor
+        /// returns to that surface, not the one above or below it) and the facing at every
+        /// departure; a portal targeting this id arrives there. Falls back to the scene's
+        /// default spawn when nothing is remembered — a fresh session started inside the
+        /// side-scroll scene has no departure to return to.
+        /// </summary>
+        public const string ReturnSpawnId = "@return";
+
         public static SceneDirector Instance { get; private set; }
 
         /// <summary>The persistent player this director moves. Read by portals, which need to know
@@ -50,6 +61,14 @@ namespace Rokkan.Prophecy.World
         private SpawnPoint _activeSpawn;
         private TransitionVeil _veil;
         private SimClockDriver _worldClock;
+
+        // Where the player last left each departed scene: the feet (surface height included) and
+        // facing, keyed by the scene they were in. Keyed, not a single slot: every transition
+        // records a departure, so by the time a return arrival is resolved the "last" departure
+        // is the scene being left, not the one being returned to. That bug shipped for about a
+        // minute.
+        private readonly System.Collections.Generic.Dictionary<string, (Vector3 Feet, int Facing)>
+            _departures = new System.Collections.Generic.Dictionary<string, (Vector3, int)>();
 
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
@@ -160,6 +179,16 @@ namespace Rokkan.Prophecy.World
                 yield break;
             }
 
+            // Remember the departure before anything moves: a portal targeting ReturnSpawnId in
+            // the next scene brings the player back to exactly this spot, on exactly this
+            // surface — FeetWorldPosition carries the layered ground height, which is what lets
+            // a return into a cave or onto a bridge deck land on the right floor.
+            if (_player != null && !string.IsNullOrEmpty(CurrentWorldScene))
+            {
+                _departures[CurrentWorldScene] =
+                    (_player.FeetWorldPosition, _player.Sim != null ? _player.Sim.State.Facing : 0);
+            }
+
             // The world freezes the moment the transition begins — the wanderer that caught you
             // holds its pose, mid-stride, while the screen does its work — and the effect plays
             // over that stopped frame. Movement resumes only when the reveal has finished.
@@ -232,12 +261,24 @@ namespace Rokkan.Prophecy.World
             }
 
             _descriptor = descriptor;
-            _activeSpawn = descriptor.ResolveSpawn(spawnId);
+
+            // A return arrival goes back to the remembered departure, not to a SpawnPoint. The
+            // remembered feet keep their surface height, so TeleportTo re-seeds the ground layer
+            // and a player who left from a deck or a cave floor comes back onto it. Respawns
+            // (falls, death) still use the resolved spawn below — dying in the fight should not
+            // re-run the return.
+            var departure = default((Vector3 Feet, int Facing));
+            bool returning = spawnId == ReturnSpawnId &&
+                             _departures.TryGetValue(scene.name, out departure);
+            _activeSpawn = descriptor.ResolveSpawn(spawnId == ReturnSpawnId ? null : spawnId);
 
             if (_player != null)
             {
                 _player.ConfigureSpace(descriptor.Space);
-                if (_activeSpawn != null) _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
+                if (returning)
+                    _player.TeleportTo(departure.Feet, departure.Facing);
+                else if (_activeSpawn != null)
+                    _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
             }
 
             if (_camera != null)

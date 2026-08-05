@@ -44,5 +44,13 @@ namespace Rokkan.Prophecy.Sim
 
         /// <summary>Floor elevation of the given layer's surface. Default: the planar answer.</summary>
         float HeightAt(Vector2 point, int layer) => HeightAt(point);
+
+        /// <summary>
+        /// The layer token whose surface sits nearest <paramref name="height"/> at this point —
+        /// how an arrival that knows only a world position (a spawn point inside a cave, a portal
+        /// return onto a bridge deck) gets a correct token without walking there. Single-surface
+        /// grounds have exactly one answer.
+        /// </summary>
+        int LayerFor(Vector2 point, float height) => 0;
     }
 }

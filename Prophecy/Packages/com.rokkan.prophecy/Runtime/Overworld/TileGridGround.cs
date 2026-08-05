@@ -48,6 +48,19 @@ namespace Rokkan.Prophecy.Overworld
             return CanStep(from, to, ref layer);
         }
 
+        /// <summary>Nearest surface to <paramref name="height"/> wins; the base surface wins
+        /// ties. Over open sea the deck is the only surface, whatever the height says.</summary>
+        public int LayerFor(Vector2 point, float height)
+        {
+            if (!_grid.TryCellAt(point, out int x, out int z)) return 0;
+            if (!_grid.TryOverlayAt(x, z, out int overlay)) return 0;
+            if (_grid.KindAt(x, z) == TileCellKind.Sea) return 1;
+
+            float baseH = _grid.SurfaceHeight(x, z, point);
+            float overlayH = overlay * OverworldTileGrid.Step;
+            return Mathf.Abs(overlayH - height) < Mathf.Abs(baseH - height) ? 1 : 0;
+        }
+
         public bool CanStep(Vector2 from, Vector2 to, ref int layer)
         {
             if (!_grid.TryCellAt(to, out int tx, out int tz) || !HasSurface(tx, tz))

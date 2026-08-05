@@ -413,6 +413,47 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void ArrivalsPickTheSurfaceNearestTheirHeight()
+        {
+            // A spawn point or a return portal knows only a world position — LayerFor turns its
+            // height into the token connectivity would have produced by walking there.
+            var grid = Flat(2, 2);
+            grid.SetOverlay(0, 0, 1);                    // a deck one step up
+            grid.Set(1, 1, TileCellKind.Sea, 0);
+            grid.SetOverlay(1, 1, 1);                    // a bridge over open water
+            var ground = new TileGridGround(grid);
+
+            Assert.AreEqual(0, ground.LayerFor(Centre(0, 0), 0.1f),
+                "An arrival near the ground stands on the base surface.");
+            Assert.AreEqual(1, ground.LayerFor(Centre(0, 0), OverworldTileGrid.Step - 0.1f),
+                "An arrival near the deck stands on the overlay.");
+            Assert.AreEqual(0, ground.LayerFor(Centre(1, 0), 50f),
+                "Without an overlay there is exactly one answer.");
+            Assert.AreEqual(1, ground.LayerFor(Centre(1, 1), 0f),
+                "Over open sea the deck is the only surface, whatever the height claims.");
+        }
+
+        [Test]
+        public void ATeleportCanArriveOnANamedSurface()
+        {
+            // Walk-based layer resolution can never learn anything from a teleport — the arrival
+            // says which surface it means, and the sim stores the token verbatim.
+            var grid = Flat(2, 2);
+            grid.SetOverlay(0, 0, 1);
+            var ground = new TileGridGround(grid);
+
+            var sim = PlayerCharacterFactory.Create(new Rokkan.Prophecy.Sim.Collision.CollisionWorld(),
+                                                    new MovementTuningData(), MovementSpace.TopDown);
+            sim.Ground = ground;
+            sim.Teleport(Centre(0, 0), 0, ground.LayerFor(Centre(0, 0), OverworldTileGrid.Step));
+
+            Assert.AreEqual(1, sim.State.GroundLayer, "The return landed on the deck…");
+            Assert.AreEqual(OverworldTileGrid.Step,
+                ground.HeightAt(sim.State.Position, sim.State.GroundLayer), 0.001f,
+                "…and stands at its height.");
+        }
+
+        [Test]
         public void TheMouthIsAnOpeningAndTheCaveGrowsInteriorWalls()
         {
             var grid = Flat(1, 3);

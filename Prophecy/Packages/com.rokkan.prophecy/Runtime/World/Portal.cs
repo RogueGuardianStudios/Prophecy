@@ -52,8 +52,10 @@ namespace Rokkan.Prophecy.World
             if (player == null) return;
 
             // The sim's position mapped to world, not the transform: the transform is written by
-            // CharacterView, which is a component that may legitimately not exist.
-            var feet = SpaceMapping.ToWorld(player.CurrentPosition, player.Space, player.RailDepth);
+            // CharacterView, which is a component that may legitimately not exist. Layered feet,
+            // not the flat rail depth: a portal on a bridge deck must feel the body that is ON
+            // the deck, and a cave-floor portal must not fire for one crossing the roof above.
+            var feet = player.FeetWorldPosition;
 
             if (Evaluate(feet, director.IsTransitioning))
                 director.GoTo(_targetScene, _targetSpawnId);

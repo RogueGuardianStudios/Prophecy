@@ -236,17 +236,20 @@ namespace Rokkan.Prophecy.Editor.Build
         /// A portal at each end of the course, both leading to the overworld.
         ///
         /// <para>West sits on the run-up's edge; east on the last stretch of floor, in front of
-        /// the end wall. They arrive at different overworld spawns — leaving by different ends of
-        /// a place should put you at different sides of its door.</para>
+        /// the end wall. Both return to WHERE THE PLAYER LEFT the overworld (the @return spawn):
+        /// this scene is the encounter arena, and Zelda II's rule is that the fight interrupts
+        /// the journey — you resume your map spot, your terrace, your bridge deck. The earlier
+        /// door model (different ends, different overworld doors) lost the player's position on
+        /// every encounter, and lost their SURFACE once bridges and caves existed.</para>
         /// </summary>
         private static void CreatePortals(Transform parent, float start, float end)
         {
             PortalAt(parent, "Portal_West", start + 1.6f,
-                     GrayBoxOverworldBuilder.SceneName, GrayBoxOverworldBuilder.WestSpawnId);
+                     GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
 
             // The end wall occupies the last two metres; the portal stands on the floor before it.
             PortalAt(parent, "Portal_East", end - 4f,
-                     GrayBoxOverworldBuilder.SceneName, GrayBoxOverworldBuilder.EastSpawnId);
+                     GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
         }
 
         /// <summary>

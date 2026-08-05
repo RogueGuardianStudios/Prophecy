@@ -564,11 +564,12 @@ namespace Rokkan.Prophecy.Sim
 
         /// <summary>Place the character, clearing motion and history. Used on spawn and on scene
         /// transitions so no stale velocity or coyote credit survives the move.</summary>
-        public void Teleport(Vector2 footPosition, int facing = 0)
+        public void Teleport(Vector2 footPosition, int facing = 0, int groundLayer = 0)
         {
             State.Position = footPosition;
             State.Velocity = Vector2.zero;
-            State.GroundLayer = 0;   // spawns and portals arrive on the base surface
+            State.GroundLayer = groundLayer;   // callers that know the arrival surface say so;
+                                               // everyone else lands on the base surface
             State.LastGroundedTick = long.MinValue;
             State.AirRefreshTick = long.MinValue;
             State.JumpConsumedTick = long.MinValue;
