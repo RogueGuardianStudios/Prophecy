@@ -27,6 +27,10 @@ namespace Rokkan.Prophecy.Overworld
                                  "Generate Overworld Tiles.")]
         private OverworldTileSet _tiles;
 
+        [SerializeField, Tooltip("The biome palette — variant tile sets per biome index. " +
+                                 "Optional: empty means gray-box everywhere.")]
+        private OverworldBiomePalette _biomes;
+
         [SerializeField, Tooltip("Stairs read classic ALttP at cliff cuttings; ramps suit roads. " +
                                  "One choice for the whole map until per-ramp authoring exists.")]
         private bool _stairsForRamps = true;
@@ -82,7 +86,7 @@ namespace Rokkan.Prophecy.Overworld
             sceneryRoot.SetParent(transform, false);
 
             _built = OverworldWorldBuilder.Build(_map, _tiles, _walkableRoot, sceneryRoot,
-                                                 transform.position, _stairsForRamps);
+                                                 transform.position, _stairsForRamps, _biomes);
 
             BakeNavMesh();
 

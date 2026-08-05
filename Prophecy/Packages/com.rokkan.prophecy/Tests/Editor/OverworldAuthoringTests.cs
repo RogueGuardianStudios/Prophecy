@@ -338,6 +338,95 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheVariantPickerIsDeterministicAndFallsBackToGrayBox()
+        {
+            var map = PlainMap(8f);
+            map.BiomeAreas = new[]
+            {
+                new AuthoredBiomeArea { Name = "All", BiomeIndex = 0, Centre = Vector2.zero,
+                                        Size = new Vector2(8f, 8f), Feather = 0f },
+            };
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            var fallback = new GameObject("Base");
+            var v1 = new GameObject("V1");
+            var v2 = new GameObject("V2");
+            _cleanup.Add(fallback); _cleanup.Add(v1); _cleanup.Add(v2);
+
+            var biome = ScriptableObject.CreateInstance<OverworldBiome>();
+            biome.Cap = new[]
+            {
+                new OverworldBiomeVariant { Prefab = v1, Weight = 1f },
+                new OverworldBiomeVariant { Prefab = v2, Weight = 1f },
+            };
+            var palette = ScriptableObject.CreateInstance<OverworldBiomePalette>();
+            palette.Biomes = new[] { biome };
+
+            var cell = new Vector2Int(4, 4);
+
+            Assert.AreSame(fallback,
+                OverworldBiomePicker.Pick(null, grid, 7u, OverworldTilePiece.Cap, cell, fallback),
+                "No palette: the gray-box base set.");
+            Assert.AreSame(fallback,
+                OverworldBiomePicker.Pick(palette, grid, 7u, OverworldTilePiece.Cap,
+                                          new Vector2Int(-1, -1), fallback),
+                "No owner (the global sea plane): base set.");
+            Assert.AreSame(fallback,
+                OverworldBiomePicker.Pick(palette, grid, 7u, OverworldTilePiece.Face1, cell, fallback),
+                "An EMPTY slot falls back — a biome ships with only its caps done.");
+
+            var first = OverworldBiomePicker.Pick(palette, grid, 7u, OverworldTilePiece.Cap,
+                                                  cell, fallback);
+            var second = OverworldBiomePicker.Pick(palette, grid, 7u, OverworldTilePiece.Cap,
+                                                   cell, fallback);
+            Assert.AreSame(first, second,
+                "Same map seed, same cell, same piece: the same variant, every load, forever.");
+            Assert.IsTrue(first == v1 || first == v2, "…and it is a real variant.");
+        }
+
+        [Test]
+        public void TheHighCellOwnsItsWallsAndLandOwnsItsShore()
+        {
+            var map = ScriptableObject.CreateInstance<OverworldMap>();
+            map.BoundsSize = new Vector2(8f, 8f);
+            map.Regions = new[]
+            {
+                // An island with a sea ring, and a terrace on its north half: shore pieces AND
+                // cliff faces in one compile.
+                new AuthoredRegion { Name = "Isle", Centre = Vector2.zero,
+                                     Size = new Vector2(6f, 6f), Y = 0f },
+                new AuthoredRegion { Name = "Terrace", Centre = new Vector2(0f, 1.5f),
+                                     Size = new Vector2(6f, 3f), Y = OverworldTileGrid.Step },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var placements = TilePiecePlanner.Plan(grid, true);
+
+            int checkedFaces = 0, checkedShores = 0;
+            for (int i = 0; i < placements.Count; i++)
+            {
+                var p = placements[i];
+                if (p.Piece == OverworldTilePiece.Face1 && Mathf.Abs(p.Position.z) < 0.02f)
+                {
+                    // The terrace wall between low z=3 cells and high z=4 cells sits at world
+                    // z=0 — its faces must belong to the HIGH row.
+                    Assert.AreEqual(4, p.OwnerCell.y, "The high cell owns its wall.");
+                    checkedFaces++;
+                }
+
+                if (p.Piece == OverworldTilePiece.ShoreEdge)
+                {
+                    Assert.AreEqual(TileCellKind.Ground,
+                        grid.KindAt(p.OwnerCell.x, p.OwnerCell.y), "Land owns its shore.");
+                    checkedShores++;
+                }
+            }
+
+            Assert.Greater(checkedFaces, 0, "The terrace wall must actually exist.");
+            Assert.Greater(checkedShores, 0, "The coast must actually exist.");
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);

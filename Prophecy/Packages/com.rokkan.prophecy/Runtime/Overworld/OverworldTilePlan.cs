@@ -35,6 +35,11 @@ namespace Rokkan.Prophecy.Overworld
         public Vector3 Position;
         public float Yaw;
         public Vector3 Scale;
+
+        /// <summary>The cell whose biome this piece wears — the settled ownership rules: cell
+        /// pieces own themselves, the HIGH cell owns its walls and posts, land owns its shore.
+        /// (−1, −1) = no owner (the global sea plane), always the base set.</summary>
+        public Vector2Int OwnerCell;
     }
 
     /// <summary>
@@ -82,7 +87,8 @@ namespace Rokkan.Prophecy.Overworld
                     // over water).
                     if (grid.TryOverlayAt(x, z, out int overlayLevel))
                         Add(list, OverworldTilePiece.Cap,
-                            new Vector3(cellCentre.x, overlayLevel * Step, cellCentre.y), 0f);
+                            new Vector3(cellCentre.x, overlayLevel * Step, cellCentre.y), 0f,
+                            new Vector2Int(x, z));
 
                     if (kind == TileCellKind.Sea) continue;
 
@@ -91,7 +97,8 @@ namespace Rokkan.Prophecy.Overworld
                     if (kind == TileCellKind.Ground)
                     {
                         Add(list, OverworldTilePiece.Cap,
-                            new Vector3(centre.x, grid.LevelAt(x, z) * Step, centre.y), 0f);
+                            new Vector3(centre.x, grid.LevelAt(x, z) * Step, centre.y), 0f,
+                            new Vector2Int(x, z));
                         continue;
                     }
 
@@ -109,7 +116,7 @@ namespace Rokkan.Prophecy.Overworld
                     float rampY = (grid.LevelAt(x, z) +
                                    grid.RampIndexAt(x, z) / (float)OverworldTileGrid.RampRun) * Step;
                     Add(list, stairs ? OverworldTilePiece.Stairs : OverworldTilePiece.Ramp,
-                        new Vector3(centre.x, rampY, centre.y), yaw);
+                        new Vector3(centre.x, rampY, centre.y), yaw, new Vector2Int(x, z));
                 }
             }
         }
@@ -164,14 +171,16 @@ namespace Rokkan.Prophecy.Overworld
             // The cheek's pivot is the NOTCH cell's own foot plane — one rise below the wall top.
             float footY = (level + (OverworldTileGrid.RampRun - 1)
                            / (float)OverworldTileGrid.RampRun) * Step;
+            // The cheek and any wall above it belong to the terrace they are cut from.
             Add(list, mirror ? OverworldTilePiece.CheekMirrored : OverworldTilePiece.Cheek,
-                new Vector3(mid.x, footY, mid.y), yaw);
+                new Vector3(mid.x, footY, mid.y), yaw, new Vector2Int(nx, nz));
 
             covered.Add(EdgeKey(grid, x, z, side.x, side.y));
 
             int wall = grid.LevelAt(nx, nz);
             if (wall > level + 1)
-                EmitFaces(list, mid, wall, level + 1, FrontYaw(-side.x, -side.y), -side);
+                EmitFaces(list, mid, wall, level + 1, FrontYaw(-side.x, -side.y), -side,
+                          new Vector2Int(nx, nz));
         }
 
         /// <summary>Canonical id of the edge leaving (ax, az) toward (ax+dx, az+dz).</summary>
@@ -229,12 +238,15 @@ namespace Rokkan.Prophecy.Overworld
                 int waterLevel = grid.LevelAt(aIsLand ? bx : ax, aIsLand ? bz : az);
                 int relative = landEdge - waterLevel * OverworldTileGrid.RampRun;
 
+                // Land owns its shore and its cliffs into the water.
                 if (relative <= 0)
                     Add(list, OverworldTilePiece.ShoreEdge,
-                        new Vector3(mid.x, waterLevel * Step, mid.y), FrontYaw(sdx, sdz));
+                        new Vector3(mid.x, waterLevel * Step, mid.y), FrontYaw(sdx, sdz),
+                        new Vector2Int(lx, lz));
                 else if (relative % OverworldTileGrid.RampRun == 0)
                     EmitFaces(list, mid, landEdge / OverworldTileGrid.RampRun, waterLevel,
-                              FrontYaw(sdx, sdz), new Vector2Int(sdx, sdz));
+                              FrontYaw(sdx, sdz), new Vector2Int(sdx, sdz),
+                              new Vector2Int(lx, lz));
                 return;
             }
 
@@ -253,7 +265,9 @@ namespace Rokkan.Prophecy.Overworld
             // A cave floor against solid rock grows its interior wall: from the floor up to the
             // lower of the two rock tops, facing into the floor's cell. A deck above the rock
             // needs nothing — its slab edge is the whole story.
-            void OverlayWall(bool has, int floorLevel, Vector2Int towardFloor)
+            // A cave's interior wall is the ROCK's face, not the floor's — the high side owns
+            // its walls here as everywhere.
+            void OverlayWall(bool has, int floorLevel, Vector2Int towardFloor, Vector2Int rockCell)
             {
                 if (!has || Connected(floorLevel * run)) return;
 
@@ -261,11 +275,11 @@ namespace Rokkan.Prophecy.Overworld
                 if (top % run != 0 || top / run <= floorLevel) return;
 
                 EmitFaces(list, mid, top / run, floorLevel,
-                          FrontYaw(towardFloor.x, towardFloor.y), towardFloor);
+                          FrontYaw(towardFloor.x, towardFloor.y), towardFloor, rockCell);
             }
 
-            OverlayWall(hasOA, oA, new Vector2Int(-dx, -dz));
-            OverlayWall(hasOB, oB, new Vector2Int(dx, dz));
+            OverlayWall(hasOA, oA, new Vector2Int(-dx, -dz), new Vector2Int(bx, bz));
+            OverlayWall(hasOB, oB, new Vector2Int(dx, dz), new Vector2Int(ax, az));
 
             if (edgeA == edgeB) return;
 
@@ -285,7 +299,8 @@ namespace Rokkan.Prophecy.Overworld
             bool aHigh = edgeA > edgeB;
             var front = aHigh ? new Vector2Int(dx, dz) : new Vector2Int(-dx, -dz);
             EmitFaces(list, mid, hi / OverworldTileGrid.RampRun, lo / OverworldTileGrid.RampRun,
-                      FrontYaw(front.x, front.y), front);
+                      FrontYaw(front.x, front.y), front,
+                      aHigh ? new Vector2Int(ax, az) : new Vector2Int(bx, bz));
         }
 
         /// <summary>
@@ -322,7 +337,7 @@ namespace Rokkan.Prophecy.Overworld
         /// the low side per tier: an upper piece's skirt lies on the same plane as the front of
         /// the piece below it, and coplanar same-facing quads boil while the camera moves.</summary>
         private static void EmitFaces(List<TilePlacement> list, Vector2 mid, int top, int bottom,
-                                      float yaw, Vector2Int front)
+                                      float yaw, Vector2Int front, Vector2Int owner)
         {
             int pieces = (top - bottom + 2) / 3;
             int level = top;
@@ -336,7 +351,7 @@ namespace Rokkan.Prophecy.Overworld
                 float proud = 0.01f * (pieces - 1 - emitted);
                 Add(list, FacePiece(h),
                     new Vector3(mid.x + front.x * proud, level * Step, mid.y + front.y * proud),
-                    yaw);
+                    yaw, owner);
                 emitted++;
             }
         }
@@ -347,6 +362,7 @@ namespace Rokkan.Prophecy.Overworld
         {
             var levels = new int[4];     // cell (i, j) at index j * 2 + i
             var land = new bool[4];
+            var cells = new Vector2Int[4];
 
             for (int cz = 0; cz <= grid.Height; cz++)
             {
@@ -371,6 +387,7 @@ namespace Rokkan.Prophecy.Overworld
 
                             land[j * 2 + i] = isLand;
                             levels[j * 2 + i] = level;
+                            cells[j * 2 + i] = new Vector2Int(x, z);
                             anyLand |= isLand;
                             if (level < min) min = level;
                             if (level > max) max = level;
@@ -381,8 +398,8 @@ namespace Rokkan.Prophecy.Overworld
 
                     var point = grid.CornerPoint(cx, cz);
 
-                    if (max > min) PlanCliffBands(list, point, levels, min, max);
-                    else PlanShoreCorner(list, point, land, max);
+                    if (max > min) PlanCliffBands(list, point, levels, cells, min, max);
+                    else PlanShoreCorner(list, point, land, cells, max);
                 }
             }
         }
@@ -394,7 +411,7 @@ namespace Rokkan.Prophecy.Overworld
         /// the same greedy height split as faces.
         /// </summary>
         private static void PlanCliffBands(List<TilePlacement> list, Vector2 point,
-                                           int[] levels, int min, int max)
+                                           int[] levels, Vector2Int[] cells, int min, int max)
         {
             int runStart = min;
             int runMask = HighMask(levels, min);
@@ -404,7 +421,7 @@ namespace Rokkan.Prophecy.Overworld
                 int mask = b < max ? HighMask(levels, b) : -1;
                 if (mask == runMask) continue;
 
-                EmitPosts(list, point, runMask, runStart, b - runStart);
+                EmitPosts(list, point, runMask, runStart, b - runStart, levels, cells);
                 runStart = b;
                 runMask = mask;
             }
@@ -419,13 +436,23 @@ namespace Rokkan.Prophecy.Overworld
         }
 
         private static void EmitPosts(List<TilePlacement> list, Vector2 point, int mask,
-                                      int foot, int height)
+                                      int foot, int height, int[] levels, Vector2Int[] cells)
         {
             int count = CountBits(mask);
             if (count == 0 || count == 4) return;
 
             bool diagonal = mask == 0b1001 || mask == 0b0110;
             if (count == 2 && !diagonal) return;   // straight — collinear faces butt cleanly
+
+            // Inner posts fill the crease of THREE high cells — the tallest of them owns the
+            // knuckle (first wins ties: deterministic). Outer posts each belong to their own
+            // high cell.
+            int innerOwner = -1;
+            if (count == 3)
+                for (int c = 0; c < 4; c++)
+                    if ((mask & (1 << c)) != 0 &&
+                        (innerOwner < 0 || levels[c] > levels[innerOwner]))
+                        innerOwner = c;
 
             // Split the run greedily top-down, then place bottom-up. Stacked pieces step 0.01 m
             // toward their low side per tier — the same coplanar-skirt rule as stacked faces.
@@ -446,7 +473,7 @@ namespace Rokkan.Prophecy.Overworld
                     var low = Quadrant(SingleQuadrant(lowCell));
                     Add(list, InnerPiece(h),
                         new Vector3(point.x + low.x * proud, level * Step, point.y + low.y * proud),
-                        InnerYaw(SingleQuadrant(lowCell)));
+                        InnerYaw(SingleQuadrant(lowCell)), cells[innerOwner]);
                 }
                 else
                 {
@@ -456,7 +483,7 @@ namespace Rokkan.Prophecy.Overworld
                             var q = Quadrant(c);
                             Add(list, OuterPiece(h),
                                 new Vector3(point.x - q.x * proud, level * Step, point.y - q.y * proud),
-                                OuterYaw(q));
+                                OuterYaw(q), cells[c]);
                         }
                 }
             }
@@ -467,7 +494,7 @@ namespace Rokkan.Prophecy.Overworld
         /// the junction. The level is a parameter now: an elevated lake's capes are the same
         /// pieces at its terrace height.</summary>
         private static void PlanShoreCorner(List<TilePlacement> list, Vector2 point, bool[] land,
-                                            int level)
+                                            Vector2Int[] cells, int level)
         {
             int mask = 0;
             for (int c = 0; c < 4; c++)
@@ -487,7 +514,8 @@ namespace Rokkan.Prophecy.Overworld
             for (int c = 0; c < 4; c++)
                 if ((mask & (1 << c)) != 0)
                     Add(list, OverworldTilePiece.ShoreOuterPost,
-                        new Vector3(point.x, level * Step, point.y), OuterYaw(Quadrant(c)));
+                        new Vector3(point.x, level * Step, point.y), OuterYaw(Quadrant(c)),
+                        cells[c]);
         }
 
         // ---------------------------------------------------------------- water
@@ -508,6 +536,7 @@ namespace Rokkan.Prophecy.Overworld
                 Position = new Vector3(centre.x, WaterY, centre.y),
                 Yaw = 0f,
                 Scale = new Vector3(grid.Width * Cell + 8f, 1f, grid.Height * Cell + 8f),
+                OwnerCell = new Vector2Int(-1, -1),   // the one global sea: no biome, ever
             });
 
             // Elevated water — river reaches and lakes above sea level — is per-cell quads of
@@ -521,7 +550,8 @@ namespace Rokkan.Prophecy.Overworld
 
                     var c = grid.CellCentre(x, z);
                     Add(list, OverworldTilePiece.Water,
-                        new Vector3(c.x, grid.LevelAt(x, z) * Step + WaterY, c.y), 0f);
+                        new Vector3(c.x, grid.LevelAt(x, z) * Step + WaterY, c.y), 0f,
+                        new Vector2Int(x, z));
                 }
             }
         }
@@ -711,7 +741,7 @@ namespace Rokkan.Prophecy.Overworld
         }
 
         private static void Add(List<TilePlacement> list, OverworldTilePiece piece,
-                                Vector3 position, float yaw)
+                                Vector3 position, float yaw, Vector2Int owner)
         {
             list.Add(new TilePlacement
             {
@@ -719,6 +749,7 @@ namespace Rokkan.Prophecy.Overworld
                 Position = position,
                 Yaw = yaw,
                 Scale = Vector3.one,
+                OwnerCell = owner,
             });
         }
     }

@@ -182,7 +182,16 @@ CONTACT CELL is polled — road flag → the safe side-scroll section (Zelda II'
 wanderers can catch you on a road, you just get the safe crossing), otherwise the cell's
 province → its encounter section. The wanderer carries WHO you fight; the location carries
 WHERE. Build order: biome splat S1 (influence data/compiler/brush) → S2 (biome asset +
-picker) → S3 (triplanar + LUT) → S4 (seeded scatter) → provinces.
+picker) → S3 (triplanar + LUT) → S4 (seeded scatter) → provinces. **S1 and S2 are BUILT
+(2026-08-05 evening): `AuthoredBiomeArea` feathered influence + the Biome brush compile to
+per-cell dominant/secondary/lean; `OverworldBiome` (17 slots, weighted variants, its own file —
+a ScriptableObject asset needs its class-named file or the script ref breaks) +
+`OverworldBiomePalette`; `TilePlacement.OwnerCell` threads the ownership rules through every
+planner emit; `OverworldBiomePicker` rolls variants from DeriveSeed(map.Seed, cell×31+piece).
+Proven live: the 'Test Moor' biome (one recoloured cap variant) + the 'Mesa Moor' demo area —
+the mesa wears moor-brown caps, everything else falls back gray-box. One rendering trap paid:
+a variant material without `_ENVIRONMENTREFLECTIONS_OFF` reads NAVY from overhead (sky
+reflection); matte-flag every gray-box material fully.**
 
 **ELEVATED WATER AND WATERFALLS (2026-08-05, Matt: "focus on the elevated water and
 waterfall"):** water gained a LEVEL with zero new authoring. A sea cell always stored a level;

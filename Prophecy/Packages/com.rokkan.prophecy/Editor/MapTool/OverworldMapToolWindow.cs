@@ -43,6 +43,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
         [SerializeField] private bool _showRoads = true;
 
         [SerializeField] private OverworldPropPalette _palette;
+        [SerializeField] private OverworldBiomePalette _biomePalette;
         [SerializeField] private int _paletteIndex;
         [SerializeField] private bool _snapToCell = true;
         [SerializeField] private float _placeYaw;
@@ -68,7 +69,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 EditorApplication.isPlayingOrWillChangePlaymode) return;
 
             _previewEnabled = true;
-            _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
+            _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps, _biomePalette);
             _preview.Flush();
         }
 
@@ -119,6 +120,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (_palette == null)
                 _palette = AssetDatabase.LoadAssetAtPath<OverworldPropPalette>(
                     "Assets/_Prophecy/Data/OverworldPropPalette.asset");
+            if (_biomePalette == null)
+                _biomePalette = AssetDatabase.LoadAssetAtPath<OverworldBiomePalette>(
+                    "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
 
             _canvas.SyncFromMap(_map);
 
@@ -131,7 +135,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
             // an empty scene while painting "does nothing". On by default, attached on open.
             if (_previewEnabled && _map != null && _tiles != null &&
                 !EditorApplication.isPlayingOrWillChangePlaymode)
-                _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
+                _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps, _biomePalette);
         }
 
         private void OnFocus() => _canvas?.SyncFromMap(_map);
@@ -155,6 +159,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             var so = new SerializedObject(host);
             _map = so.FindProperty("_map").objectReferenceValue as OverworldMap;
             _tiles = so.FindProperty("_tiles").objectReferenceValue as OverworldTileSet;
+            var biomes = so.FindProperty("_biomes");
+            if (biomes != null && biomes.objectReferenceValue != null)
+                _biomePalette = biomes.objectReferenceValue as OverworldBiomePalette;
             _stairsForRamps = so.FindProperty("_stairsForRamps").boolValue;
             _worldOrigin = host.transform.position;
         }
@@ -170,7 +177,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
             {
                 _canvas.SyncFromMap(_map);
                 if (_previewEnabled && _map != null && _tiles != null)
-                    _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
+                    _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps, _biomePalette);
             }
 
             if (EditorApplication.isPlayingOrWillChangePlaymode)
@@ -551,7 +558,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _preview.Teardown();
             else if (change == PlayModeStateChange.EnteredEditMode && _previewEnabled &&
                      _map != null && _tiles != null)
-                _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
+                _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps, _biomePalette);
 
             Repaint();
         }

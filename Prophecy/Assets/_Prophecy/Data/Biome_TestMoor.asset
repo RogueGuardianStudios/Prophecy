@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8630ecbb3da42ce4091ef1cf29b799a4, type: 3}
+  m_Name: Biome_TestMoor
+  m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldBiome
+  DisplayName: Test Moor
+  MapTint: {r: 0.7, g: 0.5, b: 0.25, a: 1}
+  Cap:
+  - Prefab: {fileID: 3526374986776343492, guid: 5d27c8798d4b58b45acb31668413c405, type: 3}
+    Weight: 1
+  Ramp: []
+  Stairs: []
+  Water: []
+  Face1: []
+  Face2: []
+  Face3: []
+  OuterPost1: []
+  OuterPost2: []
+  OuterPost3: []
+  InnerPost1: []
+  InnerPost2: []
+  InnerPost3: []
+  Cheek: []
+  CheekMirrored: []
+  ShoreEdge: []
+  ShoreOuterPost: []

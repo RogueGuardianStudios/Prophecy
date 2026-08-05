@@ -148,6 +148,11 @@ namespace Rokkan.Prophecy.Editor.Build
 
             SetPrivate(component, "_map", map);
             SetPrivate(component, "_tiles", tiles);
+
+            // The biome palette is optional — no asset simply means gray-box everywhere.
+            var biomes = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldBiomePalette>(
+                "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
+            if (biomes != null) SetPrivate(component, "_biomes", biomes);
         }
 
         private static void CreateLighting()

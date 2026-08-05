@@ -25,6 +25,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
         private OverworldMap _map;
         private OverworldTileSet _tiles;
+        private OverworldBiomePalette _biomes;
         private Vector3 _origin;
         private bool _stairs = true;
 
@@ -41,10 +42,12 @@ namespace Rokkan.Prophecy.Editor.MapTool
         /// <summary>Milliseconds the last flush spent, for the window's status line.</summary>
         public double LastBuildMs { get; private set; }
 
-        public void Attach(OverworldMap map, OverworldTileSet tiles, Vector3 origin, bool stairs)
+        public void Attach(OverworldMap map, OverworldTileSet tiles, Vector3 origin, bool stairs,
+                           OverworldBiomePalette biomes = null)
         {
             _map = map;
             _tiles = tiles;
+            _biomes = biomes;
             _origin = origin;
             _stairs = stairs;
             MarkAll();
@@ -97,7 +100,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     scenery.SetParent(_root.transform, false);
 
                     _built = OverworldWorldBuilder.Build(_map, _tiles, walkable, scenery,
-                                                         _origin, _stairs);
+                                                         _origin, _stairs, _biomes);
                 }
                 else if (_dirtyChunks.Count > 0)
                 {

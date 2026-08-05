@@ -23,6 +23,7 @@ namespace Rokkan.Prophecy.Overworld
         // without the caller re-threading every argument.
         public OverworldMap Map;
         public OverworldTileSet Tiles;
+        public OverworldBiomePalette Biomes;   // null = gray-box everywhere
         public Transform WalkableRoot;
         public Transform SceneryRoot;
         public Vector3 WorldOffset;
@@ -60,12 +61,14 @@ namespace Rokkan.Prophecy.Overworld
 
         public static OverworldBuildOutput Build(OverworldMap map, OverworldTileSet tiles,
                                                  Transform walkableRoot, Transform sceneryRoot,
-                                                 Vector3 worldOffset, bool stairsForRamps)
+                                                 Vector3 worldOffset, bool stairsForRamps,
+                                                 OverworldBiomePalette biomes = null)
         {
             var output = new OverworldBuildOutput
             {
                 Map = map,
                 Tiles = tiles,
+                Biomes = biomes,
                 WalkableRoot = walkableRoot,
                 SceneryRoot = sceneryRoot,
                 WorldOffset = worldOffset,
@@ -149,7 +152,12 @@ namespace Rokkan.Prophecy.Overworld
 
         private static void Place(OverworldBuildOutput output, TilePlacement placement)
         {
-            var prefab = output.Tiles.For(placement.Piece);
+            // The geometry LUT: the owner cell's dominant biome picks a variant, seeded from
+            // the map seed so the same map renders the same world every load. No palette, no
+            // biome, or an empty slot all fall back to the gray-box base set.
+            var prefab = OverworldBiomePicker.Pick(output.Biomes, output.Grid, output.Map.Seed,
+                                                   placement.Piece, placement.OwnerCell,
+                                                   output.Tiles.For(placement.Piece));
 
             bool walkable = placement.Piece == OverworldTilePiece.Cap ||
                             placement.Piece == OverworldTilePiece.Ramp ||
