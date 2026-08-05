@@ -82,6 +82,32 @@ namespace Rokkan.Prophecy.Overworld
         Rectangular,
     }
 
+    /// <summary>
+    /// A hand-authored SECOND walkable surface over a footprint: below the terrain it is a cave
+    /// floor (the terrain above becomes the roof), above it a bridge deck or overhang. Its edges
+    /// connect to any adjacent surface at the same level automatically — a cave mouth is just
+    /// where the floor meets open ground, no extra authoring.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredLayer
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Layer";
+
+        [Tooltip("Centre of the footprint on the ground plane, in metres. X is world X, Y is world Z.")]
+        public Vector2 Centre;
+
+        [Tooltip("Footprint size in metres.")]
+        public Vector2 Size = new Vector2(4f, 3f);
+
+        [Tooltip("Rotation of the footprint about its centre, in degrees.")]
+        public float RotationDegrees;
+
+        [Tooltip("Elevation of the extra surface. Below the terrain here: a cave floor. Above " +
+                 "it: a bridge deck or overhang.")]
+        public float Y;
+    }
+
     [CreateAssetMenu(menuName = "Prophecy/Overworld Map", fileName = "OverworldMap")]
     public sealed class OverworldMap : ScriptableObject
     {
@@ -111,5 +137,9 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Sloped strips connecting elevations. Painted after the regions, so a ramp " +
                  "cuts its grade into whatever terraces it spans.")]
         public AuthoredRamp[] Ramps = Array.Empty<AuthoredRamp>();
+
+        [Tooltip("Extra walkable surfaces over the terrain: cave floors below it, bridge decks " +
+                 "and overhangs above it.")]
+        public AuthoredLayer[] Layers = Array.Empty<AuthoredLayer>();
     }
 }

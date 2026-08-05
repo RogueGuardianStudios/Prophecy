@@ -127,3 +127,14 @@ MonoBehaviour:
     StartY: 0
     EndY: 2
     HalfWidth: 2
+  Layers:
+  - Name: Foothills Hollow
+    Centre: {x: -22, y: 9}
+    Size: {x: 3, y: 4}
+    RotationDegrees: 0
+    Y: 0
+  - Name: Foothills Overlook
+    Centre: {x: -8.5, y: 12}
+    Size: {x: 3, y: 3}
+    RotationDegrees: 0
+    Y: 2

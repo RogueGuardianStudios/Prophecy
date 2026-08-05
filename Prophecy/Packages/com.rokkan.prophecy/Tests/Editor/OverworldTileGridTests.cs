@@ -322,5 +322,84 @@ namespace Rokkan.Prophecy.Tests
 
             Assert.AreEqual(1, Count(plan, OverworldTilePiece.Water));
         }
+
+        // ---------------------------------------------------------------- layers
+
+        [Test]
+        public void ABridgeCarriesYouOverAndTheGroundContinuesUnder()
+        {
+            var grid = Flat(3, 2);
+            grid.Set(0, 1, TileCellKind.Ground, 1);
+            grid.Set(2, 1, TileCellKind.Ground, 1);
+            grid.SetOverlay(1, 1, 1);                    // the deck between the terraces
+            var ground = new TileGridGround(grid);
+
+            int layer = 0;
+            Assert.IsTrue(ground.CanStep(Centre(0, 1), Centre(1, 1), ref layer), "Onto the deck…");
+            Assert.AreEqual(1, layer, "…which is the overlay surface.");
+            Assert.AreEqual(OverworldTileGrid.Step, ground.HeightAt(Centre(1, 1), layer), 0.001f,
+                "The deck rides at its own level.");
+            Assert.IsFalse(ground.CanStep(Centre(1, 1), Centre(1, 0), ref layer),
+                "Stepping off the deck's open side is a cliff edge and refuses.");
+            Assert.IsTrue(ground.CanStep(Centre(1, 1), Centre(2, 1), ref layer), "Off the far end…");
+            Assert.AreEqual(0, layer, "…back on base terrain.");
+
+            int under = 0;
+            Assert.IsTrue(ground.CanStep(Centre(1, 0), Centre(1, 1), ref under),
+                "Meanwhile the ground under the deck is still a road…");
+            Assert.AreEqual(0, under, "…on the base surface.");
+            Assert.AreEqual(0f, ground.HeightAt(Centre(1, 1), under), 0.001f,
+                "Two heights at one plane position, told apart by the layer token.");
+        }
+
+        [Test]
+        public void ACaveMouthWalksInUnderTheTerrace()
+        {
+            var grid = Flat(1, 3);
+            grid.Set(0, 1, TileCellKind.Ground, 1);      // the roof over the cave
+            grid.Set(0, 2, TileCellKind.Ground, 1);      // solid rock behind it
+            grid.SetOverlay(0, 1, 0);                    // the cave floor
+            var ground = new TileGridGround(grid);
+
+            int layer = 0;
+            Assert.IsTrue(ground.CanStep(Centre(0, 0), Centre(0, 1), ref layer),
+                "In through the mouth — the floor meets the outside ground…");
+            Assert.AreEqual(1, layer, "…as the overlay surface.");
+            Assert.AreEqual(0f, ground.HeightAt(Centre(0, 1), layer), 0.001f);
+            Assert.IsFalse(ground.CanStep(Centre(0, 1), Centre(0, 2), ref layer),
+                "The cave's back wall refuses.");
+
+            int roof = 0;
+            Assert.IsTrue(ground.CanStep(Centre(0, 2), Centre(0, 1), ref roof),
+                "While the roof overhead carries its own traffic…");
+            Assert.AreEqual(0, roof, "…on the base surface.");
+        }
+
+        [Test]
+        public void TheMouthIsAnOpeningAndTheCaveGrowsInteriorWalls()
+        {
+            var grid = Flat(1, 3);
+            grid.Set(0, 1, TileCellKind.Ground, 1);
+            grid.Set(0, 2, TileCellKind.Ground, 1);
+            grid.SetOverlay(0, 1, 0);
+
+            var plan = TilePiecePlanner.Plan(grid);
+
+            var mouth = plan.FindAll(p => p.Piece == OverworldTilePiece.Face1 &&
+                                          Mathf.Abs(p.Position.x - 0.5f) < 0.01f &&
+                                          Mathf.Abs(p.Position.z - 1f) < 0.01f);
+            Assert.AreEqual(0, mouth.Count,
+                "The wall the mouth pierces is suppressed — the opening IS the doorway.");
+
+            var backWall = plan.FindAll(p => p.Piece == OverworldTilePiece.Face1 &&
+                                             Mathf.Abs(p.Position.x - 0.5f) < 0.01f &&
+                                             Mathf.Abs(p.Position.z - 2f) < 0.01f &&
+                                             p.Position.y < 0.01f);
+            Assert.AreEqual(1, backWall.Count,
+                "The cave's back wall exists, footed at the floor, facing the interior.");
+
+            Assert.AreEqual(4, Count(plan, OverworldTilePiece.Cap),
+                "Three base caps plus the cave floor's own.");
+        }
     }
 }

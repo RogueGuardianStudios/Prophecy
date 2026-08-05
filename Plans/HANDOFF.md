@@ -50,6 +50,28 @@ through every slot where a run met a wall. A long CanStep probe decomposes along
 so foot-to-mid-run is a legal continuous walk, and there's a test saying exactly that. Suite
 792 green.
 
+**LAYERS (2026-08-05): one plane position can now carry two walkable surfaces** — a bridge
+deck over a gully, an overhang over the road, a cave floor under a terrace. The flat-planar sim
+survives untouched by design: `ITopDownGround` grew layer-aware default-interface overloads
+(`CanStep(from, to, ref layer)` / `HeightAt(point, layer)`), the sim stores the OPAQUE token in
+`CharacterState.GroundLayer` and threads it back without interpreting it (centre probe is the
+layer authority; corners validate; `Teleport` resets to 0), and presentation lifts by the
+layered height. `OverworldTileGrid` gained a sparse per-cell OVERLAY surface (one extra, flat
+Ground — the deliberate cap of this model; overlay ramps are a decision for the feature that
+needs them), authored as `OverworldMap.Layers` rect footprints: Y below the terrain = cave
+floor (terrain becomes the roof), above = deck. Overlays over SEA are bridges over water — the
+deck is the cell's only surface. **Connectivity resolves which surface a body is on** — a cave
+mouth is just where the floor's edge height meets open ground; no mouth authoring exists. The
+planner treats a connection that pierces a wall band as an OPENING (the mouth suppresses its
+wall; a deck meeting a terrace at the band's top keeps the wall below), grows cave interior
+walls from floor to rock top, and gives every overlay its own cap — whose sides and underside
+now wear rock colour, because deck edges and lintels put them in the open. Demo authoring on
+the live map: 'Foothills Hollow' (a cave in the south face) and 'Foothills Overlook' (a deck
+over the heartland). Live-probed: into the mouth (layer 1, floor 0), onto the deck (layer 1,
+height 2), under the same deck (layer 0, height 0). Suite 795 green. **Known gap:** the
+overhead camera cannot see INTO an enclosed cave (the roof occludes) — a roof cutaway when the
+player is beneath is the natural next slice; overhang mouths and bridges read fully.
+
 **Resume at (2026-08-04, evening): the 3D TILE STRUCTURE is BUILT AND LIVE.** The overworld now
 compiles `OverworldMap` into a discrete `level[x,z]` grid (`OverworldTileGridCompiler`), plans
 tile pieces from it (`TilePiecePlanner`, pure C#), renders the 17-piece generated tile set, and

@@ -26,8 +26,8 @@ Placed at every Ground land cell, top at level × 0.7. One cap serves all levels
 | Region | UV rect (u0, v0 → u1, v1) | Pixels @1024 | What maps there |
 |---|---|---|---|
 | Top | (0.01, 0.26 → 0.99, 0.99) | (10, 266) → (1014, 1014) | walk surface, 1.0 × 1.0 m — the region biome materials repaint |
-| Trim | (0.01, 0.14 → 0.99, 0.24) | (10, 143) → (1014, 246) | four slab edges, 1.0 × 0.15 m each (left to right: −Z, +Z, −X, +X) |
-| Trim | (0.01, 0.01 → 0.99, 0.12) | (10, 10) → (1014, 123) | underside, never seen |
+| Face | (0.01, 0.14 → 0.99, 0.24) | (10, 143) → (1014, 246) | four slab edges — hidden between caps, but a bridge deck's edge and a cave lintel wear them in the open |
+| Face | (0.01, 0.01 → 0.99, 0.12) | (10, 10) → (1014, 123) | underside — visible beneath bridge decks and overhangs |
 
 ## Tile_RMP_Ramp — ramp run cell, solid wedge rising 0 → 1 m along +Z
 

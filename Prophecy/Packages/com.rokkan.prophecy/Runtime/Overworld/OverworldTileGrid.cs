@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Overworld
@@ -62,6 +63,12 @@ namespace Rokkan.Prophecy.Overworld
         private readonly RampFacing[] _facings;
         private readonly byte[] _rampIndices;
 
+        // A cell's optional SECOND walkable surface — a bridge deck above the base terrain, or
+        // a cave floor beneath it (the base then reads as the roof). Sparse because overlaps
+        // are rare; one extra surface per cell is the deliberate cap of this model. Flat Ground
+        // only — overlay ramps are a future decision, made with the feature that needs them.
+        private readonly Dictionary<int, sbyte> _overlays = new Dictionary<int, sbyte>();
+
         public OverworldTileGrid(int width, int height, Vector2 originXZ)
         {
             _width = Mathf.Max(1, width);
@@ -105,6 +112,24 @@ namespace Rokkan.Prophecy.Overworld
             _levels[i] = (sbyte)level;
             _facings[i] = facing;
             _rampIndices[i] = (byte)Mathf.Clamp(rampIndex, 0, RampRun - 1);
+        }
+
+        /// <summary>The cell's overlay surface — bridge deck or cave floor — if it has one.</summary>
+        public bool TryOverlayAt(int x, int z, out int level)
+        {
+            if (InBounds(x, z) && _overlays.TryGetValue(z * _width + x, out sbyte stored))
+            {
+                level = stored;
+                return true;
+            }
+
+            level = 0;
+            return false;
+        }
+
+        public void SetOverlay(int x, int z, int level)
+        {
+            if (InBounds(x, z)) _overlays[z * _width + x] = (sbyte)level;
         }
 
         public bool TryCellAt(Vector2 worldXZ, out int x, out int z)
@@ -199,8 +224,44 @@ namespace Rokkan.Prophecy.Overworld
 
             RasterRegions(grid, map, offset);
             ConvertRamps(grid, map, offset);
+            RasterLayers(grid, map, offset);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Extra surfaces last, over whatever the terrain became: each authored layer footprint
+        /// writes one overlay level per cell. A footprint over sea is a bridge over water — the
+        /// deck is then the cell's only surface.
+        /// </summary>
+        private static void RasterLayers(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var layers = map.Layers;
+
+            for (int i = 0; layers != null && i < layers.Length; i++)
+            {
+                var authored = layers[i];
+                int level = QuantizeLevel(authored.Y, authored.Name);
+
+                var centre = authored.Centre + offset;
+                float rad = -authored.RotationDegrees * Mathf.Deg2Rad;
+                float cos = Mathf.Cos(rad);
+                float sin = Mathf.Sin(rad);
+                var half = authored.Size * 0.5f;
+
+                for (int z = 0; z < grid.Height; z++)
+                {
+                    for (int x = 0; x < grid.Width; x++)
+                    {
+                        var p = grid.CellCentre(x, z) - centre;
+                        float localX = p.x * cos - p.y * sin;
+                        float localZ = p.x * sin + p.y * cos;
+
+                        if (Mathf.Abs(localX) <= half.x && Mathf.Abs(localZ) <= half.y)
+                            grid.SetOverlay(x, z, level);
+                    }
+                }
+            }
         }
 
         /// <summary>

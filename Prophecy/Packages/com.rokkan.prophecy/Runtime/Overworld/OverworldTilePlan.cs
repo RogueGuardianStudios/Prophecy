@@ -75,9 +75,18 @@ namespace Rokkan.Prophecy.Overworld
                 for (int x = 0; x < grid.Width; x++)
                 {
                     var kind = grid.KindAt(x, z);
+                    var cellCentre = grid.CellCentre(x, z);
+
+                    // The overlay surface — a bridge deck or cave floor — is a cap of its own,
+                    // whatever the base is (over sea it is the cell's ONLY piece: a bridge
+                    // over water).
+                    if (grid.TryOverlayAt(x, z, out int overlayLevel))
+                        Add(list, OverworldTilePiece.Cap,
+                            new Vector3(cellCentre.x, overlayLevel * Step, cellCentre.y), 0f);
+
                     if (kind == TileCellKind.Sea) continue;
 
-                    var centre = grid.CellCentre(x, z);
+                    var centre = cellCentre;
 
                     if (kind == TileCellKind.Ground)
                     {
@@ -226,6 +235,33 @@ namespace Rokkan.Prophecy.Overworld
 
             int edgeA = FaceEdgeLevel(grid, ax, az, dx, dz);
             int edgeB = FaceEdgeLevel(grid, bx, bz, -dx, -dz);
+
+            bool hasOA = grid.TryOverlayAt(ax, az, out int oA);
+            bool hasOB = grid.TryOverlayAt(bx, bz, out int oB);
+            int run = OverworldTileGrid.RampRun;
+
+            // A height both sides can stand at is a CONNECTION — walkable straight through.
+            bool Connected(int scaled) =>
+                (edgeA == scaled || (hasOA && oA * run == scaled)) &&
+                (edgeB == scaled || (hasOB && oB * run == scaled));
+
+            // A cave floor against solid rock grows its interior wall: from the floor up to the
+            // lower of the two rock tops, facing into the floor's cell. A deck above the rock
+            // needs nothing — its slab edge is the whole story.
+            void OverlayWall(bool has, int floorLevel, Vector2Int towardFloor)
+            {
+                if (!has || Connected(floorLevel * run)) return;
+
+                int top = Mathf.Min(edgeA, edgeB);
+                if (top % run != 0 || top / run <= floorLevel) return;
+
+                EmitFaces(list, mid, top / run, floorLevel,
+                          FrontYaw(towardFloor.x, towardFloor.y), towardFloor);
+            }
+
+            OverlayWall(hasOA, oA, new Vector2Int(-dx, -dz));
+            OverlayWall(hasOB, oB, new Vector2Int(dx, dz));
+
             if (edgeA == edgeB) return;
 
             // Fractional heights only occur along a run's interior, where consecutive cells
@@ -233,6 +269,13 @@ namespace Rokkan.Prophecy.Overworld
             int hi = Mathf.Max(edgeA, edgeB);
             int lo = Mathf.Min(edgeA, edgeB);
             if (hi % OverworldTileGrid.RampRun != 0 || lo % OverworldTileGrid.RampRun != 0) return;
+
+            // A connection piercing this wall band is an OPENING — a cave mouth — so the wall
+            // is suppressed and the roof's slab edge becomes the lintel. A connection at the
+            // band's very top (a bridge deck meeting the terrace it serves) leaves the wall
+            // below intact.
+            if ((hasOA && oA * run < hi && Connected(oA * run)) ||
+                (hasOB && oB * run < hi && Connected(oB * run))) return;
 
             bool aHigh = edgeA > edgeB;
             var front = aHigh ? new Vector2Int(dx, dz) : new Vector2Int(-dx, -dz);

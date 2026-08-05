@@ -28,5 +28,21 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>Floor elevation at a plane position, or 0 where there is no floor. For
         /// presentation — nothing in the sim reads height.</summary>
         float HeightAt(Vector2 point);
+
+        /// <summary>
+        /// Layer-aware step, for grounds where one plane position can carry more than one
+        /// walkable surface — a bridge deck over a gully, a cave floor under a terrace.
+        ///
+        /// <para><paramref name="layer"/> is an OPAQUE token: the sim stores it in
+        /// <c>CharacterState.GroundLayer</c> and threads it back, never interprets it. A layered
+        /// ground resolves which surface the body stands on by connectivity and updates the
+        /// token; single-surface grounds inherit this default and never know layers exist. This
+        /// is how the flat-planar sim survives overlapping worlds: the oracle owns the third
+        /// dimension, the sim keeps asking 2D questions.</para>
+        /// </summary>
+        bool CanStep(Vector2 from, Vector2 to, ref int layer) => CanStep(from, to);
+
+        /// <summary>Floor elevation of the given layer's surface. Default: the planar answer.</summary>
+        float HeightAt(Vector2 point, int layer) => HeightAt(point);
     }
 }

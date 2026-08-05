@@ -397,9 +397,19 @@ namespace Rokkan.Prophecy.Sim
                 cornerB = new Vector2(to.x + across, to.y + lead);
             }
 
-            return Ground.CanStep(from, centre) &&
-                   Ground.CanStep(from, cornerA) &&
-                   Ground.CanStep(from, cornerB);
+            // The centre probe is the layer authority; the corners each start from the current
+            // layer and merely validate. All three must agree the move is legal before the
+            // centre's resolved layer is committed.
+            int centreLayer = State.GroundLayer;
+            int cornerLayerA = State.GroundLayer;
+            int cornerLayerB = State.GroundLayer;
+
+            bool permitted = Ground.CanStep(from, centre, ref centreLayer) &&
+                             Ground.CanStep(from, cornerA, ref cornerLayerA) &&
+                             Ground.CanStep(from, cornerB, ref cornerLayerB);
+
+            if (permitted) State.GroundLayer = centreLayer;
+            return permitted;
         }
 
         /// <summary>
@@ -552,6 +562,7 @@ namespace Rokkan.Prophecy.Sim
         {
             State.Position = footPosition;
             State.Velocity = Vector2.zero;
+            State.GroundLayer = 0;   // spawns and portals arrive on the base surface
             State.LastGroundedTick = long.MinValue;
             State.AirRefreshTick = long.MinValue;
             State.JumpConsumedTick = long.MinValue;

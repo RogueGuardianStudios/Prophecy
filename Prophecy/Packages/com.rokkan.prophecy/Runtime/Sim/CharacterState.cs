@@ -17,6 +17,14 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>Foot position in the movement plane.</summary>
         public Vector2 Position;
 
+        /// <summary>
+        /// Which of the ground's surfaces the feet are on, where one plane position carries more
+        /// than one (a bridge deck, a cave floor). An opaque token owned by
+        /// <see cref="ITopDownGround"/> — the sim stores and threads it, never interprets it.
+        /// 0 everywhere a ground has only one surface.
+        /// </summary>
+        public int GroundLayer;
+
         /// <summary>Units per second. Modules write this; the sim integrates and resolves it.</summary>
         public Vector2 Velocity;
 

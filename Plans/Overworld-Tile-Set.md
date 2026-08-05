@@ -13,6 +13,15 @@
 > low terrace and open flanks read as holes. Connectivity is exact fixed-point in 1/RampRun
 > level units. The compiler requires the whole run to fit on flat ground behind a boundary.
 
+> **LAYERS, 2026-08-05:** cells may carry one OVERLAY surface (`OverworldMap.Layers` — a rect
+> at a Y: below the terrain a cave floor, above it a bridge deck or overhang; over sea, a
+> bridge over water). No new pieces: the overlay is a Cap (its sides and underside now wear the
+> rock colour — deck edges and cave lintels put them in the open), cave interior walls are
+> ordinary faces from floor to rock top, and a cave MOUTH is an opening: a connection that
+> pierces a wall band suppresses that wall, while a deck meeting a terrace at the band's top
+> keeps it. Which surface a body walks is resolved by edge-height connectivity and carried in
+> the sim's opaque `GroundLayer` token.
+
 > **Step settled at 2.0 m, 2026-08-05** — 0.7 was a kerb, 3.0 was a fortress; 2, just over the
 > player's 1.8, reads as a wall without dwarfing the map. Everything below derives from
 > `OverworldTileGrid.Step`; the 3.0-era note is kept as history.

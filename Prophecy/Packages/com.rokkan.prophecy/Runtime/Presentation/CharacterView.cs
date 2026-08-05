@@ -93,7 +93,7 @@ namespace Rokkan.Prophecy.Presentation
             // presentation's half of the ground seam.
             float depth = _host.RailDepth;
             if (_host.Space == MovementSpace.TopDown && _host.Sim.Ground != null)
-                depth = _host.Sim.Ground.HeightAt(plane);
+                depth = _host.Sim.Ground.HeightAt(plane, _host.Sim.State.GroundLayer);
 
             transform.position = SpaceMapping.ToWorld(plane, _host.Space, depth);
         }

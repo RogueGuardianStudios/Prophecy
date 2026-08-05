@@ -185,7 +185,7 @@ namespace Rokkan.Prophecy.Presentation
             // with the climber instead of leaving them to walk out of the top of it.
             float depth = _host.RailDepth;
             if (_host.Sim != null && _host.Sim.Ground != null)
-                depth = _host.Sim.Ground.HeightAt(_host.CurrentPosition);
+                depth = _host.Sim.Ground.HeightAt(_host.CurrentPosition, _host.Sim.State.GroundLayer);
 
             return SpaceMapping.ToWorld(_host.CurrentPosition, _host.Space, depth);
         }

@@ -201,8 +201,9 @@ namespace Rokkan.Prophecy.Editor.Build
             Rect sides = R(0.01f, 0.14f, 0.99f, 0.24f);
             Rect bottom = R(0.01f, 0.01f, 0.99f, 0.12f);
             b.Note(TileRegion.Top, top, "walk surface, 1.0 × 1.0 m — the region biome materials repaint");
-            b.Note(TileRegion.Trim, sides, "four slab edges, 1.0 × 0.15 m each (left to right: −Z, +Z, −X, +X)");
-            b.Note(TileRegion.Trim, bottom, "underside, never seen");
+            b.Note(TileRegion.Face, sides, "four slab edges — hidden between caps, but a bridge " +
+                                           "deck's edge and a cave lintel wear them in the open");
+            b.Note(TileRegion.Face, bottom, "underside — visible beneath bridge decks and overhangs");
 
             b.AxisQuad(new Vector3(0f, 0f, 0f), Vector3.right, Vector3.forward, 1f, 1f, TileRegion.Top, top);
 
@@ -214,11 +215,11 @@ namespace Rokkan.Prophecy.Editor.Build
             const float inset = 0.02f;
             float mid = -CapT * 0.5f;
             float edge = 0.5f - inset;
-            b.AxisQuad(new Vector3(0f, mid, -edge), Vector3.right, Vector3.up, 1f, CapT, TileRegion.Trim, CellX(sides, 0, 4));
-            b.AxisQuad(new Vector3(0f, mid, edge), -Vector3.right, Vector3.up, 1f, CapT, TileRegion.Trim, CellX(sides, 1, 4));
-            b.AxisQuad(new Vector3(-edge, mid, 0f), -Vector3.forward, Vector3.up, 1f, CapT, TileRegion.Trim, CellX(sides, 2, 4));
-            b.AxisQuad(new Vector3(edge, mid, 0f), Vector3.forward, Vector3.up, 1f, CapT, TileRegion.Trim, CellX(sides, 3, 4));
-            b.AxisQuad(new Vector3(0f, -CapT, 0f), -Vector3.right, Vector3.forward, 1f, 1f, TileRegion.Trim, bottom);
+            b.AxisQuad(new Vector3(0f, mid, -edge), Vector3.right, Vector3.up, 1f, CapT, TileRegion.Face, CellX(sides, 0, 4));
+            b.AxisQuad(new Vector3(0f, mid, edge), -Vector3.right, Vector3.up, 1f, CapT, TileRegion.Face, CellX(sides, 1, 4));
+            b.AxisQuad(new Vector3(-edge, mid, 0f), -Vector3.forward, Vector3.up, 1f, CapT, TileRegion.Face, CellX(sides, 2, 4));
+            b.AxisQuad(new Vector3(edge, mid, 0f), Vector3.forward, Vector3.up, 1f, CapT, TileRegion.Face, CellX(sides, 3, 4));
+            b.AxisQuad(new Vector3(0f, -CapT, 0f), -Vector3.right, Vector3.forward, 1f, 1f, TileRegion.Face, bottom);
 
             return b.Data;
         }
