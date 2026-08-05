@@ -85,6 +85,8 @@ namespace Rokkan.Prophecy.Overworld
             var placements = TilePiecePlanner.Plan(_grid, _stairsForRamps);
             for (int i = 0; i < placements.Count; i++) Place(placements[i]);
 
+            BuildRoads();
+
             BakeNavMesh();
 
             _published = _groundAuthority == GroundAuthority.NavMesh
@@ -105,6 +107,67 @@ namespace Rokkan.Prophecy.Overworld
             instance.transform.position = placement.Position;
             instance.transform.rotation = Quaternion.Euler(0f, placement.Yaw, 0f);
             instance.transform.localScale = placement.Scale;
+        }
+
+        /// <summary>How far road paint rides above the walk surface. Enough that the strip and
+        /// the cap are never the same depth, far less than any rim.</summary>
+        private const float RoadLift = 0.02f;
+
+        /// <summary>
+        /// Roads are paint, not ground: one merged mesh of per-cell quads riding just above the
+        /// walk surface — the cap, or the bridge deck where the course crosses a river — parented
+        /// under scenery so the NavMesh never sees them. Built after the tiles because it reads
+        /// the same compiled cells; a regenerated map re-draws its roads by construction.
+        /// </summary>
+        private void BuildRoads()
+        {
+            var vertices = new System.Collections.Generic.List<Vector3>();
+            var triangles = new System.Collections.Generic.List<int>();
+
+            for (int z = 0; z < _grid.Height; z++)
+            {
+                for (int x = 0; x < _grid.Width; x++)
+                {
+                    if (!_grid.RoadAt(x, z)) continue;
+
+                    int level = _grid.TryOverlayAt(x, z, out int overlay) ? overlay : _grid.LevelAt(x, z);
+                    float y = level * OverworldTileGrid.Step + RoadLift;
+                    var corner = _grid.CornerPoint(x, z);
+
+                    int v = vertices.Count;
+                    vertices.Add(new Vector3(corner.x, y, corner.y));
+                    vertices.Add(new Vector3(corner.x, y, corner.y + OverworldTileGrid.CellSize));
+                    vertices.Add(new Vector3(corner.x + OverworldTileGrid.CellSize, y,
+                                             corner.y + OverworldTileGrid.CellSize));
+                    vertices.Add(new Vector3(corner.x + OverworldTileGrid.CellSize, y, corner.y));
+                    triangles.Add(v); triangles.Add(v + 1); triangles.Add(v + 2);
+                    triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 3);
+                }
+            }
+
+            if (vertices.Count == 0) return;
+
+            var mesh = new Mesh { name = "Roads" };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            {
+                name = "Road_Surface",
+                color = new Color(0.72f, 0.62f, 0.47f),
+            };
+            material.SetFloat("_Smoothness", 0f);
+            material.SetFloat("_SpecularHighlights", 0f);
+            material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+            material.SetFloat("_EnvironmentReflections", 0f);
+            material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+
+            var roads = new GameObject("Roads");
+            roads.transform.SetParent(_sceneryRoot, false);
+            roads.AddComponent<MeshFilter>().sharedMesh = mesh;
+            roads.AddComponent<MeshRenderer>().sharedMaterial = material;
         }
 
         /// <summary>

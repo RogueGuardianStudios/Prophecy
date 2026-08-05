@@ -138,3 +138,26 @@ MonoBehaviour:
     Size: {x: 3, y: 3}
     RotationDegrees: 0
     Y: 2
+  - Name: Eastwater Bridge
+    Centre: {x: 12.7, y: -4.5}
+    Size: {x: 6, y: 2}
+    RotationDegrees: 0
+    Y: 0
+  Rivers:
+  - Name: Eastwater
+    Points:
+    - {x: 20, y: 23}
+    - {x: 18, y: 12}
+    - {x: 14, y: 4}
+    - {x: 12, y: -8}
+    - {x: 14, y: -23}
+    HalfWidth: 1.5
+  Roads:
+  - Name: Mesa Road
+    Points:
+    - {x: -13, y: 0}
+    - {x: -4, y: 0}
+    - {x: 6, y: -2}
+    - {x: 12.7, y: -4.5}
+    - {x: 19, y: -6}
+    HalfWidth: 1

@@ -132,6 +132,18 @@ namespace Rokkan.Prophecy.Overworld
             if (InBounds(x, z)) _overlays[z * _width + x] = (sbyte)level;
         }
 
+        // Road cells are paint: the host draws a strip over their walk surface and nothing else
+        // reads them. Sparse for the same reason overlays are.
+        private readonly HashSet<int> _roads = new HashSet<int>();
+
+        /// <summary>Whether this cell carries road paint on its walk surface.</summary>
+        public bool RoadAt(int x, int z) => InBounds(x, z) && _roads.Contains(z * _width + x);
+
+        public void SetRoad(int x, int z)
+        {
+            if (InBounds(x, z)) _roads.Add(z * _width + x);
+        }
+
         public bool TryCellAt(Vector2 worldXZ, out int x, out int z)
         {
             x = Mathf.FloorToInt((worldXZ.x - _origin.x) / CellSize);
@@ -223,10 +235,80 @@ namespace Rokkan.Prophecy.Overworld
             var offset = new Vector2(worldOffset.x, worldOffset.z);
 
             RasterRegions(grid, map, offset);
+            RasterRivers(grid, map, offset);
             ConvertRamps(grid, map, offset);
             RasterLayers(grid, map, offset);
+            RasterRoads(grid, map, offset);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Rivers carve AFTER the regions (a channel cuts whatever terrace it crosses) and
+        /// BEFORE the ramps (a climb never converts into a river bed). A carved cell is plain
+        /// sea — the coast machinery grows its banks, the sea plane is its water, and a Layer
+        /// deck over it is a bridge.
+        /// </summary>
+        private static void RasterRivers(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var rivers = map.Rivers;
+
+            for (int i = 0; rivers != null && i < rivers.Length; i++)
+            {
+                var river = rivers[i];
+                if (river.Points == null || river.Points.Length == 0) continue;
+
+                for (int z = 0; z < grid.Height; z++)
+                    for (int x = 0; x < grid.Width; x++)
+                        if (DistanceToPolyline(grid.CellCentre(x, z), river.Points, offset) <= river.HalfWidth)
+                            grid.Set(x, z, TileCellKind.Sea, 0);
+            }
+        }
+
+        /// <summary>
+        /// Roads raster LAST, over the finished ground: flat Ground cells take the flag, and a
+        /// cell with an overlay takes it too — that is a road crossing a bridge deck. Sea gaps
+        /// and sloped ramp cells stay bare.
+        /// </summary>
+        private static void RasterRoads(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var roads = map.Roads;
+
+            for (int i = 0; roads != null && i < roads.Length; i++)
+            {
+                var road = roads[i];
+                if (road.Points == null || road.Points.Length == 0) continue;
+
+                for (int z = 0; z < grid.Height; z++)
+                {
+                    for (int x = 0; x < grid.Width; x++)
+                    {
+                        if (DistanceToPolyline(grid.CellCentre(x, z), road.Points, offset) > road.HalfWidth)
+                            continue;
+
+                        if (grid.TryOverlayAt(x, z, out _) || grid.KindAt(x, z) == TileCellKind.Ground)
+                            grid.SetRoad(x, z);
+                    }
+                }
+            }
+        }
+
+        private static float DistanceToPolyline(Vector2 p, Vector2[] points, Vector2 offset)
+        {
+            if (points.Length == 1) return (p - (points[0] + offset)).magnitude;
+
+            float best = float.MaxValue;
+            for (int i = 0; i + 1 < points.Length; i++)
+            {
+                Vector2 a = points[i] + offset;
+                Vector2 ab = points[i + 1] + offset - a;
+                float t = ab.sqrMagnitude < 1e-6f
+                    ? 0f
+                    : Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+                best = Mathf.Min(best, (p - (a + ab * t)).magnitude);
+            }
+
+            return best;
         }
 
         /// <summary>

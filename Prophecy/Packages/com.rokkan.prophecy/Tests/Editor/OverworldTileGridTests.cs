@@ -413,6 +413,89 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void ARiverCarvesTheLandAndABridgeDeckCrossesIt()
+        {
+            var map = Map(m =>
+            {
+                m.Regions = new[]
+                {
+                    new AuthoredRegion { Name = "Plain", Centre = Vector2.zero,
+                                         Size = new Vector2(8f, 8f), Y = 0f },
+                };
+                m.Rivers = new[]
+                {
+                    new AuthoredRiver { Name = "Channel",
+                                        Points = new[] { new Vector2(0f, -4f), new Vector2(0f, 4f) },
+                                        HalfWidth = 0.6f },
+                };
+                m.Layers = new[]
+                {
+                    new AuthoredLayer { Name = "Bridge", Centre = new Vector2(0f, 0.5f),
+                                        Size = new Vector2(2f, 1f), Y = 0f },
+                };
+            });
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var ground = new TileGridGround(grid);
+
+            // The compiled grid's origin is not (0,0) — probe by the grid's own cell centres.
+            Assert.AreEqual(TileCellKind.Sea, grid.KindAt(3, 2), "The channel is carved to sea…");
+            Assert.AreEqual(TileCellKind.Ground, grid.KindAt(2, 2), "…and its banks are land.");
+            Assert.IsFalse(ground.CanStep(grid.CellCentre(2, 2), grid.CellCentre(3, 2)),
+                "Off the bank into open water refuses, like any coast.");
+
+            int layer = 0;
+            Assert.IsTrue(ground.CanStep(grid.CellCentre(2, 4), grid.CellCentre(3, 4), ref layer),
+                "Where the bridge spans the channel, the bank walks onto the deck…");
+            Assert.AreEqual(1, layer);
+            Assert.IsTrue(ground.CanStep(grid.CellCentre(3, 4), grid.CellCentre(4, 4), ref layer) &&
+                          ground.CanStep(grid.CellCentre(4, 4), grid.CellCentre(5, 4), ref layer),
+                "…across it, and off the far side…");
+            Assert.AreEqual(0, layer, "…back onto plain ground.");
+        }
+
+        [Test]
+        public void ARoadPaintsTheGroundAndRidesItsBridge()
+        {
+            var map = Map(m =>
+            {
+                m.Regions = new[]
+                {
+                    new AuthoredRegion { Name = "Plain", Centre = Vector2.zero,
+                                         Size = new Vector2(8f, 8f), Y = 0f },
+                };
+                m.Rivers = new[]
+                {
+                    new AuthoredRiver { Name = "Channel",
+                                        Points = new[] { new Vector2(0f, -4f), new Vector2(0f, 4f) },
+                                        HalfWidth = 0.6f },
+                };
+                m.Layers = new[]
+                {
+                    new AuthoredLayer { Name = "Bridge", Centre = new Vector2(0f, 0.5f),
+                                        Size = new Vector2(2f, 1f), Y = 0f },
+                };
+                m.Roads = new[]
+                {
+                    new AuthoredRoad { Name = "Bridged",
+                                       Points = new[] { new Vector2(-4f, 0.5f), new Vector2(4f, 0.5f) },
+                                       HalfWidth = 0.4f },
+                    new AuthoredRoad { Name = "Fords nothing",
+                                       Points = new[] { new Vector2(-4f, -1.5f), new Vector2(4f, -1.5f) },
+                                       HalfWidth = 0.4f },
+                };
+            });
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.IsTrue(grid.RoadAt(1, 4), "The road paints the plain…");
+            Assert.IsTrue(grid.RoadAt(3, 4), "…and rides the bridge deck over the channel.");
+            Assert.IsTrue(grid.RoadAt(1, 2), "The unbridged road paints its banks…");
+            Assert.IsFalse(grid.RoadAt(3, 2), "…but open water carries no paint.");
+            Assert.IsFalse(grid.RoadAt(1, 6), "Off the course, no paint anywhere.");
+        }
+
+        [Test]
         public void ArrivalsPickTheSurfaceNearestTheirHeight()
         {
             // A spawn point or a return portal knows only a world position — LayerFor turns its

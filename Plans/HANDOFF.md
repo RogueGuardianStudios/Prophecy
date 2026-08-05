@@ -35,6 +35,28 @@ guide renderer now DILATES island colours 8 px into the background before writin
 Rule of thumb: view-dependent stipple that survives the shadows-off toggle AND both audits is
 shading (specular or texture sampling), not geometry.
 
+**Third and final act (2026-08-05, later that morning — Matt: "it is structural to the models,"
+and he was right):** the matte pass helped but the shimmer survived. Two diagnostics settled it,
+both worth keeping. (1) A MOVING-PAIR DIFF — render the same view from two cameras 3 cm apart,
+subtract, and every unstable pixel lights up; with the sun's shadows toggled off between pairs
+the count barely moved, so shadows were finally exonerated for good. The diff showed the
+UV-guide WIREFRAME blazing on every tile: a near-black one-texel line on light ground crawls
+under minification everywhere at once. It is now an 18% darkening drawn with a blend, and the
+guides import trilinear + aniso 8. (2) A NEAR-COPLANAR audit (0.005 m tolerance — the exact-
+plane audit was too polite) found five junction families sharing planes: the cheek's end cap
+sat IN the mouth wall's plane (the flickering patch at every stair foot), the cheek's front
+shared the plane of the wall pieces' exposed cut ends beside the mouth, cheek rim tops were
+flush with face rim tops, post rims ended on the face rims' back plane (WallT == RimOver by
+coincidence), and the jamb post's front landed exactly on stair riser 4 (PostBulge 0.25 = 2 ×
+tread depth). Fixes, all in the geometry: rims run three tiers (face 0.20 / cheek 0.22 / post
+0.24), the cheek grew a proud tall end (0.02) and a proud face (0.005), posts bulge 0.27 with
+flats at WallT+0.01 and rim backs at WallT+0.02, and face end skirts split off and inset —
+a stacked piece's end skirt shared the lower piece's end plane. Frame-pair instability at the
+stair notch: 118k hot pixels → 88k, remainder is silhouette aliasing. Matt confirmed the
+jitter gone. THE RULE the tile set now obeys: overlapping pieces may interpenetrate freely,
+but no two same-facing surfaces may share a plane — and constants that are multiples of each
+other (WallT/RimOver, PostBulge/treadD) create shared planes by arithmetic accident.
+
 **And runs are RECESSED (2026-08-05, morning, Matt): one tile at the bottom, one notched into
 the wall** — the ALttP inset stair. `OverworldTileGrid.RampRecess = RampRun / 2`: the compiler
 carves the run's top cells OUT of the high terrace (requiring high ground beyond for the
@@ -87,7 +109,37 @@ walls from floor to rock top, and gives every overlay its own cap — whose side
 now wear rock colour, because deck edges and lintels put them in the open. Demo authoring on
 the live map: 'Foothills Hollow' (a cave in the south face) and 'Foothills Overlook' (a deck
 over the heartland). Live-probed: into the mouth (layer 1, floor 0), onto the deck (layer 1,
-height 2), under the same deck (layer 0, height 0). Suite 796 green. **Known gap:** the
+height 2), under the same deck (layer 0, height 0). Suite 796 green.
+
+**Layers reached the TRANSITION system (2026-08-05, Matt: handle teleporting to a side-scroll
+scene from a cave, bridge, or overhang — and coming back):** three fixes, verified live as a
+full round trip (Overlook deck, layer 1 → side-scroll course → back to the same spot on the
+same surface). Portals tested feet at the flat rail depth — a deck portal could never fire and
+a cave portal fired for a body on the roof; `PlayerCharacterHost.FeetWorldPosition` now carries
+the layered ground height and portals (and the wanderer touch, which gained a same-floor height
+gate) test against it. Arrivals reset the token — `ITopDownGround.LayerFor(point, height)`
+picks the surface nearest a world height and `TeleportTo` seeds the token from the arrival's Y,
+so spawn points authored inside caves or on decks stand on the right floor. And returns went to
+fixed door spawns — `SceneDirector` now remembers every departure (feet WITH surface height,
+facing) keyed by scene (keyed, not one slot: the return trip itself records a departure and a
+single slot is overwritten before it is read — that bug lived for one test cycle), and a portal
+targeting the **`@return` spawn id** arrives exactly where the player left. The traversal
+course's exits use it, which is Zelda II's encounter rule: the fight interrupts the journey.
+
+**RIVERS AND ROADS (2026-08-05, same session):** the map grew three authoring nouns.
+`AuthoredRiver` — a polyline course carved to Sea cells AFTER regions, BEFORE ramps (a channel
+cuts terraces into gorges, but never converts a climb into a river bed); banks, water and
+refusal all come free because a river cell IS a sea cell — the coast machinery does not know
+the difference. Crossing one is an `AuthoredLayer` deck at bank height: a bridge over water was
+already the overlay model's native case. `AuthoredRoad` — PAINT, not ground: a polyline flags
+flat Ground cells (and any cell with an overlay — that is the road riding its bridge deck); the
+host draws one merged strip mesh 0.02 above the walk surface under scenery, so the NavMesh and
+the sim never see it. Sloped run cells carry no road — an ALttP road breaks at a stair. Demo
+authoring on the live map: the 'Eastwater' runs from the north sea past the North Rise (clipping
+its corner into a two-terrace gorge) to the south sea, and the 'Mesa Road' runs from the
+Foothills ramp foot past the spawn, across 'Eastwater Bridge', to the Mesa Trail. Suite 800
+green (river carve + bridge crossing, road paint + deck riding, LayerFor arrivals, seeded
+teleports). **Known gap:** the
 overhead camera cannot see INTO an enclosed cave (the roof occludes) — a roof cutaway when the
 player is beneath is the natural next slice; overhang mouths and bridges read fully.
 
@@ -906,6 +958,33 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 ---
 
 ## 7. Known gaps
+
+### The Overworld Grid's remaining edge cases (enumerated 2026-08-05, on Matt's "unless you can name more?")
+
+With rivers, roads, bridges, caves, overhangs and layered transitions done, what the model still
+cannot say — each deliberately deferred, none blocking:
+
+- **Elevated water.** The sea is ONE plane at −0.35; a river always cuts to sea level. A river
+  ON a terrace, a waterfall where it drops a step, a highland lake — all need per-cell water
+  height. The visible tell today: 'Eastwater' crossing the North Rise reads as a gorge with the
+  water two steps down, not a stream at terrace level. Defer until a map needs a waterfall.
+- **Fords.** Sea refuses; there is no walkable shallow water. A ford is one new cell notion
+  (Ground that renders wet) — cheap when wanted.
+- **Overlay ramps.** The second surface is FLAT by design, so no stairs INSIDE a cave, no
+  sloping bridge, no deck at a height its access does not already reach. The recorded cap;
+  build with the feature that needs it.
+- **A third surface.** One overlay per cell — a bridge over a road over a canal in a gorge
+  (three walkable floors) exceeds the model. No authored place wants it yet.
+- **Roof cutaway.** The overhead camera cannot see INTO an enclosed cave (the terrain roof
+  occludes the floor). The natural next presentation slice: hide roof caps when the player's
+  layer says beneath.
+- **Roads on slopes.** Road paint skips ramp/stair cells (an ALttP road breaks at a stair —
+  arguably correct forever).
+- **Wanderers and layers.** The touch gained a height gate, but wanderers themselves never walk
+  decks or caves (NavMesh bakes the base walkable tops; the deck caps ARE in the bake, so they
+  could route across a bridge — but nothing spawns them there deliberately).
+- **River mouths.** A river meeting the coast composes from the same shore pieces as everything
+  else; there is no distinct delta/estuary read. Cosmetic only.
 
 *(The old list had grown two competing numberings and still opened with "no dodge", which has been
 built since. Renumbered and re-checked against the code on 2026-07-30.)*

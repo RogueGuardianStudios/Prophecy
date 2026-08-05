@@ -108,6 +108,44 @@ namespace Rokkan.Prophecy.Overworld
         public float Y;
     }
 
+    /// <summary>
+    /// A hand-authored river: a polyline course carved into the land as sea cells. Banks appear
+    /// automatically (they are the same land-meets-sea boundary the coast is), the water is the
+    /// same one sea plane, and crossing one takes a bridge — an <see cref="AuthoredLayer"/> deck
+    /// over the channel at bank height.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredRiver
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "River";
+
+        [Tooltip("The river's course on the ground plane (X, world Z), source to mouth.")]
+        public Vector2[] Points = Array.Empty<Vector2>();
+
+        [Tooltip("Half the channel's width, in metres.")]
+        public float HalfWidth = 1.5f;
+    }
+
+    /// <summary>
+    /// A hand-authored road: paint, not ground. Cells near the course are flagged and the host
+    /// draws one flat strip over their walk surface — including across bridge decks, which is
+    /// how a road crosses a river. Walkability is untouched; sloped cells carry no road (an
+    /// ALttP road breaks at a stair and resumes beyond it).
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredRoad
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Road";
+
+        [Tooltip("The road's course on the ground plane (X, world Z).")]
+        public Vector2[] Points = Array.Empty<Vector2>();
+
+        [Tooltip("Half the road's width, in metres.")]
+        public float HalfWidth = 1f;
+    }
+
     [CreateAssetMenu(menuName = "Prophecy/Overworld Map", fileName = "OverworldMap")]
     public sealed class OverworldMap : ScriptableObject
     {
@@ -141,5 +179,13 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Extra walkable surfaces over the terrain: cave floors below it, bridge decks " +
                  "and overhangs above it.")]
         public AuthoredLayer[] Layers = Array.Empty<AuthoredLayer>();
+
+        [Tooltip("Channels carved through the land after the regions, before the ramps. Cross " +
+                 "one on a bridge: a Layer deck over the channel at bank height.")]
+        public AuthoredRiver[] Rivers = Array.Empty<AuthoredRiver>();
+
+        [Tooltip("Painted strips over the walk surface. Purely visual — walkability never " +
+                 "changes. A road runs across any bridge deck on its course.")]
+        public AuthoredRoad[] Roads = Array.Empty<AuthoredRoad>();
     }
 }
