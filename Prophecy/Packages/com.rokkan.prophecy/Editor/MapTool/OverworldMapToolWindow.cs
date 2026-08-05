@@ -20,8 +20,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
         [SerializeField] private OverworldMap _map;
         [SerializeField] private OverworldTileSet _tiles;
         [SerializeField] private bool _stairsForRamps = true;
-        [SerializeField] private bool _previewEnabled;
+        [SerializeField] private bool _previewEnabled = true;
         [SerializeField] private bool _handlesEnabled = true;
+
+        [SerializeField] private bool _showRegions = true;
+        [SerializeField] private bool _showRamps = true;
+        [SerializeField] private bool _showLayers = true;
+        [SerializeField] private bool _showRivers = true;
+        [SerializeField] private bool _showRoads = true;
 
         [SerializeField] private OverworldPropPalette _palette;
         [SerializeField] private int _paletteIndex;
@@ -105,6 +111,12 @@ namespace Rokkan.Prophecy.Editor.MapTool
             EditorApplication.update += OnEditorUpdate;
             Undo.undoRedoPerformed += OnUndoRedo;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
+
+            // The preview IS the tool — without it the scene view shows handles floating over
+            // an empty scene while painting "does nothing". On by default, attached on open.
+            if (_previewEnabled && _map != null && _tiles != null &&
+                !EditorApplication.isPlayingOrWillChangePlaymode)
+                _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
         }
 
         private void OnFocus() => _canvas?.SyncFromMap(_map);
@@ -161,8 +173,19 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
                 _handlesEnabled = EditorGUILayout.Toggle("Shape Handles", _handlesEnabled);
 
-                if (GUILayout.Button("Rebuild Preview") && _previewEnabled)
-                    _preview.MarkAll();
+                if (_handlesEnabled)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        _showRegions = GUILayout.Toggle(_showRegions, "Regions", "Button");
+                        _showRamps = GUILayout.Toggle(_showRamps, "Ramps", "Button");
+                        _showLayers = GUILayout.Toggle(_showLayers, "Layers", "Button");
+                        _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
+                        _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
+                    }
+                }
+
+                if (GUILayout.Button("Rebuild Preview")) RebuildPreviewNow();
             }
 
             EditorGUILayout.Space();
@@ -238,6 +261,11 @@ namespace Rokkan.Prophecy.Editor.MapTool
             EditorGUILayout.LabelField(
                 "LMB paint · MMB pan · scroll zoom · painted cells tint pink · one stroke = one undo",
                 EditorStyles.miniLabel);
+
+            // Authoring audits from the last compile — the same messages the console used to
+            // repeat per stroke, shown once, where the painting happens.
+            for (int i = 0; i < _canvas.LastNotes.Count; i++)
+                EditorGUILayout.HelpBox(_canvas.LastNotes[i], MessageType.Warning);
         }
 
         private void OnSceneGui(SceneView view)
@@ -245,7 +273,10 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (_map == null) return;
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-            if (_handlesEnabled) OverworldShapeHandles.Draw(_map, _preview, _worldOrigin);
+            if (_handlesEnabled)
+                OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
+                                           _showRegions, _showRamps, _showLayers,
+                                           _showRivers, _showRoads);
 
             DrawExistingProps();
             if (_placeArmed) DrawPlacement(view);

@@ -242,8 +242,24 @@ namespace Rokkan.Prophecy.Overworld
         /// (it quantizes either way — the warning is for the author, not the compiler).</summary>
         private const float QuantizeTolerance = 0.05f;
 
+        /// <summary>The authoring audits from the LAST Compile — inert ramps, spilling water,
+        /// refused road paint, off-grid Ys. The map tool reads these into its own UI.</summary>
+        public static readonly List<string> Notes = new List<string>();
+
+        /// <summary>Whether audits also go to the console. True for scene loads, where the
+        /// console is the only surface; the map tool compiles on every stroke and turns this
+        /// off — a repeated audit is feedback once and noise forever after.</summary>
+        public static bool LogToConsole = true;
+
+        private static void Note(string message)
+        {
+            Notes.Add(message);
+            if (LogToConsole) Debug.LogWarning(message);
+        }
+
         public static OverworldTileGrid Compile(OverworldMap map, Vector3 worldOffset)
         {
+            Notes.Clear();
             int width = Mathf.Max(1, Mathf.RoundToInt(map.BoundsSize.x / OverworldTileGrid.CellSize));
             int height = Mathf.Max(1, Mathf.RoundToInt(map.BoundsSize.y / OverworldTileGrid.CellSize));
             var origin = new Vector2(worldOffset.x - map.BoundsSize.x * 0.5f,
@@ -346,7 +362,7 @@ namespace Rokkan.Prophecy.Overworld
             }
 
             if (refused > 0)
-                Debug.LogWarning($"[Prophecy] {refused} painted road cell(s) refused — road " +
+                Note($"[Prophecy] {refused} painted road cell(s) refused — road " +
                                  $"rides flat ground or a deck, first refusal at ({firstX}, {firstZ}).");
         }
 
@@ -447,7 +463,7 @@ namespace Rokkan.Prophecy.Overworld
             }
 
             if (spills > 0)
-                Debug.LogWarning($"[Prophecy] River water hangs over lower ground at {spills} " +
+                Note($"[Prophecy] River water hangs over lower ground at {spills} " +
                                  $"cell edge(s), first at cell ({firstX}, {firstZ}) — bank the " +
                                  "course with terrain at or above its level, or lower it.");
         }
@@ -667,7 +683,7 @@ namespace Rokkan.Prophecy.Overworld
                 }
 
                 if (converted == 0)
-                    Debug.LogWarning($"[Prophecy] Ramp '{ramp.Name}' converted no cells — its " +
+                    Note($"[Prophecy] Ramp '{ramp.Name}' converted no cells — its " +
                                      "strip contains no one-step boundary with room for the " +
                                      $"run ({OverworldTileGrid.RampRun - OverworldTileGrid.RampRecess} " +
                                      $"low cells, {OverworldTileGrid.RampRecess} notched into the " +
@@ -680,7 +696,7 @@ namespace Rokkan.Prophecy.Overworld
             int level = Mathf.Max(0, Mathf.RoundToInt(y / OverworldTileGrid.Step));
 
             if (Mathf.Abs(y - level * OverworldTileGrid.Step) > QuantizeTolerance)
-                Debug.LogWarning($"[Prophecy] Region '{regionName}' Y={y:0.00} is not a multiple " +
+                Note($"[Prophecy] Region '{regionName}' Y={y:0.00} is not a multiple " +
                                  $"of the {OverworldTileGrid.Step} m step — quantized to level " +
                                  $"{level} ({level * OverworldTileGrid.Step:0.00} m).");
 

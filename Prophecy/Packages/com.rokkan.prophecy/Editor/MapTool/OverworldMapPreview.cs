@@ -81,22 +81,32 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             double started = EditorApplication.timeSinceStartup;
 
-            if (!Active || _fullRebuildQueued || _built == null)
+            // The tool compiles on every edit — its audits belong in the window, not repeated
+            // into the console per stroke. Scene loads keep the console channel.
+            OverworldTileGridCompiler.LogToConsole = false;
+            try
             {
-                Teardown();
+                if (!Active || _fullRebuildQueued || _built == null)
+                {
+                    Teardown();
 
-                _root = new GameObject(RootName) { hideFlags = HideFlags.HideAndDontSave };
-                var walkable = new GameObject("Ground_Walkable").transform;
-                walkable.SetParent(_root.transform, false);
-                var scenery = new GameObject("Ground_Scenery").transform;
-                scenery.SetParent(_root.transform, false);
+                    _root = new GameObject(RootName) { hideFlags = HideFlags.HideAndDontSave };
+                    var walkable = new GameObject("Ground_Walkable").transform;
+                    walkable.SetParent(_root.transform, false);
+                    var scenery = new GameObject("Ground_Scenery").transform;
+                    scenery.SetParent(_root.transform, false);
 
-                _built = OverworldWorldBuilder.Build(_map, _tiles, walkable, scenery,
-                                                     _origin, _stairs);
+                    _built = OverworldWorldBuilder.Build(_map, _tiles, walkable, scenery,
+                                                         _origin, _stairs);
+                }
+                else if (_dirtyChunks.Count > 0)
+                {
+                    OverworldWorldBuilder.RebuildChunks(_built, _dirtyChunks);
+                }
             }
-            else if (_dirtyChunks.Count > 0)
+            finally
             {
-                OverworldWorldBuilder.RebuildChunks(_built, _dirtyChunks);
+                OverworldTileGridCompiler.LogToConsole = true;
             }
 
             _fullRebuildQueued = false;

@@ -39,6 +39,10 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private bool _stroke;
         private int _strokeMinX, _strokeMinZ, _strokeMaxX, _strokeMaxZ;
 
+        /// <summary>The compiler's authoring audits from the last canvas compile — the window
+        /// shows these instead of letting them spam the console on every stroke.</summary>
+        public readonly List<string> LastNotes = new List<string>();
+
         private float _zoom = 8f;
         private Vector2 _pan;
 
@@ -224,11 +228,22 @@ namespace Rokkan.Prophecy.Editor.MapTool
             // The canvas compiles for itself rather than borrowing the preview's grid: painting
             // must show truth whether or not the 3D preview is running, and a compile of the
             // whole map is milliseconds. The mirror is baked in through a temporary override
-            // array so the in-progress stroke reads exactly as it will commit.
+            // array so the in-progress stroke reads exactly as it will commit. Audits stay out
+            // of the console — they land in LastNotes for the window to show.
             var saved = map.CellOverrides;
             map.CellOverrides = ToArray();
-            _grid = OverworldTileGridCompiler.Compile(map, worldOrigin);
-            map.CellOverrides = saved;
+            OverworldTileGridCompiler.LogToConsole = false;
+            try
+            {
+                _grid = OverworldTileGridCompiler.Compile(map, worldOrigin);
+            }
+            finally
+            {
+                OverworldTileGridCompiler.LogToConsole = true;
+                map.CellOverrides = saved;
+            }
+            LastNotes.Clear();
+            LastNotes.AddRange(OverworldTileGridCompiler.Notes);
             _gridDirty = false;
         }
 

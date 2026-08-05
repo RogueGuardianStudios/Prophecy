@@ -24,12 +24,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private static readonly Color RiverColour = new Color(0.3f, 0.6f, 1f, 0.9f);
         private static readonly Color RoadColour = new Color(0.85f, 0.7f, 0.45f, 0.9f);
 
-        public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset)
+        public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
+                                bool regions = true, bool ramps = true, bool layers = true,
+                                bool rivers = true, bool roads = true)
         {
             if (map == null) return;
             var offset = new Vector2(worldOffset.x, worldOffset.z);
 
-            for (int i = 0; map.Regions != null && i < map.Regions.Length; i++)
+            for (int i = 0; regions && map.Regions != null && i < map.Regions.Length; i++)
                 DrawRect(map, preview, offset,
                          () => (map.Regions[i].Centre, map.Regions[i].Size,
                                 map.Regions[i].RotationDegrees, map.Regions[i].Y),
@@ -41,7 +43,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                          },
                          RegionColour, map.Regions[i].Name);
 
-            for (int i = 0; map.Layers != null && i < map.Layers.Length; i++)
+            for (int i = 0; layers && map.Layers != null && i < map.Layers.Length; i++)
                 DrawRect(map, preview, offset,
                          () => (map.Layers[i].Centre, map.Layers[i].Size,
                                 map.Layers[i].RotationDegrees, map.Layers[i].Y),
@@ -53,15 +55,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
                          },
                          LayerColour, map.Layers[i].Name);
 
-            for (int i = 0; map.Ramps != null && i < map.Ramps.Length; i++)
+            for (int i = 0; ramps && map.Ramps != null && i < map.Ramps.Length; i++)
                 DrawRamp(map, preview, offset, map.Ramps[i]);
 
-            for (int i = 0; map.Rivers != null && i < map.Rivers.Length; i++)
+            for (int i = 0; rivers && map.Rivers != null && i < map.Rivers.Length; i++)
                 DrawCourse(map, preview, offset, map.Rivers[i].Name,
                            () => map.Rivers[i].Points, p => map.Rivers[i].Points = p,
                            map.Rivers[i].HalfWidth, RiverColour);
 
-            for (int i = 0; map.Roads != null && i < map.Roads.Length; i++)
+            for (int i = 0; roads && map.Roads != null && i < map.Roads.Length; i++)
                 DrawCourse(map, preview, offset, map.Roads[i].Name,
                            () => map.Roads[i].Points, p => map.Roads[i].Points = p,
                            map.Roads[i].HalfWidth, RoadColour);
