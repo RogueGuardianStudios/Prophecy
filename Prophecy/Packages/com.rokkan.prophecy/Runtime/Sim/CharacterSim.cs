@@ -397,19 +397,25 @@ namespace Rokkan.Prophecy.Sim
                 cornerB = new Vector2(to.x + across, to.y + lead);
             }
 
-            // The centre probe is the layer authority; the corners each start from the current
-            // layer and merely validate. All three must agree the move is legal before the
-            // centre's resolved layer is committed.
-            int centreLayer = State.GroundLayer;
-            int cornerLayerA = State.GroundLayer;
-            int cornerLayerB = State.GroundLayer;
+            // The edge probes VALIDATE; only a feet-to-feet probe RESOLVES the layer. The
+            // leading edge runs up to half a body ahead of the feet, and committing its layer
+            // flipped the token one cell early — walking a bridge deck toward its junction
+            // dropped the body through the deck, and leaving a cave popped it onto the roof,
+            // for every frame until the feet caught up. The token must track where the feet
+            // ARE, not where the toes point.
+            int edgeLayerA = State.GroundLayer;
+            int edgeLayerB = State.GroundLayer;
+            int edgeLayerC = State.GroundLayer;
 
-            bool permitted = Ground.CanStep(from, centre, ref centreLayer) &&
-                             Ground.CanStep(from, cornerA, ref cornerLayerA) &&
-                             Ground.CanStep(from, cornerB, ref cornerLayerB);
+            bool permitted = Ground.CanStep(from, centre, ref edgeLayerA) &&
+                             Ground.CanStep(from, cornerA, ref edgeLayerB) &&
+                             Ground.CanStep(from, cornerB, ref edgeLayerC);
+            if (!permitted) return false;
 
-            if (permitted) State.GroundLayer = centreLayer;
-            return permitted;
+            int feetLayer = State.GroundLayer;
+            Ground.CanStep(from, to, ref feetLayer);
+            State.GroundLayer = feetLayer;
+            return true;
         }
 
         /// <summary>

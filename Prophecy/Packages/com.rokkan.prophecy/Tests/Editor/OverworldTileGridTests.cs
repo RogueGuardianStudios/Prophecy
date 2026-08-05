@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using RGS.Core.Sim;
 using Rokkan.Prophecy.Overworld;
+using Rokkan.Prophecy.Sim;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Tests
@@ -373,6 +375,41 @@ namespace Rokkan.Prophecy.Tests
             Assert.IsTrue(ground.CanStep(Centre(0, 2), Centre(0, 1), ref roof),
                 "While the roof overhead carries its own traffic…");
             Assert.AreEqual(0, roof, "…on the base surface.");
+        }
+
+        [Test]
+        public void TheLayerTokenTracksTheFeetNotTheToes()
+        {
+            // Terrace, two deck cells, terrace — every surface on the path is at one height, so
+            // any tick where height and token disagree is the leading-edge bug: the old code
+            // committed the layer from a probe half a body ahead of the feet, and walking off a
+            // deck dropped the body through it until the feet caught up.
+            var grid = Flat(4, 2);
+            grid.Set(0, 1, TileCellKind.Ground, 1);
+            grid.Set(3, 1, TileCellKind.Ground, 1);
+            grid.SetOverlay(1, 1, 1);
+            grid.SetOverlay(2, 1, 1);
+            var ground = new TileGridGround(grid);
+
+            var sim = PlayerCharacterFactory.Create(new Rokkan.Prophecy.Sim.Collision.CollisionWorld(),
+                                                    new MovementTuningData(), MovementSpace.TopDown);
+            sim.Ground = ground;
+            sim.Teleport(new Vector2(0.5f, 1.5f));   // on the west terrace, layer 0
+
+            const float dt = 1f / 60f;
+            for (int i = 0; i < 240; i++)
+            {
+                sim.SetInput(new InputFrame(new Vector2(1f, 0f)));
+                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, dt));
+
+                float height = ground.HeightAt(sim.State.Position, sim.State.GroundLayer);
+                Assert.AreEqual(OverworldTileGrid.Step, height, 0.001f,
+                    $"Tick {i} at x={sim.State.Position.x:0.00}: the token says a surface the " +
+                    "feet are not on.");
+            }
+
+            Assert.Greater(sim.State.Position.x, 3f,
+                "The walk must actually cross both junctions for the assertion to mean anything.");
         }
 
         [Test]
