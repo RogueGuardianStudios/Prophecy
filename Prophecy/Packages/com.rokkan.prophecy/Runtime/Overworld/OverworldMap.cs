@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Rokkan.Prophecy.Overworld
 {
@@ -185,16 +186,16 @@ namespace Rokkan.Prophecy.Overworld
     }
 
     /// <summary>
-    /// A hand-authored impassable mass — the ALttP forest blob. Thicket cells REFUSE walking
+    /// A hand-authored impassable mass — the ALttP forest blob. Greeble cells REFUSE walking
     /// (the same no-surface rule prop footprints use) and the biome's scatter fills them with
     /// trees; open walkable ground is never scattered, because open space is for travelling
     /// (Matt, 2026-08-05) — dress it with hand-placed props or shaders instead.
     /// </summary>
     [Serializable]
-    public sealed class AuthoredThicket
+    public sealed class AuthoredGreeble
     {
         [Tooltip("For the inspector. Carries no behaviour.")]
-        public string Name = "Thicket";
+        public string Name = "Greeble";
 
         [Tooltip("Centre of the footprint on the ground plane, in metres. X is world X, Y is world Z.")]
         public Vector2 Centre;
@@ -210,9 +211,9 @@ namespace Rokkan.Prophecy.Overworld
         public OverworldProvince Province;
     }
 
-    /// <summary>What a painted cell says about thicket. Add plants, Remove carves a clearing
+    /// <summary>What a painted cell says about greeble. Add plants, Remove carves a clearing
     /// out of a shape-authored mass.</summary>
-    public enum ThicketOverride : byte
+    public enum GreebleOverride : byte
     {
         None,
         Add,
@@ -221,8 +222,8 @@ namespace Rokkan.Prophecy.Overworld
 
     /// <summary>What a painted cell says about plain walkability. Add blocks with NO scatter
     /// (bare unwalkable ground — rocks, rubble, "not this way"); Remove is the hand's last
-    /// word and unblocks ANYTHING — thicket, prop footprint, all of it.</summary>
-    public enum BlockOverride : byte
+    /// word and unblocks ANYTHING — greeble, prop footprint, all of it.</summary>
+    public enum UnwalkableOverride : byte
     {
         None,
         Add,
@@ -269,13 +270,15 @@ namespace Rokkan.Prophecy.Overworld
                  "dominates the feathered areas — the hand beats the field.")]
         public int Biome = -1;
 
-        [Tooltip("Painted thicket: Add plants an impassable scatter-filled cell, Remove " +
+        [Tooltip("Painted greeble: Add plants an impassable scatter-filled cell, Remove " +
                  "carves a clearing from a shape-authored mass.")]
-        public ThicketOverride Thicket;
+        [FormerlySerializedAs("Thicket")]
+        public GreebleOverride Greeble;
 
         [Tooltip("Painted walkability: Add blocks bare (no scatter); Remove unblocks " +
                  "anything — the hand's last word.")]
-        public BlockOverride Block;
+        [FormerlySerializedAs("Block")]
+        public UnwalkableOverride Unwalkable;
     }
 
     /// <summary>
@@ -367,6 +370,7 @@ namespace Rokkan.Prophecy.Overworld
 
         [Tooltip("Impassable scatter-filled masses — forests, briars. Walking refuses; the " +
                  "biome's scatter list fills them.")]
-        public AuthoredThicket[] Thickets = Array.Empty<AuthoredThicket>();
+        [FormerlySerializedAs("Thickets")]
+        public AuthoredGreeble[] Greebles = Array.Empty<AuthoredGreeble>();
     }
 }

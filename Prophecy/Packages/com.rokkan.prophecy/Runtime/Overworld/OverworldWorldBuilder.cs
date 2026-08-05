@@ -446,7 +446,7 @@ namespace Rokkan.Prophecy.Overworld
             {
                 for (int x = 0; x < grid.Width; x++)
                 {
-                    if (!grid.ThicketAt(x, z)) continue;
+                    if (!grid.GreebleAt(x, z)) continue;
 
                     var variants = ScatterFor(output.Biomes, grid.DominantBiomeAt(x, z));
                     if (variants == null || variants.Length == 0) continue;

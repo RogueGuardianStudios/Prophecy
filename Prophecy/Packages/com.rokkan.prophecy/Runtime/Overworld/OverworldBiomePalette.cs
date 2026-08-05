@@ -11,8 +11,8 @@ namespace Rokkan.Prophecy.Overworld
     {
         public OverworldBiome[] Biomes = Array.Empty<OverworldBiome>();
 
-        [Tooltip("What fills thicket cells whose biome has no scatter of its own — and " +
-                 "biome-less thickets. The generic tree.")]
+        [Tooltip("What fills greeble cells whose biome has no scatter of its own — and " +
+                 "biome-less greebles. The generic tree.")]
         public OverworldBiomeVariant[] DefaultScatter = Array.Empty<OverworldBiomeVariant>();
 
         public OverworldBiome ByIndex(int index) =>

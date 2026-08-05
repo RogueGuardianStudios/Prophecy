@@ -152,41 +152,41 @@ namespace Rokkan.Prophecy.Overworld
         // Cells a blocking prop stands on. Walkability treats them as having no surface at
         // all, which keeps the escape rule: a body somehow stranded INSIDE a prop's footprint
         // may always step out, it just can't step in.
-        private readonly HashSet<int> _blocked = new HashSet<int>();
+        private readonly HashSet<int> _unwalkable = new HashSet<int>();
 
         /// <summary>Whether a blocking prop occupies this cell.</summary>
-        public bool BlockedAt(int x, int z) => InBounds(x, z) && _blocked.Contains(z * _width + x);
+        public bool UnwalkableAt(int x, int z) => InBounds(x, z) && _unwalkable.Contains(z * _width + x);
 
-        public void SetBlocked(int x, int z)
+        public void SetUnwalkable(int x, int z)
         {
-            if (InBounds(x, z)) _blocked.Add(z * _width + x);
+            if (InBounds(x, z)) _unwalkable.Add(z * _width + x);
         }
 
-        public void ClearBlocked(int x, int z)
+        public void ClearUnwalkable(int x, int z)
         {
-            if (InBounds(x, z)) _blocked.Remove(z * _width + x);
+            if (InBounds(x, z)) _unwalkable.Remove(z * _width + x);
         }
 
-        // Thicket cells: blocked like a prop footprint AND scatter-filled by the biome. The
+        // Greeble cells: blocked like a prop footprint AND scatter-filled by the biome. The
         // separate set exists because the scatter needs to know which blocked cells are
-        // thicket (fill with trees) versus prop footprints (already filled by the prop).
-        private readonly HashSet<int> _thicket = new HashSet<int>();
+        // greeble (fill with trees) versus prop footprints (already filled by the prop).
+        private readonly HashSet<int> _greeble = new HashSet<int>();
 
         /// <summary>Whether this cell is an impassable scatter-filled mass.</summary>
-        public bool ThicketAt(int x, int z) => InBounds(x, z) && _thicket.Contains(z * _width + x);
+        public bool GreebleAt(int x, int z) => InBounds(x, z) && _greeble.Contains(z * _width + x);
 
-        public void SetThicket(int x, int z)
+        public void SetGreeble(int x, int z)
         {
             if (!InBounds(x, z)) return;
-            _thicket.Add(z * _width + x);
-            _blocked.Add(z * _width + x);
+            _greeble.Add(z * _width + x);
+            _unwalkable.Add(z * _width + x);
         }
 
-        public void ClearThicket(int x, int z)
+        public void ClearGreeble(int x, int z)
         {
             if (!InBounds(x, z)) return;
-            _thicket.Remove(z * _width + x);
-            _blocked.Remove(z * _width + x);
+            _greeble.Remove(z * _width + x);
+            _unwalkable.Remove(z * _width + x);
         }
 
         // The province stamp: which named place's RULES govern each cell. Stored as an index
@@ -393,34 +393,34 @@ namespace Rokkan.Prophecy.Overworld
             RasterRoads(grid, map, offset);
             ApplyRoadOverrides(grid, map);
             RasterBiomes(grid, map, offset);
-            RasterThickets(grid, map, offset);
+            RasterGreebles(grid, map, offset);
             RasterProvinces(grid, map, offset);
             RasterProps(grid, map, offset);
-            ApplyBlockOverrides(grid, map);
+            ApplyUnwalkableOverrides(grid, map);
 
             return grid;
         }
 
         /// <summary>
         /// Painted walkability, applied dead LAST: Add blocks a cell bare (no scatter — bare
-        /// unwalkable ground); Remove unblocks ANYTHING, including thicket masses and prop
+        /// unwalkable ground); Remove unblocks ANYTHING, including greeble masses and prop
         /// footprints — the hand's last word over every other source of blocking.
         /// </summary>
-        private static void ApplyBlockOverrides(OverworldTileGrid grid, OverworldMap map)
+        private static void ApplyUnwalkableOverrides(OverworldTileGrid grid, OverworldMap map)
         {
             var overrides = map.CellOverrides;
 
             for (int i = 0; overrides != null && i < overrides.Length; i++)
             {
                 var cell = overrides[i];
-                if (cell.Block == BlockOverride.Add)
+                if (cell.Unwalkable == UnwalkableOverride.Add)
                 {
-                    grid.SetBlocked(cell.X, cell.Z);
+                    grid.SetUnwalkable(cell.X, cell.Z);
                 }
-                else if (cell.Block == BlockOverride.Remove)
+                else if (cell.Unwalkable == UnwalkableOverride.Remove)
                 {
-                    grid.ClearThicket(cell.X, cell.Z);   // also clears its blocked flag
-                    grid.ClearBlocked(cell.X, cell.Z);
+                    grid.ClearGreeble(cell.X, cell.Z);   // also clears its blocked flag
+                    grid.ClearUnwalkable(cell.X, cell.Z);
                 }
             }
         }
@@ -428,7 +428,7 @@ namespace Rokkan.Prophecy.Overworld
         /// <summary>
         /// Provinces are the named shapes themselves — a shape with a Province reference
         /// stamps its cells with those rules, in raster order (regions, then biome areas by
-        /// their HARD rect, then thickets), later wins. No separate bounds ever exist to
+        /// their HARD rect, then greebles), later wins. No separate bounds ever exist to
         /// drift from the places they describe.
         /// </summary>
         private static void RasterProvinces(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
@@ -466,31 +466,31 @@ namespace Rokkan.Prophecy.Overworld
                 StampRect(areas[i].Centre, areas[i].Size, areas[i].RotationDegrees,
                           areas[i].Province);
 
-            var thickets = map.Thickets;
-            for (int i = 0; thickets != null && i < thickets.Length; i++)
-                StampRect(thickets[i].Centre, thickets[i].Size, thickets[i].RotationDegrees,
-                          thickets[i].Province);
+            var greebles = map.Greebles;
+            for (int i = 0; greebles != null && i < greebles.Length; i++)
+                StampRect(greebles[i].Centre, greebles[i].Size, greebles[i].RotationDegrees,
+                          greebles[i].Province);
         }
 
         /// <summary>
         /// Impassable scatter-filled masses: shape rects plant them on flat GROUND cells only
-        /// (a thicket never grows on water, a slope, or a road — the road wins, it is the
+        /// (a greeble never grows on water, a slope, or a road — the road wins, it is the
         /// carved path through the forest), and the painted overrides add or carve per cell.
-        /// Thicket blocks exactly like a prop footprint — the ground seam refuses, the escape
+        /// Greeble blocks exactly like a prop footprint — the ground seam refuses, the escape
         /// rule frees a stranded body.
         /// </summary>
-        private static void RasterThickets(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        private static void RasterGreebles(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
         {
-            var thickets = map.Thickets;
+            var greebles = map.Greebles;
 
-            for (int i = 0; thickets != null && i < thickets.Length; i++)
+            for (int i = 0; greebles != null && i < greebles.Length; i++)
             {
-                var thicket = thickets[i];
-                var centre = thicket.Centre + offset;
-                float rad = -thicket.RotationDegrees * Mathf.Deg2Rad;
+                var greeble = greebles[i];
+                var centre = greeble.Centre + offset;
+                float rad = -greeble.RotationDegrees * Mathf.Deg2Rad;
                 float cos = Mathf.Cos(rad);
                 float sin = Mathf.Sin(rad);
-                var half = thicket.Size * 0.5f;
+                var half = greeble.Size * 0.5f;
 
                 for (int z = 0; z < grid.Height; z++)
                 {
@@ -502,7 +502,7 @@ namespace Rokkan.Prophecy.Overworld
                         if (Mathf.Abs(localX) > half.x || Mathf.Abs(localZ) > half.y) continue;
 
                         if (grid.KindAt(x, z) == TileCellKind.Ground && !grid.RoadAt(x, z))
-                            grid.SetThicket(x, z);
+                            grid.SetGreeble(x, z);
                     }
                 }
             }
@@ -511,12 +511,12 @@ namespace Rokkan.Prophecy.Overworld
             for (int i = 0; overrides != null && i < overrides.Length; i++)
             {
                 var cell = overrides[i];
-                if (cell.Thicket == ThicketOverride.Remove)
-                    grid.ClearThicket(cell.X, cell.Z);
-                else if (cell.Thicket == ThicketOverride.Add &&
+                if (cell.Greeble == GreebleOverride.Remove)
+                    grid.ClearGreeble(cell.X, cell.Z);
+                else if (cell.Greeble == GreebleOverride.Add &&
                          grid.KindAt(cell.X, cell.Z) == TileCellKind.Ground &&
                          !grid.RoadAt(cell.X, cell.Z))
-                    grid.SetThicket(cell.X, cell.Z);
+                    grid.SetGreeble(cell.X, cell.Z);
             }
         }
 
@@ -628,7 +628,7 @@ namespace Rokkan.Prophecy.Overworld
                 int halfZ = (prop.BlockSize.y - 1) / 2;
                 for (int dz = 0; dz < Mathf.Max(1, prop.BlockSize.y); dz++)
                     for (int dx = 0; dx < Mathf.Max(1, prop.BlockSize.x); dx++)
-                        grid.SetBlocked(cx - halfX + dx, cz - halfZ + dz);
+                        grid.SetUnwalkable(cx - halfX + dx, cz - halfZ + dz);
             }
         }
 

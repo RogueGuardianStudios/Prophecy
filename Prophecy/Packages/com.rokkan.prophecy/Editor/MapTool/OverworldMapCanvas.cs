@@ -123,19 +123,19 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 return;
             }
 
-            if (brush == PaintBrush.ThicketAdd || brush == PaintBrush.ThicketRemove)
+            if (brush == PaintBrush.GreebleAdd || brush == PaintBrush.GreebleRemove)
             {
-                Entry(cell).Thicket = brush == PaintBrush.ThicketAdd
-                    ? ThicketOverride.Add
-                    : ThicketOverride.Remove;
+                Entry(cell).Greeble = brush == PaintBrush.GreebleAdd
+                    ? GreebleOverride.Add
+                    : GreebleOverride.Remove;
                 return;
             }
 
-            if (brush == PaintBrush.BlockAdd || brush == PaintBrush.BlockRemove)
+            if (brush == PaintBrush.UnwalkableAdd || brush == PaintBrush.UnwalkableRemove)
             {
-                Entry(cell).Block = brush == PaintBrush.BlockAdd
-                    ? BlockOverride.Add
-                    : BlockOverride.Remove;
+                Entry(cell).Unwalkable = brush == PaintBrush.UnwalkableAdd
+                    ? UnwalkableOverride.Add
+                    : UnwalkableOverride.Remove;
                 return;
             }
 
@@ -192,7 +192,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _mirror[new Vector2Int(o.X, o.Z)] = new AuthoredCellOverride
                 {
                     X = o.X, Z = o.Z, Terrain = o.Terrain, Level = o.Level, Road = o.Road,
-                    Biome = o.Biome, Thicket = o.Thicket, Block = o.Block,
+                    Biome = o.Biome, Greeble = o.Greeble, Unwalkable = o.Unwalkable,
                 };
             }
 
@@ -262,8 +262,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 var hoverProvince = _grid.ProvinceAt(c.x, c.y);
                 var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
                            (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
-                           (_grid.ThicketAt(c.x, c.y) ? "  greeble"
-                               : _grid.BlockedAt(c.x, c.y) ? "  unwalkable" : "") +
+                           (_grid.GreebleAt(c.x, c.y) ? "  greeble"
+                               : _grid.UnwalkableAt(c.x, c.y) ? "  unwalkable" : "") +
                            (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
                            (hoverBiome >= 0 ? $"  biome {hoverBiome}" : "") +
                            (hoverProvince != null ? $"  [{hoverProvince.DisplayName}]" : "") +
@@ -393,9 +393,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (biome >= 0)
                 colour = Color.Lerp(colour, BiomeTint(biome), 0.3f);
 
-            if (_grid.ThicketAt(x, z))
+            if (_grid.GreebleAt(x, z))
                 colour = Color.Lerp(colour, new Color(0.08f, 0.25f, 0.1f), 0.55f);
-            else if (_grid.BlockedAt(x, z))
+            else if (_grid.UnwalkableAt(x, z))
                 colour = Color.Lerp(colour, new Color(0.3f, 0.12f, 0.12f), 0.55f);
 
             if (ShowProvinces)

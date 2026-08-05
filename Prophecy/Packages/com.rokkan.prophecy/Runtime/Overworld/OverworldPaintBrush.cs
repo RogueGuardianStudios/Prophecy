@@ -36,17 +36,17 @@ namespace Rokkan.Prophecy.Overworld
         Biome,
 
         /// <summary>Plant an impassable scatter-filled cell. Engine-handled, like Biome.</summary>
-        ThicketAdd,
+        GreebleAdd,
 
-        /// <summary>Carve a clearing out of a thicket. Engine-handled.</summary>
-        ThicketRemove,
+        /// <summary>Carve a clearing out of a greeble. Engine-handled.</summary>
+        GreebleRemove,
 
-        /// <summary>Block a cell bare — unwalkable, NO scatter. Engine-handled.</summary>
-        BlockAdd,
+        /// <summary>Make a cell bare unwalkable — refusal with NO scatter. Engine-handled.</summary>
+        UnwalkableAdd,
 
-        /// <summary>Unblock anything — thicket, prop footprint, painted block. The hand's
-        /// last word. Engine-handled.</summary>
-        BlockRemove,
+        /// <summary>Make anything walkable again — greeble, prop footprint, painted
+        /// unwalkable. The hand's last word. Engine-handled.</summary>
+        UnwalkableRemove,
     }
 
     /// <summary>

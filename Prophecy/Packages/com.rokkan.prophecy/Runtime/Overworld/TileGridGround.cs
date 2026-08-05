@@ -123,7 +123,7 @@ namespace Rokkan.Prophecy.Overworld
         // one refuses, while a body stranded ON one gets the escape rule and may step off —
         // the same grace the sea gives.
         private bool HasSurface(int x, int z) =>
-            !_grid.BlockedAt(x, z) &&
+            !_grid.UnwalkableAt(x, z) &&
             (_grid.KindAt(x, z) != TileCellKind.Sea || _grid.TryOverlayAt(x, z, out _));
 
         /// <summary>The surface the token actually names on this cell: base unless the token
@@ -183,7 +183,7 @@ namespace Rokkan.Prophecy.Overworld
         {
             // Blocked kills both surfaces: without this, the diagonal corner-threading path
             // could route THROUGH a prop's corner cell that HasSurface already refuses.
-            if (_grid.BlockedAt(x, z))
+            if (_grid.UnwalkableAt(x, z))
             {
                 exists = false;
                 return -1;

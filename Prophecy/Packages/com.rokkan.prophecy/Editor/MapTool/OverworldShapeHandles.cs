@@ -31,14 +31,14 @@ namespace Rokkan.Prophecy.Editor.MapTool
         public const int KindRiver = 3;
         public const int KindRoad = 4;
         public const int KindBiomeArea = 5;
-        public const int KindThicket = 6;
+        public const int KindGreeble = 6;
 
         private static readonly Color BiomeAreaColour = new Color(0.95f, 0.6f, 0.2f, 0.9f);
-        private static readonly Color ThicketColour = new Color(0.1f, 0.5f, 0.2f, 0.9f);
+        private static readonly Color GreebleColour = new Color(0.1f, 0.5f, 0.2f, 0.9f);
 
         public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
                                 bool regions, bool ramps, bool layers, bool rivers, bool roads,
-                                bool biomeAreas, bool thickets,
+                                bool biomeAreas, bool greebles,
                                 int selectedKind, int selectedIndex,
                                 System.Action<int, int> select)
         {
@@ -60,18 +60,18 @@ namespace Rokkan.Prophecy.Editor.MapTool
                          BiomeAreaColour, map.BiomeAreas[i].Name,
                          Selected(KindBiomeArea, i), () => select(KindBiomeArea, i));
 
-            for (int i = 0; thickets && map.Thickets != null && i < map.Thickets.Length; i++)
+            for (int i = 0; greebles && map.Greebles != null && i < map.Greebles.Length; i++)
                 DrawRect(map, preview, offset,
-                         () => (map.Thickets[i].Centre, map.Thickets[i].Size,
-                                map.Thickets[i].RotationDegrees, 0f),
+                         () => (map.Greebles[i].Centre, map.Greebles[i].Size,
+                                map.Greebles[i].RotationDegrees, 0f),
                          (c, s, r) =>
                          {
-                             map.Thickets[i].Centre = c;
-                             map.Thickets[i].Size = s;
-                             map.Thickets[i].RotationDegrees = r;
+                             map.Greebles[i].Centre = c;
+                             map.Greebles[i].Size = s;
+                             map.Greebles[i].RotationDegrees = r;
                          },
-                         ThicketColour, map.Thickets[i].Name,
-                         Selected(KindThicket, i), () => select(KindThicket, i));
+                         GreebleColour, map.Greebles[i].Name,
+                         Selected(KindGreeble, i), () => select(KindGreeble, i));
 
             for (int i = 0; regions && map.Regions != null && i < map.Regions.Length; i++)
                 DrawRect(map, preview, offset,

@@ -191,9 +191,9 @@ namespace Rokkan.Prophecy.Tests
             var ground = new TileGridGround(grid);
 
             // Position (0.5, 0.5) is cell (4, 4); an even width biases positive: (4,4)+(5,4).
-            Assert.IsTrue(grid.BlockedAt(4, 4) && grid.BlockedAt(5, 4),
+            Assert.IsTrue(grid.UnwalkableAt(4, 4) && grid.UnwalkableAt(5, 4),
                 "Exactly the 2×1 footprint stamps…");
-            Assert.IsFalse(grid.BlockedAt(3, 4) || grid.BlockedAt(4, 5) || grid.BlockedAt(6, 4),
+            Assert.IsFalse(grid.UnwalkableAt(3, 4) || grid.UnwalkableAt(4, 5) || grid.UnwalkableAt(6, 4),
                 "…and nothing beyond it.");
 
             Assert.IsFalse(ground.CanStep(grid.CellCentre(4, 3), grid.CellCentre(4, 4)),
@@ -455,7 +455,7 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
-        public void AThicketBlocksItsGroundAndTheRoadCutsThrough()
+        public void AGreebleMassBlocksItsGroundAndTheRoadCutsThrough()
         {
             var map = PlainMap(8f);
             map.Roads = new[]
@@ -464,26 +464,26 @@ namespace Rokkan.Prophecy.Tests
                                    Points = new[] { new Vector2(-4f, 0.5f), new Vector2(4f, 0.5f) },
                                    HalfWidth = 0.4f },
             };
-            map.Thickets = new[]
+            map.Greebles = new[]
             {
-                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                new AuthoredGreeble { Name = "Grove", Centre = new Vector2(0f, 0f),
                                       Size = new Vector2(4f, 4f) },
             };
             map.CellOverrides = new[]
             {
                 // A painted clearing inside the grove, and a painted lone tree outside it.
-                new AuthoredCellOverride { X = 3, Z = 3, Thicket = ThicketOverride.Remove },
-                new AuthoredCellOverride { X = 7, Z = 7, Thicket = ThicketOverride.Add },
+                new AuthoredCellOverride { X = 3, Z = 3, Greeble = GreebleOverride.Remove },
+                new AuthoredCellOverride { X = 7, Z = 7, Greeble = GreebleOverride.Add },
             };
 
             var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
             var ground = new TileGridGround(grid);
 
-            Assert.IsTrue(grid.ThicketAt(2, 2), "The grove plants its ground cells…");
-            Assert.IsFalse(grid.ThicketAt(3, 4),
+            Assert.IsTrue(grid.GreebleAt(2, 2), "The grove plants its ground cells…");
+            Assert.IsFalse(grid.GreebleAt(3, 4),
                 "…but never a road cell — the road is the carved path through the forest.");
-            Assert.IsFalse(grid.ThicketAt(3, 3), "The painted clearing is open…");
-            Assert.IsTrue(grid.ThicketAt(7, 7), "…and the painted lone cell is planted.");
+            Assert.IsFalse(grid.GreebleAt(3, 3), "The painted clearing is open…");
+            Assert.IsTrue(grid.GreebleAt(7, 7), "…and the painted lone cell is planted.");
 
             Assert.IsFalse(ground.CanStep(grid.CellCentre(3, 4), grid.CellCentre(3, 5)),
                 "Walking off the road into the trees refuses.");
@@ -492,12 +492,12 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
-        public void ScatterFillsThicketsDeterministically()
+        public void ScatterFillsGreeblesDeterministically()
         {
             var map = PlainMap(8f);
-            map.Thickets = new[]
+            map.Greebles = new[]
             {
-                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                new AuthoredGreeble { Name = "Grove", Centre = new Vector2(0f, 0f),
                                       Size = new Vector2(3f, 3f) },
             };
 
@@ -521,15 +521,15 @@ namespace Rokkan.Prophecy.Tests
             var second = OverworldWorldBuilder.Build(map, DummyTiles(), walkable2, scenery2,
                                                      Vector3.zero, true, palette);
 
-            int thicketCells = 0;
+            int greebleCells = 0;
             for (int z = 0; z < first.Grid.Height; z++)
                 for (int x = 0; x < first.Grid.Width; x++)
-                    if (first.Grid.ThicketAt(x, z)) thicketCells++;
+                    if (first.Grid.GreebleAt(x, z)) greebleCells++;
 
-            Assert.Greater(thicketCells, 0, "The grove must exist.");
+            Assert.Greater(greebleCells, 0, "The grove must exist.");
             Assert.IsNotNull(first.ScatterObject, "The scatter root spawned.");
-            Assert.AreEqual(thicketCells, first.ScatterObject.transform.childCount,
-                "One pick per thicket cell — the forest is exactly its mass.");
+            Assert.AreEqual(greebleCells, first.ScatterObject.transform.childCount,
+                "One pick per greeble cell — the forest is exactly its mass.");
 
             var a = first.ScatterObject.transform.GetChild(0);
             var b = second.ScatterObject.transform.GetChild(0);
@@ -548,9 +548,9 @@ namespace Rokkan.Prophecy.Tests
 
             var map = PlainMap(8f);
             map.Regions[0].Province = heartland;
-            map.Thickets = new[]
+            map.Greebles = new[]
             {
-                new AuthoredThicket { Name = "Westwood", Centre = new Vector2(2f, 2f),
+                new AuthoredGreeble { Name = "Westwood", Centre = new Vector2(2f, 2f),
                                       Size = new Vector2(3f, 3f), Province = westwood },
             };
 
@@ -559,7 +559,7 @@ namespace Rokkan.Prophecy.Tests
             Assert.AreSame(heartland, grid.ProvinceAt(1, 1),
                 "The terrain region's cells answer with its province…");
             Assert.AreSame(westwood, grid.ProvinceAt(6, 6),
-                "…and the thicket, rastered later, wins its own footprint — the Westwood IS " +
+                "…and the greeble, rastered later, wins its own footprint — the Westwood IS " +
                 "a province, not a rectangle drawn twice.");
 
             var bare = OverworldTileGridCompiler.Compile(PlainMap(8f), Vector3.zero);
@@ -570,29 +570,29 @@ namespace Rokkan.Prophecy.Tests
         public void PaintedBlocksAreBareAndTheHandUnblocksAnything()
         {
             var map = PlainMap(8f);
-            map.Thickets = new[]
+            map.Greebles = new[]
             {
-                new AuthoredThicket { Name = "Grove", Centre = new Vector2(0f, 0f),
+                new AuthoredGreeble { Name = "Grove", Centre = new Vector2(0f, 0f),
                                       Size = new Vector2(3f, 3f) },
             };
             map.CellOverrides = new[]
             {
                 // A bare painted block out in the open, and the hand unblocking one grove cell.
-                new AuthoredCellOverride { X = 6, Z = 6, Block = BlockOverride.Add },
-                new AuthoredCellOverride { X = 4, Z = 4, Block = BlockOverride.Remove },
+                new AuthoredCellOverride { X = 6, Z = 6, Unwalkable = UnwalkableOverride.Add },
+                new AuthoredCellOverride { X = 4, Z = 4, Unwalkable = UnwalkableOverride.Remove },
             };
 
             var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
             var ground = new TileGridGround(grid);
 
-            Assert.IsTrue(grid.BlockedAt(6, 6), "The painted block blocks…");
-            Assert.IsFalse(grid.ThicketAt(6, 6), "…with NO scatter — bare unwalkable ground.");
+            Assert.IsTrue(grid.UnwalkableAt(6, 6), "The painted block blocks…");
+            Assert.IsFalse(grid.GreebleAt(6, 6), "…with NO scatter — bare unwalkable ground.");
             Assert.IsFalse(ground.CanStep(grid.CellCentre(5, 6), grid.CellCentre(6, 6)));
 
-            Assert.IsFalse(grid.BlockedAt(4, 4),
-                "Block − unblocked a grove cell — the hand's last word over the thicket…");
-            Assert.IsFalse(grid.ThicketAt(4, 4), "…and it carries no scatter either.");
-            Assert.IsTrue(grid.ThicketAt(3, 4), "The rest of the grove stands.");
+            Assert.IsFalse(grid.UnwalkableAt(4, 4),
+                "Unwalkable − unblocked a grove cell — the hand's last word over the greeble…");
+            Assert.IsFalse(grid.GreebleAt(4, 4), "…and it carries no scatter either.");
+            Assert.IsTrue(grid.GreebleAt(3, 4), "The rest of the grove stands.");
         }
 
         [Test]

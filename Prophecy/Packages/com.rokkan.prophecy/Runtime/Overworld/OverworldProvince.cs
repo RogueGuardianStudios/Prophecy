@@ -14,7 +14,7 @@ namespace Rokkan.Prophecy.Overworld
     /// <summary>
     /// A province's RULES — what wanders here, how often, and where a contact sends you. It
     /// has NO bounds of its own: the named shapes on the map (terrain regions, biome areas,
-    /// thickets) reference it, and the compiler stamps their cells — the Westwood IS a
+    /// greebles) reference it, and the compiler stamps their cells — the Westwood IS a
     /// province, not a rectangle drawn twice (Matt, 2026-08-05). A ScriptableObject so
     /// encounter tuning survives play mode like all tuning.
     ///

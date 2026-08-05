@@ -42,7 +42,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
         [SerializeField] private bool _showRivers = true;
         [SerializeField] private bool _showRoads = true;
         [SerializeField] private bool _showBiomeAreas = true;
-        [SerializeField] private bool _showThickets = true;
+        [SerializeField] private bool _showGreebles = true;
         [SerializeField] private bool _showProvinceView;
 
         [SerializeField] private OverworldPropPalette _palette;
@@ -293,7 +293,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
                 _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
                 _showBiomeAreas = GUILayout.Toggle(_showBiomeAreas, "Biomes", "Button");
-                _showThickets = GUILayout.Toggle(_showThickets, "Greebles", "Button");
+                _showGreebles = GUILayout.Toggle(_showGreebles, "Greebles", "Button");
             }
 
             EditorGUILayout.HelpBox(
@@ -331,10 +331,10 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     province = _map.BiomeAreas[_selectedIndex].Province;
                     takesProvince = true;
                     break;
-                case OverworldShapeHandles.KindThicket when InRange(_map.Thickets):
+                case OverworldShapeHandles.KindGreeble when InRange(_map.Greebles):
                     kindLabel = "Greeble Mass";
-                    shapeName = _map.Thickets[_selectedIndex].Name;
-                    province = _map.Thickets[_selectedIndex].Province;
+                    shapeName = _map.Greebles[_selectedIndex].Name;
+                    province = _map.Greebles[_selectedIndex].Province;
                     takesProvince = true;
                     break;
                 case OverworldShapeHandles.KindRamp when InRange(_map.Ramps):
@@ -391,9 +391,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     _map.BiomeAreas[_selectedIndex].Name = newName;
                     _map.BiomeAreas[_selectedIndex].Province = newProvince;
                     break;
-                case OverworldShapeHandles.KindThicket:
-                    _map.Thickets[_selectedIndex].Name = newName;
-                    _map.Thickets[_selectedIndex].Province = newProvince;
+                case OverworldShapeHandles.KindGreeble:
+                    _map.Greebles[_selectedIndex].Name = newName;
+                    _map.Greebles[_selectedIndex].Province = newProvince;
                     break;
                 case OverworldShapeHandles.KindRamp:
                     _map.Ramps[_selectedIndex].Name = newName; break;
@@ -456,8 +456,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
             {
                 _snapToCell = EditorGUILayout.ToggleLeft("Snap to cell", _snapToCell,
                                                          GUILayout.Width(110f));
-                _placeBlocks = EditorGUILayout.ToggleLeft("Blocks", _placeBlocks,
-                                                          GUILayout.Width(70f));
+                _placeBlocks = EditorGUILayout.ToggleLeft("Unwalkable", _placeBlocks,
+                                                          GUILayout.Width(90f));
                 _placeBlockSize = EditorGUILayout.Vector2IntField(GUIContent.none, _placeBlockSize);
                 _placeSurfaceLayer = EditorGUILayout.IntSlider(_placeSurfaceLayer, 0, 1);
             }
@@ -510,7 +510,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
                                                _showRegions, _showRamps, _showLayers,
                                                _showRivers, _showRoads,
-                                               _showBiomeAreas, _showThickets,
+                                               _showBiomeAreas, _showGreebles,
                                                _selectedKind, _selectedIndex,
                                                (kind, index) =>
                                                {
