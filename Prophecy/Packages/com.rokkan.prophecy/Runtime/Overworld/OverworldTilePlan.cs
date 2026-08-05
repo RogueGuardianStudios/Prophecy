@@ -214,7 +214,9 @@ namespace Rokkan.Prophecy.Overworld
 
             var mid = EdgeMid(grid, ax, az, dx, dz);
 
-            // Shore or cliff-into-sea.
+            // Shore or cliff-into-water. Everything is RELATIVE to the water's own level now:
+            // land at the water's level grows a bank (an elevated lake shore is the same
+            // relationship as the coast), higher land grows cliffs that stop AT the water.
             if (kindA == TileCellKind.Sea || kindB == TileCellKind.Sea)
             {
                 bool aIsLand = kindA != TileCellKind.Sea;
@@ -224,11 +226,14 @@ namespace Rokkan.Prophecy.Overworld
                 int sdz = aIsLand ? dz : -dz;
 
                 int landEdge = FaceEdgeLevel(grid, lx, lz, sdx, sdz);
-                if (landEdge <= 0)
-                    Add(list, OverworldTilePiece.ShoreEdge, new Vector3(mid.x, 0f, mid.y),
-                        FrontYaw(sdx, sdz));
-                else if (landEdge % OverworldTileGrid.RampRun == 0)
-                    EmitFaces(list, mid, landEdge / OverworldTileGrid.RampRun, 0,
+                int waterLevel = grid.LevelAt(aIsLand ? bx : ax, aIsLand ? bz : az);
+                int relative = landEdge - waterLevel * OverworldTileGrid.RampRun;
+
+                if (relative <= 0)
+                    Add(list, OverworldTilePiece.ShoreEdge,
+                        new Vector3(mid.x, waterLevel * Step, mid.y), FrontYaw(sdx, sdz));
+                else if (relative % OverworldTileGrid.RampRun == 0)
+                    EmitFaces(list, mid, landEdge / OverworldTileGrid.RampRun, waterLevel,
                               FrontYaw(sdx, sdz), new Vector2Int(sdx, sdz));
                 return;
             }
@@ -293,7 +298,10 @@ namespace Rokkan.Prophecy.Overworld
         {
             switch (grid.KindAt(x, z))
             {
-                case TileCellKind.Sea: return 0;
+                // Water presents its own level — the sea is level 0, but a river reach carved
+                // through a terrace holds that terrace's level, so cliffs beside it stop at the
+                // water instead of diving to the ocean floor.
+                case TileCellKind.Sea: return grid.LevelAt(x, z) * OverworldTileGrid.RampRun;
                 case TileCellKind.Ground: return grid.LevelAt(x, z) * OverworldTileGrid.RampRun;
                 default:
                 {
@@ -354,7 +362,12 @@ namespace Rokkan.Prophecy.Overworld
                             int x = cx - 1 + i;
                             int z = cz - 1 + j;
                             bool isLand = grid.KindAt(x, z) != TileCellKind.Sea;
-                            int level = isLand ? grid.CornerLevelOf(x, z, 1 - i, 1 - j) : 0;
+
+                            // Water contributes its OWN level: coastal sea is 0 as ever, but an
+                            // elevated river reach holds its terrace level, so the cliff bands
+                            // beside a gorge stop at the water they meet.
+                            int level = isLand ? grid.CornerLevelOf(x, z, 1 - i, 1 - j)
+                                              : grid.LevelAt(x, z);
 
                             land[j * 2 + i] = isLand;
                             levels[j * 2 + i] = level;
@@ -369,7 +382,7 @@ namespace Rokkan.Prophecy.Overworld
                     var point = grid.CornerPoint(cx, cz);
 
                     if (max > min) PlanCliffBands(list, point, levels, min, max);
-                    else if (max == 0) PlanShoreCorner(list, point, land);
+                    else PlanShoreCorner(list, point, land, max);
                 }
             }
         }
@@ -449,9 +462,12 @@ namespace Rokkan.Prophecy.Overworld
             }
         }
 
-        /// <summary>Shore corners exist only where every land cell at the corner is level 0 —
-        /// any higher land already produced cliff posts whose skirts own the junction.</summary>
-        private static void PlanShoreCorner(List<TilePlacement> list, Vector2 point, bool[] land)
+        /// <summary>Shore corners exist only where every land cell at the corner sits at the
+        /// water's own level — any higher land already produced cliff posts whose skirts own
+        /// the junction. The level is a parameter now: an elevated lake's capes are the same
+        /// pieces at its terrace height.</summary>
+        private static void PlanShoreCorner(List<TilePlacement> list, Vector2 point, bool[] land,
+                                            int level)
         {
             int mask = 0;
             for (int c = 0; c < 4; c++)
@@ -471,15 +487,16 @@ namespace Rokkan.Prophecy.Overworld
             for (int c = 0; c < 4; c++)
                 if ((mask & (1 << c)) != 0)
                     Add(list, OverworldTilePiece.ShoreOuterPost,
-                        new Vector3(point.x, 0f, point.y), OuterYaw(Quadrant(c)));
+                        new Vector3(point.x, level * Step, point.y), OuterYaw(Quadrant(c)));
         }
 
         // ---------------------------------------------------------------- water
 
-        /// <summary>Sea level is a world constant, deliberately NOT derived from the step: the
-        /// shore pieces' bank and skirt are sculpted around this waterline, and a step retune
-        /// must move the cliffs, not drain the sea out from under the beaches.</summary>
-        private const float WaterY = -0.35f;
+        /// <summary>The waterline's offset below its level's walk height, deliberately NOT
+        /// derived from the step: the shore pieces' bank and skirt are sculpted around this
+        /// waterline, and a step retune must move the cliffs, not drain the sea out from under
+        /// the beaches. Public because the waterfall sheets and their tests hang from it.</summary>
+        public const float WaterY = -0.35f;
 
         private static void PlanWater(OverworldTileGrid grid, List<TilePlacement> list)
         {
@@ -492,6 +509,89 @@ namespace Rokkan.Prophecy.Overworld
                 Yaw = 0f,
                 Scale = new Vector3(grid.Width * Cell + 8f, 1f, grid.Height * Cell + 8f),
             });
+
+            // Elevated water — river reaches and lakes above sea level — is per-cell quads of
+            // the same piece at each cell's own waterline. The ocean plane continues to run
+            // underneath everything, hidden below the terrain.
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (grid.KindAt(x, z) != TileCellKind.Sea || grid.LevelAt(x, z) <= 0) continue;
+
+                    var c = grid.CellCentre(x, z);
+                    Add(list, OverworldTilePiece.Water,
+                        new Vector3(c.x, grid.LevelAt(x, z) * Step + WaterY, c.y), 0f);
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------- waterfalls
+
+        /// <summary>How far a falling sheet tucks below the lower water surface, so the join
+        /// is under the waterline rather than a hairline gap above it.</summary>
+        public const float FallTuck = 0.15f;
+
+        /// <summary>One sheet of falling water: where elevated water meets lower water, a
+        /// vertical face from the high waterline down past the low one.</summary>
+        public struct WaterfallFace
+        {
+            /// <summary>Midpoint of the top edge, at the HIGH water surface.</summary>
+            public Vector3 TopCentre;
+
+            /// <summary>Vertical extent of the sheet.</summary>
+            public float Drop;
+
+            /// <summary>Grid direction from the high water toward the low — the way the sheet
+            /// faces.</summary>
+            public Vector2Int Toward;
+        }
+
+        /// <summary>
+        /// Waterfall sheets, one per cell edge where water at level N meets water at level
+        /// M &lt; N. Separate from <see cref="Plan"/> because the sheets are not tile-set
+        /// pieces — the host meshes them directly, the road precedent. Inset 0.02 into the high
+        /// cell so the sheet never shares a boundary plane with the flanking banks' cut ends.
+        /// Water beside LOWER LAND is not a fall — the compiler warns about that authoring.
+        /// </summary>
+        public static List<WaterfallFace> PlanWaterfalls(OverworldTileGrid grid)
+        {
+            var falls = new List<WaterfallFace>();
+            var dirs = new[]
+            {
+                new Vector2Int(1, 0), new Vector2Int(-1, 0),
+                new Vector2Int(0, 1), new Vector2Int(0, -1),
+            };
+
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (grid.KindAt(x, z) != TileCellKind.Sea) continue;
+                    int n = grid.LevelAt(x, z);
+                    if (n <= 0) continue;
+
+                    for (int d = 0; d < dirs.Length; d++)
+                    {
+                        int nx = x + dirs[d].x;
+                        int nz = z + dirs[d].y;
+                        if (grid.KindAt(nx, nz) != TileCellKind.Sea) continue;
+                        int m = grid.LevelAt(nx, nz);
+                        if (m >= n) continue;
+
+                        var mid = (grid.CellCentre(x, z) + grid.CellCentre(nx, nz)) * 0.5f
+                                  - (Vector2)dirs[d] * 0.02f;
+                        falls.Add(new WaterfallFace
+                        {
+                            TopCentre = new Vector3(mid.x, n * Step + WaterY, mid.y),
+                            Drop = (n - m) * Step + FallTuck,
+                            Toward = dirs[d],
+                        });
+                    }
+                }
+            }
+
+            return falls;
         }
 
         // ---------------------------------------------------------------- orientation helpers

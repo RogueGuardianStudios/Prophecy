@@ -146,8 +146,9 @@ MonoBehaviour:
   Rivers:
   - Name: Eastwater
     Points:
-    - {x: 20, y: 23}
-    - {x: 18, y: 12}
+    - {x: 17, y: 26}
+    - {x: 17.5, y: 20}
+    - {x: 16, y: 12}
     - {x: 14, y: 4}
     - {x: 12, y: -8}
     - {x: 14, y: -23}

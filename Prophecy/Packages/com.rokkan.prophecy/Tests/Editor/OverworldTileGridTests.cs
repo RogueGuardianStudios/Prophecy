@@ -496,6 +496,60 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void ARiverHoldsItsTerraceAndFallsWhereTheLandDoes()
+        {
+            var map = Map(m =>
+            {
+                m.Regions = new[]
+                {
+                    new AuthoredRegion { Name = "Plain", Centre = Vector2.zero,
+                                         Size = new Vector2(8f, 8f), Y = 0f },
+                    new AuthoredRegion { Name = "Terrace", Centre = new Vector2(0f, 2f),
+                                         Size = new Vector2(8f, 4f), Y = OverworldTileGrid.Step },
+                };
+                // Source INSIDE the terrace, not in the border cell: out of bounds is sea level
+                // 0, and a source carved into the map's edge cell pours off the world — a real
+                // second waterfall, correct and distracting.
+                m.Rivers = new[]
+                {
+                    new AuthoredRiver { Name = "Fallwater",
+                                        Points = new[] { new Vector2(0.5f, 2.5f), new Vector2(0.5f, -3.5f) },
+                                        HalfWidth = 0.6f },
+                };
+            });
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.AreEqual(TileCellKind.Sea, grid.KindAt(4, 6), "The terrace reach is water…");
+            Assert.AreEqual(1, grid.LevelAt(4, 6), "…holding the terrace's level.");
+            Assert.AreEqual(TileCellKind.Sea, grid.KindAt(4, 1), "The plain reach is water…");
+            Assert.AreEqual(0, grid.LevelAt(4, 1), "…down at sea level.");
+
+            var falls = TilePiecePlanner.PlanWaterfalls(grid);
+            Assert.AreEqual(1, falls.Count,
+                "Exactly one sheet, hanging where the water steps down with the land.");
+            Assert.AreEqual(OverworldTileGrid.Step + TilePiecePlanner.WaterY,
+                falls[0].TopCentre.y, 0.001f, "Its top edge rides the high waterline…");
+            Assert.AreEqual(OverworldTileGrid.Step + TilePiecePlanner.FallTuck,
+                falls[0].Drop, 0.001f, "…and it tucks below the low one.");
+            Assert.AreEqual(new Vector2Int(0, -1), falls[0].Toward, "Facing downstream.");
+
+            var placements = TilePiecePlanner.Plan(grid, true);
+            bool elevatedQuad = false, elevatedShore = false;
+            for (int i = 0; i < placements.Count; i++)
+            {
+                if (placements[i].Piece == OverworldTilePiece.Water &&
+                    Mathf.Abs(placements[i].Position.y - (OverworldTileGrid.Step + TilePiecePlanner.WaterY)) < 0.001f)
+                    elevatedQuad = true;
+                if (placements[i].Piece == OverworldTilePiece.ShoreEdge &&
+                    Mathf.Abs(placements[i].Position.y - OverworldTileGrid.Step) < 0.001f)
+                    elevatedShore = true;
+            }
+            Assert.IsTrue(elevatedQuad, "The terrace reach draws water at its own waterline.");
+            Assert.IsTrue(elevatedShore, "Its banks are shore pieces at the terrace height.");
+        }
+
+        [Test]
         public void ArrivalsPickTheSurfaceNearestTheirHeight()
         {
             // A spawn point or a return portal knows only a world position — LayerFor turns its

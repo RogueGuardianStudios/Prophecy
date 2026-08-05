@@ -245,9 +245,12 @@ namespace Rokkan.Prophecy.Overworld
 
         /// <summary>
         /// Rivers carve AFTER the regions (a channel cuts whatever terrace it crosses) and
-        /// BEFORE the ramps (a climb never converts into a river bed). A carved cell is plain
-        /// sea — the coast machinery grows its banks, the sea plane is its water, and a Layer
-        /// deck over it is a bridge.
+        /// BEFORE the ramps (a climb never converts into a river bed). A carved cell is sea AT
+        /// A LEVEL: the water inherits the level of the terrain along the course, monotonically
+        /// non-increasing from source to mouth — so a river holds its terrace's height and
+        /// FALLS exactly where the land falls. The coast machinery grows its banks at whatever
+        /// level the water holds; a Layer deck over it is a bridge; where water at level N
+        /// meets water below, the planner hangs a waterfall sheet.
         /// </summary>
         private static void RasterRivers(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
         {
@@ -256,13 +259,90 @@ namespace Rokkan.Prophecy.Overworld
             for (int i = 0; rivers != null && i < rivers.Length; i++)
             {
                 var river = rivers[i];
-                if (river.Points == null || river.Points.Length == 0) continue;
+                var pts = river.Points;
+                if (pts == null || pts.Length == 0) continue;
 
-                for (int z = 0; z < grid.Height; z++)
-                    for (int x = 0; x < grid.Width; x++)
-                        if (DistanceToPolyline(grid.CellCentre(x, z), river.Points, offset) <= river.HalfWidth)
-                            grid.Set(x, z, TileCellKind.Sea, 0);
+                // Sample FIRST, carve SECOND: the level under the course caps the water, and a
+                // carving that ran ahead of the sampling would raise the downstream terrain to
+                // its own water level before the centreline read it — the fall would never
+                // drop. Downstream the water only descends (off the map is the ocean); a course
+                // that climbs back up cuts a canyon through the rise instead of flowing uphill.
+                var points = new List<Vector2>();
+                var levels = new List<int>();
+                int water = int.MaxValue;
+                float sample = OverworldTileGrid.CellSize * 0.25f;
+
+                for (int s = 0; s < Mathf.Max(1, pts.Length - 1); s++)
+                {
+                    Vector2 a = pts[s] + offset;
+                    Vector2 b = (pts.Length > 1 ? pts[s + 1] : pts[s]) + offset;
+                    int steps = Mathf.Max(1, Mathf.CeilToInt((b - a).magnitude / sample));
+
+                    for (int k = 0; k <= steps; k++)
+                    {
+                        var p = Vector2.Lerp(a, b, k / (float)steps);
+                        water = Mathf.Min(water, grid.TryCellAt(p, out int px, out int pz)
+                            ? grid.LevelAt(px, pz)
+                            : 0);
+                        points.Add(p);
+                        levels.Add(water);
+                    }
+                }
+
+                for (int s = 0; s < points.Count; s++)
+                    CarveDisc(grid, points[s], river.HalfWidth, levels[s]);
             }
+
+            WarnWhereWaterSpills(grid);
+        }
+
+        private static void CarveDisc(OverworldTileGrid grid, Vector2 centre, float radius, int level)
+        {
+            int minX = Mathf.FloorToInt((centre.x - radius - grid.Origin.x) / OverworldTileGrid.CellSize);
+            int maxX = Mathf.FloorToInt((centre.x + radius - grid.Origin.x) / OverworldTileGrid.CellSize);
+            int minZ = Mathf.FloorToInt((centre.y - radius - grid.Origin.y) / OverworldTileGrid.CellSize);
+            int maxZ = Mathf.FloorToInt((centre.y + radius - grid.Origin.y) / OverworldTileGrid.CellSize);
+
+            for (int z = minZ; z <= maxZ; z++)
+                for (int x = minX; x <= maxX; x++)
+                    if (grid.InBounds(x, z) &&
+                        (grid.CellCentre(x, z) - centre).magnitude <= radius)
+                        grid.Set(x, z, TileCellKind.Sea, level);
+        }
+
+        /// <summary>
+        /// Elevated water beside LOWER LAND has nowhere sensible to go — the map would show a
+        /// river surface hanging over open ground. Legal beside lower WATER (that is a
+        /// waterfall); an authoring mistake beside lower land, flagged like an inert ramp.
+        /// </summary>
+        private static void WarnWhereWaterSpills(OverworldTileGrid grid)
+        {
+            int spills = 0;
+            int firstX = 0, firstZ = 0;
+
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (grid.KindAt(x, z) != TileCellKind.Sea || grid.LevelAt(x, z) <= 0) continue;
+
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                        int nz = z + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                        if (grid.KindAt(nx, nz) != TileCellKind.Ground) continue;
+                        if (grid.LevelAt(nx, nz) >= grid.LevelAt(x, z)) continue;
+
+                        if (spills == 0) { firstX = x; firstZ = z; }
+                        spills++;
+                    }
+                }
+            }
+
+            if (spills > 0)
+                Debug.LogWarning($"[Prophecy] River water hangs over lower ground at {spills} " +
+                                 $"cell edge(s), first at cell ({firstX}, {firstZ}) — bank the " +
+                                 "course with terrain at or above its level, or lower it.");
         }
 
         /// <summary>

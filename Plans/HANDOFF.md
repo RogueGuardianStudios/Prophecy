@@ -126,6 +126,28 @@ single slot is overwritten before it is read — that bug lived for one test cyc
 targeting the **`@return` spawn id** arrives exactly where the player left. The traversal
 course's exits use it, which is Zelda II's encounter rule: the fight interrupts the journey.
 
+**ELEVATED WATER AND WATERFALLS (2026-08-05, Matt: "focus on the elevated water and
+waterfall"):** water gained a LEVEL with zero new authoring. A sea cell always stored a level;
+it was just always 0. Now a river INHERITS the level of the terrain along its course,
+monotonically non-increasing from source to mouth (sampled BEFORE carving — a carve that runs
+ahead of the sampling raises the downstream terrain to its own water level and the fall never
+drops; that bug lasted one test cycle). So water holds its terrace's height and falls exactly
+where the land falls. Everything downstream of that one idea generalized rather than grew:
+`FaceEdgeLevel` lets water present its own level (cliffs beside a gorge stop AT the water),
+the shore branch works RELATIVE to the water's level (an elevated lake bank is the same
+relationship as the coast — same pieces, higher Y), corner posts read water levels into the
+band rule, and `PlanWater` adds a per-cell quad at each elevated cell's own waterline over the
+one ocean plane. WATERFALL SHEETS hang where water at level N meets water below: pure
+`TilePiecePlanner.PlanWaterfalls(grid)` (testable), meshed by the host like roads (they are
+sheets, not tile pieces — placements carry no pitch), wearing the water tile's material with
+all UVs pinned to the island's centre (a mesh with no UVs sampled the guide's background and
+rendered WHITE — the one bug the capture caught). Elevated water beside LOWER LAND has
+nowhere to go and warns like an inert ramp; beside lower water it is a fall. Out of bounds is
+sea level 0, so a source carved into the map's border cell pours off the edge of the world —
+real behaviour, and why the test authors its source inside the terrace. Demo: the Eastwater
+now SOURCES on the North Rise and falls off its south cliff through a gorge gate framed by
+jamb posts. Suite 801 green.
+
 **RIVERS AND ROADS (2026-08-05, same session):** the map grew three authoring nouns.
 `AuthoredRiver` — a polyline course carved to Sea cells AFTER regions, BEFORE ramps (a channel
 cuts terraces into gorges, but never converts a climb into a river bed); banks, water and
@@ -964,10 +986,11 @@ an exact current value surviving; derive from the asset the way `GrayBoxArenaBui
 With rivers, roads, bridges, caves, overhangs and layered transitions done, what the model still
 cannot say — each deliberately deferred, none blocking:
 
-- **Elevated water.** The sea is ONE plane at −0.35; a river always cuts to sea level. A river
-  ON a terrace, a waterfall where it drops a step, a highland lake — all need per-cell water
-  height. The visible tell today: 'Eastwater' crossing the North Rise reads as a gorge with the
-  water two steps down, not a stream at terrace level. Defer until a map needs a waterfall.
+- **Elevated water — CLOSED 2026-08-05, same day.** Water levels inherit from the terrain
+  along the course, monotonically downstream; waterfall sheets hang wherever water meets lower
+  water. What remains open inside it: the sheets are static quads (no scroll/foam — a shader
+  pass, which Matt has flagged as the fords-and-cutaway shader conversation), and a lake still
+  needs a river-polyline to carve it (an authored lake footprint would be one more noun).
 - **Fords.** Sea refuses; there is no walkable shallow water. A ford is one new cell notion
   (Ground that renders wet) — cheap when wanted.
 - **Overlay ramps.** The second surface is FLAT by design, so no stairs INSIDE a cave, no

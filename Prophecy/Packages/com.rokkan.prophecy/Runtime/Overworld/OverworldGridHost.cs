@@ -86,6 +86,7 @@ namespace Rokkan.Prophecy.Overworld
             for (int i = 0; i < placements.Count; i++) Place(placements[i]);
 
             BuildRoads();
+            BuildWaterfalls();
 
             BakeNavMesh();
 
@@ -168,6 +169,56 @@ namespace Rokkan.Prophecy.Overworld
             roads.transform.SetParent(_sceneryRoot, false);
             roads.AddComponent<MeshFilter>().sharedMesh = mesh;
             roads.AddComponent<MeshRenderer>().sharedMaterial = material;
+        }
+
+        /// <summary>
+        /// Waterfall sheets — vertical quads where elevated water drops to lower water, meshed
+        /// here for the same reason roads are: they are not tile-set pieces, and the planner's
+        /// placements carry no pitch. They wear the water tile's own material, so a palette or
+        /// shader change to the sea carries the falls with it.
+        /// </summary>
+        private void BuildWaterfalls()
+        {
+            var falls = TilePiecePlanner.PlanWaterfalls(_grid);
+            if (falls.Count == 0) return;
+
+            var vertices = new System.Collections.Generic.List<Vector3>();
+            var triangles = new System.Collections.Generic.List<int>();
+            var uvs = new System.Collections.Generic.List<Vector2>();
+
+            for (int i = 0; i < falls.Count; i++)
+            {
+                var fall = falls[i];
+                var right = new Vector3(-fall.Toward.y, 0f, fall.Toward.x) * (OverworldTileGrid.CellSize * 0.5f);
+                var down = Vector3.down * fall.Drop;
+
+                int v = vertices.Count;
+                vertices.Add(fall.TopCentre - right);
+                vertices.Add(fall.TopCentre + right);
+                vertices.Add(fall.TopCentre + right + down);
+                vertices.Add(fall.TopCentre - right + down);
+                // Every vertex samples the middle of the water tile's UV island: the sheet
+                // wears the sea's flat colour, and stays with it through any reskin.
+                for (int u = 0; u < 4; u++) uvs.Add(new Vector2(0.5f, 0.5f));
+                triangles.Add(v); triangles.Add(v + 1); triangles.Add(v + 2);
+                triangles.Add(v); triangles.Add(v + 2); triangles.Add(v + 3);
+            }
+
+            var mesh = new Mesh { name = "Waterfalls" };
+            mesh.SetVertices(vertices);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var water = _tiles.For(OverworldTilePiece.Water);
+            var renderer = water != null ? water.GetComponentInChildren<MeshRenderer>() : null;
+
+            var sheets = new GameObject("Waterfalls");
+            sheets.transform.SetParent(_sceneryRoot, false);
+            sheets.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var sheetRenderer = sheets.AddComponent<MeshRenderer>();
+            if (renderer != null) sheetRenderer.sharedMaterial = renderer.sharedMaterial;
         }
 
         /// <summary>
