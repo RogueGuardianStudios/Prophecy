@@ -24,12 +24,22 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private static readonly Color RiverColour = new Color(0.3f, 0.6f, 1f, 0.9f);
         private static readonly Color RoadColour = new Color(0.85f, 0.7f, 0.45f, 0.9f);
 
+        // Selection kinds, matched by the window's stored (_selectedKind, _selectedIndex).
+        public const int KindRegion = 0;
+        public const int KindLayer = 1;
+        public const int KindRamp = 2;
+        public const int KindRiver = 3;
+        public const int KindRoad = 4;
+
         public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
-                                bool regions = true, bool ramps = true, bool layers = true,
-                                bool rivers = true, bool roads = true)
+                                bool regions, bool ramps, bool layers, bool rivers, bool roads,
+                                int selectedKind, int selectedIndex,
+                                System.Action<int, int> select)
         {
             if (map == null) return;
             var offset = new Vector2(worldOffset.x, worldOffset.z);
+
+            bool Selected(int kind, int i) => selectedKind == kind && selectedIndex == i;
 
             for (int i = 0; regions && map.Regions != null && i < map.Regions.Length; i++)
                 DrawRect(map, preview, offset,
@@ -41,7 +51,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                              map.Regions[i].Size = s;
                              map.Regions[i].RotationDegrees = r;
                          },
-                         RegionColour, map.Regions[i].Name);
+                         RegionColour, map.Regions[i].Name,
+                         Selected(KindRegion, i), () => select(KindRegion, i));
 
             for (int i = 0; layers && map.Layers != null && i < map.Layers.Length; i++)
                 DrawRect(map, preview, offset,
@@ -53,20 +64,35 @@ namespace Rokkan.Prophecy.Editor.MapTool
                              map.Layers[i].Size = s;
                              map.Layers[i].RotationDegrees = r;
                          },
-                         LayerColour, map.Layers[i].Name);
+                         LayerColour, map.Layers[i].Name,
+                         Selected(KindLayer, i), () => select(KindLayer, i));
 
             for (int i = 0; ramps && map.Ramps != null && i < map.Ramps.Length; i++)
-                DrawRamp(map, preview, offset, map.Ramps[i]);
+                DrawRamp(map, preview, offset, map.Ramps[i],
+                         Selected(KindRamp, i), () => select(KindRamp, i));
 
             for (int i = 0; rivers && map.Rivers != null && i < map.Rivers.Length; i++)
                 DrawCourse(map, preview, offset, map.Rivers[i].Name,
                            () => map.Rivers[i].Points, p => map.Rivers[i].Points = p,
-                           map.Rivers[i].HalfWidth, RiverColour);
+                           map.Rivers[i].HalfWidth, RiverColour,
+                           Selected(KindRiver, i), () => select(KindRiver, i));
 
             for (int i = 0; roads && map.Roads != null && i < map.Roads.Length; i++)
                 DrawCourse(map, preview, offset, map.Roads[i].Name,
                            () => map.Roads[i].Points, p => map.Roads[i].Points = p,
-                           map.Roads[i].HalfWidth, RoadColour);
+                           map.Roads[i].HalfWidth, RoadColour,
+                           Selected(KindRoad, i), () => select(KindRoad, i));
+        }
+
+        /// <summary>An unselected shape's whole presence: a small pick dot. Click to select.</summary>
+        private static bool PickDot(Vector3 pos, Color colour, string label)
+        {
+            Handles.color = colour;
+            Handles.Label(pos + Vector3.up * 0.4f, label);
+            return Handles.Button(pos, Quaternion.identity,
+                                  HandleUtility.GetHandleSize(pos) * 0.09f,
+                                  HandleUtility.GetHandleSize(pos) * 0.12f,
+                                  Handles.SphereHandleCap);
         }
 
         // ---------------------------------------------------------------- rects
@@ -74,7 +100,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private static void DrawRect(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
                                      System.Func<(Vector2 centre, Vector2 size, float rot, float y)> read,
                                      System.Action<Vector2, Vector2, float> write,
-                                     Color colour, string label)
+                                     Color colour, string label, bool selected,
+                                     System.Action select)
         {
             var (centre, size, rot, y) = read();
             float height = Mathf.Round(y / OverworldTileGrid.Step) * OverworldTileGrid.Step + 0.1f;
@@ -82,14 +109,22 @@ namespace Rokkan.Prophecy.Editor.MapTool
             var pos = new Vector3(world.x, height, world.y);
             var half = size * 0.5f;
 
-            Handles.color = colour;
+            Handles.color = selected ? colour : new Color(colour.r, colour.g, colour.b, 0.35f);
             var corners = new Vector3[5];
             corners[0] = RectPoint(world, new Vector2(-half.x, -half.y), rot, height);
             corners[1] = RectPoint(world, new Vector2(-half.x, half.y), rot, height);
             corners[2] = RectPoint(world, new Vector2(half.x, half.y), rot, height);
             corners[3] = RectPoint(world, new Vector2(half.x, -half.y), rot, height);
             corners[4] = corners[0];
-            Handles.DrawAAPolyLine(3f, corners);
+            Handles.DrawAAPolyLine(selected ? 4f : 1.5f, corners);
+
+            if (!selected)
+            {
+                if (PickDot(pos, colour, label)) select();
+                return;
+            }
+
+            Handles.color = colour;
             Handles.Label(pos + Vector3.up * 0.4f, label);
 
             // Centre move.
@@ -175,15 +210,23 @@ namespace Rokkan.Prophecy.Editor.MapTool
         // ---------------------------------------------------------------- ramps
 
         private static void DrawRamp(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
-                                     AuthoredRamp ramp)
+                                     AuthoredRamp ramp, bool selected, System.Action select)
         {
             var a = ramp.Start + offset;
             var b = ramp.End + offset;
             var posA = new Vector3(a.x, ramp.StartY + 0.1f, a.y);
             var posB = new Vector3(b.x, ramp.EndY + 0.1f, b.y);
 
-            Handles.color = RampColour;
-            Handles.DrawAAPolyLine(3f, posA, posB);
+            Handles.color = selected ? RampColour
+                                     : new Color(RampColour.r, RampColour.g, RampColour.b, 0.35f);
+            Handles.DrawAAPolyLine(selected ? 4f : 1.5f, posA, posB);
+
+            if (!selected)
+            {
+                if (PickDot((posA + posB) * 0.5f, RampColour, ramp.Name)) select();
+                return;
+            }
+
             var dir = (b - a).normalized;
             var perp = new Vector3(-dir.y, 0f, dir.x);
             Handles.DrawAAPolyLine(2f, posA - perp * ramp.HalfWidth, posB - perp * ramp.HalfWidth);
@@ -213,7 +256,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
         private static void DrawCourse(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
                                        string label, System.Func<Vector2[]> read,
-                                       System.Action<Vector2[]> write, float halfWidth, Color colour)
+                                       System.Action<Vector2[]> write, float halfWidth, Color colour,
+                                       bool selected, System.Action select)
         {
             var points = read();
             if (points == null || points.Length == 0) return;
@@ -225,8 +269,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 preview3[i] = new Vector3(w.x, CourseHeight(preview, w), w.y);
             }
 
-            Handles.color = colour;
-            if (preview3.Length > 1) Handles.DrawAAPolyLine(4f, preview3);
+            Handles.color = selected ? colour : new Color(colour.r, colour.g, colour.b, 0.35f);
+            if (preview3.Length > 1) Handles.DrawAAPolyLine(selected ? 4f : 1.5f, preview3);
+
+            if (!selected)
+            {
+                if (PickDot(preview3[preview3.Length / 2], colour, label)) select();
+                return;
+            }
+
             Handles.Label(preview3[0] + Vector3.up * 0.5f, label);
 
             var e = Event.current;

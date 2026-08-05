@@ -6,26 +6,26 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Editor.MapTool
 {
     /// <summary>
-    /// The 2D top-down paint surface: one texture pixel per cell, blown up point-filtered, so
-    /// 6,912 cells cost one draw — never a widget per cell. The canvas renders the COMPILED
-    /// grid (the designer paints against truth, not against the shape list) with the
-    /// in-progress stroke overlaid from the mirror dict; nothing touches the asset until the
-    /// stroke ends, when the window commits it as one undo step.
+    /// The paint ENGINE and the minimap in one: the mirror dict, the stroke lifecycle, and the
+    /// brush application live here and are driven by BOTH surfaces — the Scene-view painter
+    /// (the primary, paint-where-you-look surface) and this class's own 2D canvas (the
+    /// overview: one texture pixel per cell, point-filtered, double-click to frame the Scene
+    /// view there). Nothing touches the asset until a stroke ends; then the window commits it
+    /// as one undo step.
+    ///
+    /// <para>Relative brushes (Raise/Lower) read the grid COMPILED AT STROKE START and apply
+    /// once per cell per stroke — dragging across a terrace raises it one level, not one level
+    /// per repaint.</para>
     /// </summary>
     internal sealed class OverworldMapCanvas
     {
-        public enum Brush
-        {
-            PaintGround,
-            PaintSea,
-            RoadAdd,
-            RoadRemove,
-            ClearOverride,
-        }
-
-        public Brush ActiveBrush = Brush.PaintGround;
+        public PaintBrush ActiveBrush = PaintBrush.Raise;
         public int PaintLevel;
         public int BrushSize = 1;
+
+        /// <summary>A momentary substitute for the active brush — the Scene painter sets this
+        /// while Shift is held so Raise flips to Lower without touching the picked brush.</summary>
+        public PaintBrush? BrushOverride;
 
         private readonly Dictionary<Vector2Int, AuthoredCellOverride> _mirror =
             new Dictionary<Vector2Int, AuthoredCellOverride>();
@@ -37,14 +37,111 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private bool _gridDirty = true;
 
         private bool _stroke;
+        private readonly HashSet<Vector2Int> _strokeVisited = new HashSet<Vector2Int>();
         private int _strokeMinX, _strokeMinZ, _strokeMaxX, _strokeMaxZ;
+
+        private float _zoom = 8f;
+        private Vector2 _pan;
 
         /// <summary>The compiler's authoring audits from the last canvas compile — the window
         /// shows these instead of letting them spam the console on every stroke.</summary>
         public readonly List<string> LastNotes = new List<string>();
 
-        private float _zoom = 8f;
-        private Vector2 _pan;
+        /// <summary>The grid the tool paints against — compiled here with the in-progress
+        /// stroke baked in. The Scene painter reads cell state and dimensions from this.</summary>
+        public OverworldTileGrid Grid => _grid;
+
+        // ---------------------------------------------------------------- stroke lifecycle
+
+        public void BeginStroke(Vector2Int cell)
+        {
+            _stroke = true;
+            _strokeVisited.Clear();
+            _strokeMinX = _strokeMaxX = cell.x;
+            _strokeMinZ = _strokeMaxZ = cell.y;
+        }
+
+        public bool StrokeActive => _stroke;
+
+        /// <summary>Apply the active brush at <paramref name="centre"/> with the current brush
+        /// size. Safe to call every drag event — each cell takes the brush once per stroke.</summary>
+        public void StrokeCell(Vector2Int centre)
+        {
+            if (!_stroke || _grid == null) return;
+
+            int reach = Mathf.Max(0, BrushSize - 1);
+            for (int dz = -reach; dz <= reach; dz++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    var cell = new Vector2Int(centre.x + dx, centre.y + dz);
+                    if (cell.x < 0 || cell.x >= _grid.Width ||
+                        cell.y < 0 || cell.y >= _grid.Height) continue;
+                    if (!_strokeVisited.Add(cell)) continue;
+
+                    _strokeMinX = Mathf.Min(_strokeMinX, cell.x);
+                    _strokeMaxX = Mathf.Max(_strokeMaxX, cell.x);
+                    _strokeMinZ = Mathf.Min(_strokeMinZ, cell.y);
+                    _strokeMaxZ = Mathf.Max(_strokeMaxZ, cell.y);
+
+                    ApplyBrush(cell);
+                }
+            }
+
+            _textureDirty = true;
+        }
+
+        /// <summary>Commit the stroke through the window: one undo step, one partial rebuild.</summary>
+        public void EndStroke(OverworldMapToolWindow window)
+        {
+            if (!_stroke) return;
+            _stroke = false;
+            window.CommitCellOverrides(ToArray(), _strokeMinX, _strokeMinZ,
+                                       _strokeMaxX, _strokeMaxZ);
+            _gridDirty = true;
+            _textureDirty = true;
+        }
+
+        private void ApplyBrush(Vector2Int cell)
+        {
+            var brush = BrushOverride ?? ActiveBrush;
+            if (brush == PaintBrush.Clear)
+            {
+                _mirror.Remove(cell);
+                return;
+            }
+
+            // Relative brushes read the stroke-start compile, PLUS this stroke's own edit if
+            // one already landed on the cell — visited-set guarantees it hasn't.
+            var kind = _grid.KindAt(cell.x, cell.y);
+            int level = _grid.LevelAt(cell.x, cell.y);
+
+            if (!OverworldPaintBrushes.Apply(brush, kind, level, PaintLevel,
+                                             out var terrain, out int terrainLevel,
+                                             out var road)) return;
+
+            var entry = Entry(cell);
+            if (terrain != TerrainOverride.None)
+            {
+                entry.Terrain = terrain;
+                entry.Level = terrainLevel;
+            }
+            if (road != RoadOverride.None)
+                entry.Road = road;
+        }
+
+        private AuthoredCellOverride Entry(Vector2Int cell)
+        {
+            if (!_mirror.TryGetValue(cell, out var entry))
+            {
+                entry = new AuthoredCellOverride { X = cell.x, Z = cell.y };
+                _mirror[cell] = entry;
+            }
+
+            return entry;
+        }
+
+        // ---------------------------------------------------------------- asset sync
 
         /// <summary>The committed overrides, exactly as the asset should store them —
         /// deterministic order for stable diffs.</summary>
@@ -80,148 +177,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
             _textureDirty = true;
         }
 
-        public void OnGUI(Rect rect, OverworldMap map, OverworldMapToolWindow window,
-                          Vector3 worldOrigin)
-        {
-            if (map == null) return;
-
-            RefreshGrid(map, worldOrigin);
-            if (_grid == null) return;
-            RefreshTexture();
-
-            GUI.Box(rect, GUIContent.none);
-            GUI.BeginClip(rect);
-            var local = new Rect(_pan.x, _pan.y, _grid.Width * _zoom, _grid.Height * _zoom);
-            GUI.DrawTexture(local, _texture, ScaleMode.StretchToFill, false);
-            GUI.EndClip();
-
-            HandleEvents(rect, map, window);
-        }
-
-        // ---------------------------------------------------------------- events
-
-        private void HandleEvents(Rect rect, OverworldMap map, OverworldMapToolWindow window)
-        {
-            var e = Event.current;
-            if (!rect.Contains(e.mousePosition) && !_stroke) return;
-
-            // Zoom about the cursor; pan with middle drag.
-            if (e.type == EventType.ScrollWheel)
-            {
-                float old = _zoom;
-                _zoom = Mathf.Clamp(_zoom * (e.delta.y < 0 ? 1.15f : 1f / 1.15f), 3f, 28f);
-                var cursor = e.mousePosition - rect.min;
-                _pan = cursor - (cursor - _pan) * (_zoom / old);
-                e.Use();
-                return;
-            }
-
-            if (e.type == EventType.MouseDrag && e.button == 2)
-            {
-                _pan += e.delta;
-                e.Use();
-                return;
-            }
-
-            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-
-            if (e.button == 0 && (e.type == EventType.MouseDown || e.type == EventType.MouseDrag))
-            {
-                var cell = CellAt(rect, e.mousePosition);
-                if (cell.HasValue)
-                {
-                    if (!_stroke)
-                    {
-                        _stroke = true;
-                        _strokeMinX = _strokeMaxX = cell.Value.x;
-                        _strokeMinZ = _strokeMaxZ = cell.Value.y;
-                    }
-
-                    ApplyBrush(cell.Value);
-                    e.Use();
-                }
-            }
-            else if (_stroke && (e.type == EventType.MouseUp || e.rawType == EventType.MouseUp))
-            {
-                _stroke = false;
-                window.CommitCellOverrides(ToArray(), _strokeMinX, _strokeMinZ,
-                                           _strokeMaxX, _strokeMaxZ);
-                _gridDirty = true;
-                _textureDirty = true;
-                e.Use();
-            }
-        }
-
-        private Vector2Int? CellAt(Rect rect, Vector2 mouse)
-        {
-            var local = mouse - rect.min - _pan;
-            int x = Mathf.FloorToInt(local.x / _zoom);
-            int guiRow = Mathf.FloorToInt(local.y / _zoom);
-            int z = _grid.Height - 1 - guiRow;   // GUI y grows down; north stays up
-            if (x < 0 || x >= _grid.Width || z < 0 || z >= _grid.Height) return null;
-            return new Vector2Int(x, z);
-        }
-
-        private void ApplyBrush(Vector2Int centre)
-        {
-            int reach = Mathf.Max(0, BrushSize - 1);
-            for (int dz = -reach; dz <= reach; dz++)
-            {
-                for (int dx = -reach; dx <= reach; dx++)
-                {
-                    var cell = new Vector2Int(centre.x + dx, centre.y + dz);
-                    if (cell.x < 0 || cell.x >= _grid.Width ||
-                        cell.y < 0 || cell.y >= _grid.Height) continue;
-
-                    _strokeMinX = Mathf.Min(_strokeMinX, cell.x);
-                    _strokeMaxX = Mathf.Max(_strokeMaxX, cell.x);
-                    _strokeMinZ = Mathf.Min(_strokeMinZ, cell.y);
-                    _strokeMaxZ = Mathf.Max(_strokeMaxZ, cell.y);
-
-                    switch (ActiveBrush)
-                    {
-                        case Brush.ClearOverride:
-                            _mirror.Remove(cell);
-                            break;
-
-                        case Brush.PaintGround:
-                            Entry(cell).Terrain = TerrainOverride.Ground;
-                            Entry(cell).Level = PaintLevel;
-                            break;
-
-                        case Brush.PaintSea:
-                            Entry(cell).Terrain = TerrainOverride.Sea;
-                            Entry(cell).Level = PaintLevel;
-                            break;
-
-                        case Brush.RoadAdd:
-                            Entry(cell).Road = RoadOverride.Add;
-                            break;
-
-                        case Brush.RoadRemove:
-                            Entry(cell).Road = RoadOverride.Remove;
-                            break;
-                    }
-                }
-            }
-
-            _textureDirty = true;
-        }
-
-        private AuthoredCellOverride Entry(Vector2Int cell)
-        {
-            if (!_mirror.TryGetValue(cell, out var entry))
-            {
-                entry = new AuthoredCellOverride { X = cell.x, Z = cell.y };
-                _mirror[cell] = entry;
-            }
-
-            return entry;
-        }
-
-        // ---------------------------------------------------------------- rendering
-
-        private void RefreshGrid(OverworldMap map, Vector3 worldOrigin)
+        /// <summary>Compile the paint grid if stale. The Scene painter calls this before
+        /// reading <see cref="Grid"/>; the canvas calls it before drawing.</summary>
+        public void RefreshGrid(OverworldMap map, Vector3 worldOrigin)
         {
             if (!_gridDirty && _grid != null) return;
 
@@ -246,6 +204,109 @@ namespace Rokkan.Prophecy.Editor.MapTool
             LastNotes.AddRange(OverworldTileGridCompiler.Notes);
             _gridDirty = false;
         }
+
+        // ---------------------------------------------------------------- the minimap
+
+        public void OnGUI(Rect rect, OverworldMap map, OverworldMapToolWindow window,
+                          Vector3 worldOrigin, bool paintEnabled)
+        {
+            if (map == null) return;
+
+            RefreshGrid(map, worldOrigin);
+            if (_grid == null) return;
+            RefreshTexture();
+
+            GUI.Box(rect, GUIContent.none);
+            GUI.BeginClip(rect);
+            var local = new Rect(_pan.x, _pan.y, _grid.Width * _zoom, _grid.Height * _zoom);
+            GUI.DrawTexture(local, _texture, ScaleMode.StretchToFill, false);
+            GUI.EndClip();
+
+            HandleEvents(rect, window, paintEnabled);
+
+            // Hover readout, drawn under the map: which cell, what's there.
+            var hover = CellAt(rect, Event.current.mousePosition);
+            if (hover.HasValue)
+            {
+                var c = hover.Value;
+                var info = $"cell ({c.x}, {c.y})  {_grid.KindAt(c.x, c.y)} L{_grid.LevelAt(c.x, c.y)}" +
+                           (_grid.RoadAt(c.x, c.y) ? "  road" : "") +
+                           (_grid.TryOverlayAt(c.x, c.y, out int ov) ? $"  overlay L{ov}" : "") +
+                           (_mirror.ContainsKey(c) ? "  painted" : "");
+                GUI.Label(new Rect(rect.x + 4f, rect.yMax - 20f, rect.width - 8f, 18f), info,
+                          EditorStyles.miniBoldLabel);
+            }
+        }
+
+        private void HandleEvents(Rect rect, OverworldMapToolWindow window, bool paintEnabled)
+        {
+            var e = Event.current;
+            if (!rect.Contains(e.mousePosition) && !_stroke) return;
+
+            if (e.type == EventType.ScrollWheel)
+            {
+                float old = _zoom;
+                _zoom = Mathf.Clamp(_zoom * (e.delta.y < 0 ? 1.15f : 1f / 1.15f), 3f, 28f);
+                var cursor = e.mousePosition - rect.min;
+                _pan = cursor - (cursor - _pan) * (_zoom / old);
+                e.Use();
+                return;
+            }
+
+            if (e.type == EventType.MouseDrag && e.button == 2)
+            {
+                _pan += e.delta;
+                e.Use();
+                return;
+            }
+
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+
+            // Double-click: frame the Scene view on that cell — the minimap is a map first.
+            if (e.type == EventType.MouseDown && e.button == 0 && e.clickCount == 2)
+            {
+                var cell = CellAt(rect, e.mousePosition);
+                if (cell.HasValue && SceneView.lastActiveSceneView != null)
+                {
+                    var world = _grid.CellCentre(cell.Value.x, cell.Value.y);
+                    float y = _grid.SurfaceHeight(cell.Value.x, cell.Value.y, world);
+                    SceneView.lastActiveSceneView.Frame(
+                        new Bounds(new Vector3(world.x, y, world.y), Vector3.one * 12f), false);
+                    e.Use();
+                    return;
+                }
+            }
+
+            if (paintEnabled && e.button == 0 &&
+                (e.type == EventType.MouseDown || e.type == EventType.MouseDrag))
+            {
+                var cell = CellAt(rect, e.mousePosition);
+                if (cell.HasValue)
+                {
+                    if (!_stroke) BeginStroke(cell.Value);
+                    StrokeCell(cell.Value);
+                    e.Use();
+                }
+            }
+            else if (_stroke && (e.type == EventType.MouseUp || e.rawType == EventType.MouseUp))
+            {
+                EndStroke(window);
+                e.Use();
+            }
+        }
+
+        private Vector2Int? CellAt(Rect rect, Vector2 mouse)
+        {
+            if (_grid == null || !rect.Contains(mouse)) return null;
+            var local = mouse - rect.min - _pan;
+            int x = Mathf.FloorToInt(local.x / _zoom);
+            int guiRow = Mathf.FloorToInt(local.y / _zoom);
+            int z = _grid.Height - 1 - guiRow;   // GUI y grows down; north stays up
+            if (x < 0 || x >= _grid.Width || z < 0 || z >= _grid.Height) return null;
+            return new Vector2Int(x, z);
+        }
+
+        // ---------------------------------------------------------------- rendering
 
         private void RefreshTexture()
         {

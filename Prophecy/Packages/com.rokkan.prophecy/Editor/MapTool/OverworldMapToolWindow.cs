@@ -17,11 +17,24 @@ namespace Rokkan.Prophecy.Editor.MapTool
     /// </summary>
     public sealed class OverworldMapToolWindow : EditorWindow
     {
+        /// <summary>What clicking in the Scene view does. One mode at a time — the cure for
+        /// "a lot going on": the cursor means one thing, and the window shows only that
+        /// thing's controls.</summary>
+        private enum ToolMode
+        {
+            Select,
+            Paint,
+            Props,
+        }
+
         [SerializeField] private OverworldMap _map;
         [SerializeField] private OverworldTileSet _tiles;
         [SerializeField] private bool _stairsForRamps = true;
         [SerializeField] private bool _previewEnabled = true;
         [SerializeField] private bool _handlesEnabled = true;
+        [SerializeField] private ToolMode _mode = ToolMode.Paint;
+        [SerializeField] private int _selectedKind = -1;
+        [SerializeField] private int _selectedIndex = -1;
 
         [SerializeField] private bool _showRegions = true;
         [SerializeField] private bool _showRamps = true;
@@ -31,7 +44,6 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
         [SerializeField] private OverworldPropPalette _palette;
         [SerializeField] private int _paletteIndex;
-        [SerializeField] private bool _placeArmed;
         [SerializeField] private bool _snapToCell = true;
         [SerializeField] private float _placeYaw;
         [SerializeField] private bool _placeBlocks = true;
@@ -150,122 +162,171 @@ namespace Rokkan.Prophecy.Editor.MapTool
             _map = (OverworldMap)EditorGUILayout.ObjectField("Map", _map, typeof(OverworldMap), false);
             _tiles = (OverworldTileSet)EditorGUILayout.ObjectField("Tile Set", _tiles,
                                                                    typeof(OverworldTileSet), false);
-            _stairsForRamps = EditorGUILayout.Toggle("Stairs For Ramps", _stairsForRamps);
             bool assetsChanged = EditorGUI.EndChangeCheck();
-            if (assetsChanged) _canvas.SyncFromMap(_map);
-
-            EditorGUILayout.Space();
-
-            using (new EditorGUI.DisabledScope(_map == null || _tiles == null ||
-                                               EditorApplication.isPlayingOrWillChangePlaymode))
+            if (assetsChanged)
             {
-                EditorGUI.BeginChangeCheck();
-                _previewEnabled = EditorGUILayout.Toggle("Live Preview", _previewEnabled);
-                bool previewToggled = EditorGUI.EndChangeCheck();
-
-                if (previewToggled || (assetsChanged && _previewEnabled))
-                {
-                    if (_previewEnabled)
-                        _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
-                    else
-                        _preview.Teardown();
-                }
-
-                _handlesEnabled = EditorGUILayout.Toggle("Shape Handles", _handlesEnabled);
-
-                if (_handlesEnabled)
-                {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        _showRegions = GUILayout.Toggle(_showRegions, "Regions", "Button");
-                        _showRamps = GUILayout.Toggle(_showRamps, "Ramps", "Button");
-                        _showLayers = GUILayout.Toggle(_showLayers, "Layers", "Button");
-                        _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
-                        _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
-                    }
-                }
-
-                if (GUILayout.Button("Rebuild Preview")) RebuildPreviewNow();
+                _canvas.SyncFromMap(_map);
+                if (_previewEnabled && _map != null && _tiles != null)
+                    _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps);
             }
-
-            EditorGUILayout.Space();
 
             if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
                 EditorGUILayout.HelpBox("Play mode owns the world — the tool resumes when it ends.",
                                         MessageType.Info);
-            else if (_preview.Active)
-                EditorGUILayout.LabelField(
-                    $"Preview live — last rebuild {_preview.LastBuildMs:0} ms.",
-                    EditorStyles.miniLabel);
-
-            EditorGUILayout.HelpBox(
-                "Scene view: drag centres, edges and rotation discs on regions and layers; " +
-                "drag ramp ends and widths; drag river/road points, Ctrl+click a segment to " +
-                "insert a point, Shift+click a point to delete it.", MessageType.None);
-
-            if (_map == null) return;
-
-            // ------------------------------------------------------------ props
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Props", EditorStyles.boldLabel);
-            _palette = (OverworldPropPalette)EditorGUILayout.ObjectField(
-                "Palette", _palette, typeof(OverworldPropPalette), false);
-
-            if (_palette != null && _palette.Prefabs != null && _palette.Prefabs.Length > 0)
-            {
-                var names = new string[_palette.Prefabs.Length];
-                for (int i = 0; i < names.Length; i++)
-                    names[i] = _palette.Prefabs[i] != null ? _palette.Prefabs[i].name : "(empty)";
-                _paletteIndex = Mathf.Clamp(
-                    EditorGUILayout.Popup("Prefab", _paletteIndex, names), 0, names.Length - 1);
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    _snapToCell = EditorGUILayout.ToggleLeft("Snap to cell", _snapToCell,
-                                                             GUILayout.Width(110f));
-                    _placeBlocks = EditorGUILayout.ToggleLeft("Blocks", _placeBlocks,
-                                                              GUILayout.Width(70f));
-                    _placeBlockSize = EditorGUILayout.Vector2IntField(GUIContent.none,
-                                                                      _placeBlockSize);
-                    _placeSurfaceLayer = EditorGUILayout.IntSlider(_placeSurfaceLayer, 0, 1);
-                }
-
-                bool armed = GUILayout.Toggle(_placeArmed,
-                    _placeArmed ? "Placing — click the ground, R rotates, Esc stops" : "Place Prop",
-                    "Button");
-                if (armed != _placeArmed)
-                {
-                    _placeArmed = armed;
-                    SceneView.RepaintAll();
-                }
+                return;
             }
 
-            // ------------------------------------------------------------ the paint canvas
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Paint", EditorStyles.boldLabel);
+            if (_map == null || _tiles == null) return;
 
-            _canvas.ActiveBrush = (OverworldMapCanvas.Brush)GUILayout.Toolbar(
-                (int)_canvas.ActiveBrush,
-                new[] { "Ground", "Sea", "Road +", "Road −", "Clear" });
+            // ------------------------------------------------------------ the mode bar
+            EditorGUILayout.Space();
+            var mode = (ToolMode)GUILayout.Toolbar((int)_mode,
+                new[] { "Select / Edit", "Paint", "Props" }, GUILayout.Height(28f));
+            if (mode != _mode)
+            {
+                _mode = mode;
+                SceneView.RepaintAll();
+            }
+
+            EditorGUILayout.Space();
+
+            switch (_mode)
+            {
+                case ToolMode.Paint: PaintControls(); break;
+                case ToolMode.Props: PropControls(); break;
+                default: SelectControls(); break;
+            }
+
+            // ------------------------------------------------------------ the minimap
+            EditorGUILayout.Space();
+            var canvasRect = GUILayoutUtility.GetRect(position.width, 100f, position.width,
+                                                      float.MaxValue, GUILayout.ExpandHeight(true));
+            _canvas.OnGUI(canvasRect, _map, this, _worldOrigin, _mode == ToolMode.Paint);
+
+            EditorGUILayout.LabelField(
+                _mode == ToolMode.Paint
+                    ? "Minimap: LMB paint · MMB pan · scroll zoom · double-click frames the Scene view"
+                    : "Minimap: MMB pan · scroll zoom · double-click frames the Scene view",
+                EditorStyles.miniLabel);
+            Legend();
+
+            for (int i = 0; i < _canvas.LastNotes.Count; i++)
+                EditorGUILayout.HelpBox(_canvas.LastNotes[i], MessageType.Warning);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _canvas.PaintLevel = EditorGUILayout.IntSlider("Level", _canvas.PaintLevel, 0, 4);
-                _canvas.BrushSize = EditorGUILayout.IntSlider("Brush", _canvas.BrushSize, 1, 6);
+                if (GUILayout.Button("Rebuild Preview")) RebuildPreviewNow();
+                if (_preview.Active)
+                    GUILayout.Label($"last rebuild {_preview.LastBuildMs:0} ms",
+                                    EditorStyles.miniLabel, GUILayout.Width(120f));
+            }
+        }
+
+        private void PaintControls()
+        {
+            EditorGUILayout.LabelField("Paint — in the Scene view or on the minimap below",
+                                       EditorStyles.boldLabel);
+
+            _canvas.ActiveBrush = (PaintBrush)GUILayout.Toolbar((int)_canvas.ActiveBrush,
+                new[] { "Raise", "Lower", "Set Level", "Water", "Road +", "Road −", "Clear" });
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(_canvas.ActiveBrush != PaintBrush.SetLevel))
+                    _canvas.PaintLevel = EditorGUILayout.IntSlider("Set To Level",
+                                                                   _canvas.PaintLevel, 0, 4);
+                _canvas.BrushSize = EditorGUILayout.IntSlider("Brush Size", _canvas.BrushSize, 1, 6);
             }
 
-            var canvasRect = GUILayoutUtility.GetRect(position.width, 100f, position.width,
-                                                      float.MaxValue, GUILayout.ExpandHeight(true));
-            _canvas.OnGUI(canvasRect, _map, this, _worldOrigin);
+            EditorGUILayout.HelpBox(
+                "Raise lifts a cell one terrace; Shift while painting flips it to Lower. " +
+                "Lowering the plain floods it; Water pools at the cell's own level. " +
+                "Clear removes the paint and the shapes' answer returns. One stroke = one undo.",
+                MessageType.None);
+        }
 
-            EditorGUILayout.LabelField(
-                "LMB paint · MMB pan · scroll zoom · painted cells tint pink · one stroke = one undo",
-                EditorStyles.miniLabel);
+        private void SelectControls()
+        {
+            EditorGUILayout.LabelField("Select / Edit shapes", EditorStyles.boldLabel);
 
-            // Authoring audits from the last compile — the same messages the console used to
-            // repeat per stroke, shown once, where the painting happens.
-            for (int i = 0; i < _canvas.LastNotes.Count; i++)
-                EditorGUILayout.HelpBox(_canvas.LastNotes[i], MessageType.Warning);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _showRegions = GUILayout.Toggle(_showRegions, "Regions", "Button");
+                _showRamps = GUILayout.Toggle(_showRamps, "Ramps", "Button");
+                _showLayers = GUILayout.Toggle(_showLayers, "Layers", "Button");
+                _showRivers = GUILayout.Toggle(_showRivers, "Rivers", "Button");
+                _showRoads = GUILayout.Toggle(_showRoads, "Roads", "Button");
+            }
+
+            EditorGUILayout.HelpBox(
+                "Click a shape's dot in the Scene view to select it — only the selected shape " +
+                "shows its full handles. Rects: drag centre, edges, rotation disc. Courses: " +
+                "drag points, Ctrl+click inserts, Shift+click deletes. Props: drag to move, " +
+                "Shift+click deletes.", MessageType.None);
+
+            _stairsForRamps = EditorGUILayout.Toggle("Stairs For Ramps", _stairsForRamps);
+        }
+
+        private void PropControls()
+        {
+            EditorGUILayout.LabelField("Place props — click the ground in the Scene view",
+                                       EditorStyles.boldLabel);
+
+            _palette = (OverworldPropPalette)EditorGUILayout.ObjectField(
+                "Palette", _palette, typeof(OverworldPropPalette), false);
+
+            if (_palette == null || _palette.Prefabs == null || _palette.Prefabs.Length == 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Assign a palette (Create > Prophecy > Overworld Prop Palette) and add " +
+                    "prefabs to it — towns, trees, anything that stands on tiles.",
+                    MessageType.Info);
+                return;
+            }
+
+            var names = new string[_palette.Prefabs.Length];
+            for (int i = 0; i < names.Length; i++)
+                names[i] = _palette.Prefabs[i] != null ? _palette.Prefabs[i].name : "(empty)";
+            _paletteIndex = Mathf.Clamp(
+                EditorGUILayout.Popup("Prefab", _paletteIndex, names), 0, names.Length - 1);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _snapToCell = EditorGUILayout.ToggleLeft("Snap to cell", _snapToCell,
+                                                         GUILayout.Width(110f));
+                _placeBlocks = EditorGUILayout.ToggleLeft("Blocks", _placeBlocks,
+                                                          GUILayout.Width(70f));
+                _placeBlockSize = EditorGUILayout.Vector2IntField(GUIContent.none, _placeBlockSize);
+                _placeSurfaceLayer = EditorGUILayout.IntSlider(_placeSurfaceLayer, 0, 1);
+            }
+
+            EditorGUILayout.HelpBox("Click places · R rotates 15° · Shift+click an existing " +
+                                    "prop deletes it · Esc returns to Select.", MessageType.None);
+        }
+
+        /// <summary>The minimap's colour key — cryptic tints were half of "unintuitive".</summary>
+        private static void Legend()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                Swatch(new Color(0.2f, 0.42f, 0.22f), "low ground");
+                Swatch(new Color(0.75f, 0.9f, 0.55f), "high ground");
+                Swatch(new Color(0.16f, 0.32f, 0.62f), "water");
+                Swatch(new Color(0.85f, 0.62f, 0.25f), "stairs");
+                Swatch(new Color(0.65f, 0.4f, 0.9f), "deck/cave");
+                Swatch(new Color(0.78f, 0.66f, 0.45f), "road");
+                Swatch(new Color(1f, 0.35f, 0.75f), "painted");
+            }
+        }
+
+        private static void Swatch(Color colour, string label)
+        {
+            var rect = GUILayoutUtility.GetRect(10f, 10f, GUILayout.Width(10f));
+            rect.y += 3f;
+            EditorGUI.DrawRect(rect, colour);
+            GUILayout.Label(label, EditorStyles.miniLabel);
+            GUILayout.Space(6f);
         }
 
         private void OnSceneGui(SceneView view)
@@ -273,13 +334,31 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (_map == null) return;
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-            if (_handlesEnabled)
-                OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
-                                           _showRegions, _showRamps, _showLayers,
-                                           _showRivers, _showRoads);
+            switch (_mode)
+            {
+                case ToolMode.Paint:
+                    OverworldScenePainter.Draw(view, this, _canvas, _map, _worldOrigin);
+                    break;
 
-            DrawExistingProps();
-            if (_placeArmed) DrawPlacement(view);
+                case ToolMode.Props:
+                    DrawExistingProps();
+                    DrawPlacement(view);
+                    break;
+
+                default:
+                    OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
+                                               _showRegions, _showRamps, _showLayers,
+                                               _showRivers, _showRoads,
+                                               _selectedKind, _selectedIndex,
+                                               (kind, index) =>
+                                               {
+                                                   _selectedKind = kind;
+                                                   _selectedIndex = index;
+                                                   Repaint();
+                                               });
+                    DrawExistingProps();
+                    break;
+            }
         }
 
         // ---------------------------------------------------------------- prop placement
@@ -355,7 +434,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
             {
-                _placeArmed = false;
+                _mode = ToolMode.Select;
                 Repaint();
                 e.Use();
                 return;

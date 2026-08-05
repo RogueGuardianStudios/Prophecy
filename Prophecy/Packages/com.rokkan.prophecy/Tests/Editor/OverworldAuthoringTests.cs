@@ -254,6 +254,43 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheBrushesSculptRelatively()
+        {
+            // Raise climbs one level; on water it drains to ground at the water's own level.
+            Assert.IsTrue(OverworldPaintBrushes.Apply(PaintBrush.Raise, TileCellKind.Ground, 1, 0,
+                                                      out var t, out int l, out _));
+            Assert.AreEqual(TerrainOverride.Ground, t);
+            Assert.AreEqual(2, l, "Ground raises one terrace.");
+
+            OverworldPaintBrushes.Apply(PaintBrush.Raise, TileCellKind.Sea, 1, 0, out t, out l, out _);
+            Assert.AreEqual(TerrainOverride.Ground, t);
+            Assert.AreEqual(1, l, "Raising water drains it before it climbs.");
+
+            // Lower descends; digging below the plain floods it.
+            OverworldPaintBrushes.Apply(PaintBrush.Lower, TileCellKind.Ground, 2, 0, out t, out l, out _);
+            Assert.AreEqual(TerrainOverride.Ground, t);
+            Assert.AreEqual(1, l);
+
+            OverworldPaintBrushes.Apply(PaintBrush.Lower, TileCellKind.Ground, 0, 0, out t, out l, out _);
+            Assert.AreEqual(TerrainOverride.Sea, t);
+            Assert.AreEqual(0, l, "Digging the plain floods it.");
+
+            // Water pools at the cell's own level — the terrace lake rule.
+            OverworldPaintBrushes.Apply(PaintBrush.Water, TileCellKind.Ground, 2, 0, out t, out l, out _);
+            Assert.AreEqual(TerrainOverride.Sea, t);
+            Assert.AreEqual(2, l);
+
+            // SetLevel is the absolute flattener.
+            OverworldPaintBrushes.Apply(PaintBrush.SetLevel, TileCellKind.Sea, 0, 3, out t, out l, out _);
+            Assert.AreEqual(TerrainOverride.Ground, t);
+            Assert.AreEqual(3, l);
+
+            // Clear writes nothing — the caller removes the entry.
+            Assert.IsFalse(OverworldPaintBrushes.Apply(PaintBrush.Clear, TileCellKind.Ground, 0, 0,
+                                                       out _, out _, out _));
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);
