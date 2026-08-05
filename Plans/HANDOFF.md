@@ -22,6 +22,19 @@ persistent: `PC_RPAsset` main-light shadowmap 2048 → 4096, and the overworld b
 now uses custom bias (depth 0.4, normal 1.8, `usePipelineSettings` off — the editor asmdef
 gained the URP runtime reference for it).
 
+**The stair shimmer's second act (2026-08-05, after the recess landed):** Matt's theory was
+coincident meshes — both audits said no. A duplicate-placement audit (zero pieces sharing a
+position) and the coplanarity audit (zero same-plane same-facing overlaps) both came back clean
+on the LIVE post-recess build, which redirected the hunt to shading: the tile material was
+default URP/Lit (smoothness 0.5 — riser edges caught a moving specular gleam) and MSAA was OFF
+(`msaaSampleCount` 1 — every nosing edge crawled). Fixes, all persistent: `EnsureMaterial`
+forces matte on every regenerate (smoothness 0, specular highlights and environment reflections
+keyworded OFF), `PC_RPAsset` MSAA 4, and the last bright hairline on the tread nosings turned
+out to be the guide texture's WHITE GUTTER between UV islands bleeding under minification — the
+guide renderer now DILATES island colours 8 px into the background before writing the PNG.
+Rule of thumb: view-dependent stipple that survives the shadows-off toggle AND both audits is
+shading (specular or texture sampling), not geometry.
+
 **And runs are RECESSED (2026-08-05, morning, Matt): one tile at the bottom, one notched into
 the wall** — the ALttP inset stair. `OverworldTileGrid.RampRecess = RampRun / 2`: the compiler
 carves the run's top cells OUT of the high terrace (requiring high ground beyond for the
@@ -54,9 +67,15 @@ so foot-to-mid-run is a legal continuous walk, and there's a test saying exactly
 deck over a gully, an overhang over the road, a cave floor under a terrace. The flat-planar sim
 survives untouched by design: `ITopDownGround` grew layer-aware default-interface overloads
 (`CanStep(from, to, ref layer)` / `HeightAt(point, layer)`), the sim stores the OPAQUE token in
-`CharacterState.GroundLayer` and threads it back without interpreting it (centre probe is the
-layer authority; corners validate; `Teleport` resets to 0), and presentation lifts by the
-layered height. `OverworldTileGrid` gained a sparse per-cell OVERLAY surface (one extra, flat
+`CharacterState.GroundLayer` and threads it back without interpreting it (`Teleport` resets to
+0), and presentation lifts by the layered height. **The token tracks the FEET, not the toes
+(2026-08-05, Matt's teleport-at-the-edges bug):** `GroundPermits` probes with the leading edge
+— centre and corners up to half a body AHEAD of the feet — and the first cut committed the
+layer from those probes, so the token flipped one cell early and the body dropped through the
+deck (or popped onto the cave roof) while the feet were still short of the boundary. The edge
+probes now only VALIDATE the move; a separate feet-to-feet probe RESOLVES the committed layer.
+`TheLayerTokenTracksTheFeetNotTheToes` pins it: the real factory sim walks
+terrace → deck → terrace for 240 ticks and the layered height must never dip. `OverworldTileGrid` gained a sparse per-cell OVERLAY surface (one extra, flat
 Ground — the deliberate cap of this model; overlay ramps are a decision for the feature that
 needs them), authored as `OverworldMap.Layers` rect footprints: Y below the terrain = cave
 floor (terrain becomes the roof), above = deck. Overlays over SEA are bridges over water — the
@@ -68,7 +87,7 @@ walls from floor to rock top, and gives every overlay its own cap — whose side
 now wear rock colour, because deck edges and lintels put them in the open. Demo authoring on
 the live map: 'Foothills Hollow' (a cave in the south face) and 'Foothills Overlook' (a deck
 over the heartland). Live-probed: into the mouth (layer 1, floor 0), onto the deck (layer 1,
-height 2), under the same deck (layer 0, height 0). Suite 795 green. **Known gap:** the
+height 2), under the same deck (layer 0, height 0). Suite 796 green. **Known gap:** the
 overhead camera cannot see INTO an enclosed cave (the roof occludes) — a roof cutaway when the
 player is beneath is the natural next slice; overhang mouths and bridges read fully.
 

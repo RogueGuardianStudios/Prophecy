@@ -167,6 +167,15 @@ namespace Rokkan.Prophecy.Editor.Build
                 material.SetColor("_BaseColor", Color.white);
             }
 
+            // Matte, every regenerate: the URP default smoothness puts a specular glint on every
+            // stair riser edge, and glints crawling under a moving camera read exactly like
+            // z-fighting. Gray-box rock does not gleam.
+            material.SetFloat("_Smoothness", 0f);
+            material.SetFloat("_SpecularHighlights", 0f);
+            material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+            material.SetFloat("_EnvironmentReflections", 0f);
+            material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -220,6 +229,28 @@ namespace Rokkan.Prophecy.Editor.Build
                 }
             }
 
+            // Dilate island colours into the gutters: under minification the sampler averages
+            // across island borders, and a bright background gutter bleeds a crawling white
+            // line onto every tread nosing and rim edge. After dilation the borders sample
+            // their own colour.
+            for (int pass = 0; pass < 8; pass++)
+            {
+                var src = (Color32[])px.Clone();
+                for (int y = 0; y < GuideSize; y++)
+                {
+                    for (int x = 0; x < GuideSize; x++)
+                    {
+                        int i = y * GuideSize + x;
+                        if (!SameColour(src[i], background)) continue;
+
+                        if (x > 0 && !SameColour(src[i - 1], background)) px[i] = src[i - 1];
+                        else if (x < GuideSize - 1 && !SameColour(src[i + 1], background)) px[i] = src[i + 1];
+                        else if (y > 0 && !SameColour(src[i - GuideSize], background)) px[i] = src[i - GuideSize];
+                        else if (y < GuideSize - 1 && !SameColour(src[i + GuideSize], background)) px[i] = src[i + GuideSize];
+                    }
+                }
+            }
+
             var tex = new Texture2D(GuideSize, GuideSize, TextureFormat.RGBA32, false);
             tex.SetPixels32(px);
             tex.Apply();
@@ -266,6 +297,9 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private static float Cross(Vector2 a, Vector2 b, Vector2 p) =>
             (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+
+        private static bool SameColour(Color32 a, Color32 b) =>
+            a.r == b.r && a.g == b.g && a.b == b.b;
 
         private static void DrawLine(Color32[] px, Vector2 a, Vector2 b, Color32 colour)
         {
