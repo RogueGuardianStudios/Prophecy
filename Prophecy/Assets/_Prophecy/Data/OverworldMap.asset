@@ -46,84 +46,84 @@ MonoBehaviour:
     Centre: {x: -20, y: 14}
     Size: {x: 20, y: 14}
     RotationDegrees: 0
-    Y: 0.7
+    Y: 2
     Structured: 0
   - Name: Bluffs
     Centre: {x: -24, y: 20}
     Size: {x: 16, y: 11}
     RotationDegrees: 0
-    Y: 1.4
+    Y: 4
     Structured: 0
   - Name: Highlands
     Centre: {x: -28, y: 25}
     Size: {x: 13, y: 9}
     RotationDegrees: 0
-    Y: 2.1
+    Y: 6
     Structured: 0
   - Name: Crown
     Centre: {x: -31, y: 29}
     Size: {x: 10, y: 7}
     RotationDegrees: 0
-    Y: 2.8
+    Y: 8
     Structured: 0
   - Name: North Rise
     Centre: {x: 10, y: 26}
     Size: {x: 18, y: 10}
     RotationDegrees: 0
-    Y: 0.7
+    Y: 2
     Structured: 0
   - Name: North Shelf
     Centre: {x: 14, y: 30}
     Size: {x: 12, y: 7}
     RotationDegrees: 0
-    Y: 1.4
+    Y: 4
     Structured: 0
   - Name: East Mesa
     Centre: {x: 30, y: -6}
     Size: {x: 10, y: 8}
     RotationDegrees: 0
-    Y: 1.1
+    Y: 2
     Structured: 0
   Ramps:
   - Name: Foothills Road
     Start: {x: -14, y: 1}
     End: {x: -14, y: 13}
     StartY: 0
-    EndY: 0.7
+    EndY: 2
     HalfWidth: 2.5
   - Name: Bluffs Climb
     Start: {x: -18, y: 14}
     End: {x: -18, y: 24}
-    StartY: 0.7
-    EndY: 1.4
+    StartY: 2
+    EndY: 4
     HalfWidth: 2
   - Name: Highlands Steps
     Start: {x: -22, y: 20}
     End: {x: -22, y: 29}
-    StartY: 1.4
-    EndY: 2.1
+    StartY: 4
+    EndY: 6
     HalfWidth: 2
   - Name: Crown Approach
     Start: {x: -30, y: 24}
     End: {x: -30, y: 32}
-    StartY: 2.1
-    EndY: 2.8
+    StartY: 6
+    EndY: 8
     HalfWidth: 1.8
   - Name: North Road
     Start: {x: 8, y: 16}
     End: {x: 8, y: 26}
     StartY: 0
-    EndY: 0.7
+    EndY: 2
     HalfWidth: 2.5
   - Name: Shelf Path
     Start: {x: 13, y: 25}
     End: {x: 13, y: 33}
-    StartY: 0.7
-    EndY: 1.4
+    StartY: 2
+    EndY: 4
     HalfWidth: 2
   - Name: Mesa Trail
     Start: {x: 21, y: -6}
     End: {x: 31, y: -6}
     StartY: 0
-    EndY: 1.1
+    EndY: 2
     HalfWidth: 2

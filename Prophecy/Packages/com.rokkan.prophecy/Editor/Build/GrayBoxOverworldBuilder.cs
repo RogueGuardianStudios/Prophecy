@@ -104,11 +104,11 @@ namespace Rokkan.Prophecy.Editor.Build
         }
 
         /// <summary>
-        /// The ground is a Stålberg grid built at load from a hand-authored map, replacing the
-        /// flat plain-and-rim. The map asset is created here only if missing — its whole point is
-        /// to be hand-edited afterwards, so a regenerate must never flatten someone's authoring.
-        /// The starter layout is an island: one big landmass with limbs, sized to keep the
-        /// existing furniture (spawns, cube, spawner ring) comfortably on dry land.
+        /// The ground: the hand-authored map, compiled at load into the discrete tile grid and
+        /// rendered from the 17-piece tile set. The map asset is created here only if missing —
+        /// its whole point is to be hand-edited afterwards, so a regenerate must never flatten
+        /// someone's authoring. The starter layout is an island: one big landmass with limbs,
+        /// sized to keep the existing furniture (spawns, cube, spawner ring) on dry land.
         /// </summary>
         private static void CreateStalbergGround()
         {
@@ -137,15 +137,17 @@ namespace Rokkan.Prophecy.Editor.Build
                 AssetDatabase.CreateAsset(map, mapPath);
             }
 
+            var tiles = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldTileSet>(
+                OverworldTileBuilder.TileSetPath);
+            if (tiles == null)
+                Debug.LogError("[Prophecy] No OverworldTileSet asset — run Prophecy > Build > " +
+                               "Generate Overworld Tiles first, then regenerate the overworld.");
+
             var host = new GameObject("OverworldGrid");
             var component = host.AddComponent<Rokkan.Prophecy.Overworld.OverworldGridHost>();
 
             SetPrivate(component, "_map", map);
-            SetPrivate(component, "_config", AssetDatabase.LoadAssetAtPath<ScriptableObject>(
-                "Assets/ScriptableObjects/Stalberg/StalbergGridConfig.asset"));
-            SetPrivate(component, "_tileSet", AssetDatabase.LoadAssetAtPath<ScriptableObject>(
-                "Assets/ScriptableObjects/Stalberg/StalbergTileSet.asset"));
-            SetPrivate(component, "_tileMaterial", GrayBoxMaterials.Ground());
+            SetPrivate(component, "_tiles", tiles);
         }
 
         private static void CreateLighting()
@@ -157,6 +159,17 @@ namespace Rokkan.Prophecy.Editor.Build
             component.type = LightType.Directional;
             component.intensity = 1.1f;
             component.shadows = LightShadows.Soft;
+
+            // Custom shadow bias: the tile world is thin lips and fine stair risers, and the
+            // default bias lets their self-shadowing swim while the camera moves — which reads
+            // exactly like z-fighting at the stair/wall junctions (a full coplanarity audit of
+            // the built world found zero actual fights). Normal bias flattens the acne; depth
+            // bias stays low so contact shadows keep touching their pieces.
+            component.shadowBias = 0.4f;
+            component.shadowNormalBias = 1.8f;
+
+            var data = light.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
+            data.usePipelineSettings = false;
         }
 
         // The flat plain-and-rim ground this scene started with is gone: the ground is now the

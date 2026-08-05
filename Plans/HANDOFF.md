@@ -4,11 +4,63 @@
 made it scale, gave it a body and a stat sheet, gave it something to fight — and then opened the
 second play mode: the first **world transitions** landed 2026-08-03 (portals, a top-down overworld,
 the Tunic camera; see §2a and the decisions block).
-**Resume at (2026-08-04, end of day): the overworld moves to a 3D TILE STRUCTURE — decided by
-Matt, design below, not yet built.** The Stålberg continuous-elevation approach fought back
-(see "the reachability saga"); the fix is discrete per-cell levels with ramps as tile KINDS, so
-connectivity is authored data rather than geometric inference. Everything else — transitions,
-portals, encounter loop, ground seam, camera — is finished and stays.
+**Scale decision (settled 2026-08-05 after three rounds of walking it): the terrace step is
+2.0 m.** 0.7 read as a kerb, 3.0 overshot into fortress walls; 2 — just over the 1.8 m player
+— is where a terrace reads as a wall without dwarfing the map. `OverworldTileGrid.Step` is the
+one constant; the generator, planner, ground and tests all derive from it, and the authored
+map migrates by scaling levels (now Y 0/2/4/6/8; the migration commands live in the session
+log — level = round(Y/oldStep), Y = level×newStep). Sea level is a fixed −0.35 m world
+constant deliberately decoupled from the step. **East Mesa settled at level 1, so its 'Mesa
+Trail' compiles** — the warning from the first build is resolved.
+
+**Shadow settings tuned for the tile world (2026-08-05 morning):** what read as "z-fighting
+between the stairs and the wall while moving" was shadow-map texel swim — a full coplanarity
+audit of the built world (every triangle bucketed by plane, overlaps reported; worth keeping
+as a technique) found ZERO same-plane same-facing overlaps. The single cascade refits to the
+camera every frame, so on thin lips and fine risers the self-shadowing crawls. Fixes, both
+persistent: `PC_RPAsset` main-light shadowmap 2048 → 4096, and the overworld builder's light
+now uses custom bias (depth 0.4, normal 1.8, `usePipelineSettings` off — the editor asmdef
+gained the URP runtime reference for it).
+
+**And runs are RECESSED (2026-08-05, morning, Matt): one tile at the bottom, one notched into
+the wall** — the ALttP inset stair. `OverworldTileGrid.RampRecess = RampRun / 2`: the compiler
+carves the run's top cells OUT of the high terrace (requiring high ground beyond for the
+landing) and stands the rest on the low one. The cheek shrank back to a one-cell wall flanking
+the notch, one rise tall; the band rule grows the jamb posts at the notch mouth on its own.
+**Two hunts worth remembering from the morning:** (1) a CS0136 (`i` reused inside the ramp
+loop) broke the compile SILENTLY — the console bridge showed nothing, a test run even reported
+GREEN against stale assemblies, and play refused to enter; the tell was DLL timestamps older
+than sources, and the real compile errors live in the PROJECT-LOCAL `Logs/Editor.log`, not the
+AppData one (trap 23, now with the right path). (2) The planner's `EdgeMid` assumed +1 edge
+directions; the cheek pass passes ±1 sides, so every west/south cheek landed one cell INSIDE
+the wall — an invisible piece and a see-through hole at half the jambs. Canonicalized, and a
+test now pins both cheek positions to the notch's exact edge planes.
+
+**And climbs became RUNS (same night, Matt: one cell per 3 m was a ladder):**
+`OverworldTileGrid.RampRun = 2` — a climb is a run of RampRun consecutive ramp cells, each
+rising Step/RampRun, with a per-cell `RampIndexAt` (0 at the foot). The compiler converts the
+boundary cell PLUS the flat cells behind it (a boundary without room for the whole run stays a
+cliff and warns); connectivity is exact fixed-point in 1/RampRun level units — foot, run cells
+and head chain on integer matches, side entry still refuses, parallel columns connect only at
+the same run index. The stair piece is one run cell: 8 risers of 0.1875 (agentClimb-safe), so
+a full climb is a 16-riser grand staircase over 2 m; the cheek spans the whole run as one wall.
+**Run pieces carry a RunSkirt** — sides/underside reach (RampRun−1)·rise below their own foot,
+because an upper run cell floats above the low terrace and its open flanks showed the sea
+through every slot where a run met a wall. A long CanStep probe decomposes along its segment,
+so foot-to-mid-run is a legal continuous walk, and there's a test saying exactly that. Suite
+792 green.
+
+**Resume at (2026-08-04, evening): the 3D TILE STRUCTURE is BUILT AND LIVE.** The overworld now
+compiles `OverworldMap` into a discrete `level[x,z]` grid (`OverworldTileGridCompiler`), plans
+tile pieces from it (`TilePiecePlanner`, pure C#), renders the 17-piece generated tile set, and
+answers the ground seam from the same cells (`TileGridGround` — the seam's third and best
+implementation, now the default authority). 792 tests green, verified in play. The Stålberg
+continuous-elevation approach that this replaces fought back (see "the reachability saga");
+connectivity is now authored data rather than geometric inference. **One authoring item is
+loudly flagged at load: East Mesa's Y=1.1 quantizes to level 2 and its 'Mesa Trail' ramp
+compiles to nothing (a ramp cell joins exactly one step) — re-author the mesa to Y=0.7 or give
+it two terraces.** Everything else — transitions, portals, encounter loop, camera — is finished
+and stays.
 
 ### The 3D tile structure — agreed direction, next session's build
 
@@ -28,6 +80,41 @@ portals, encounter loop, ground seam, camera — is finished and stays.
 - **The worldgen package is NOT discarded**: it remains for the side-scroll encounter topology
   pipeline (`ILevelConstructor` seam), and its organic mode stays available for biome interiors
   if ever wanted. Only the overworld's GROUND changes system.
+- **The tile set is specified AND BUILT — 2026-08-04:** 17 pieces in a three-family
+  decomposition (cell / edge / corner-post); `Plans/Overworld-Tile-Set.md` is the placement
+  contract the renderer will be built against. The Meshy generation path was tried and retired
+  same-day (output didn't hold the contract); the meshes are **generated procedurally** by
+  `Prophecy > Build > Generate Overworld Tiles` into `Assets/_Prophecy/Art/Tiles/` — mesh +
+  prefab + material + colour-coded UV guide PNG per tile, layouts documented in the generated
+  `Plans/Tile-UV-Guide.md`. Reskin = paint textures over the guides (a real base map survives
+  regeneration), or a triplanar shader later — Matt is considering one; the hard-edged
+  axis-aligned geometry suits it.
+- **The renderer and compiler landed the same evening — the overworld runs on the tile grid.**
+  `Runtime/Overworld/`: `OverworldTileGrid` + `OverworldTileGridCompiler` (regions quantize to
+  0.7 m levels, later regions win overlaps; authored ramps convert the LOW cell at each one-step
+  boundary in their strip to a Ramp cell facing uphill — a ramp that finds no boundary warns and
+  compiles to nothing); `TileGridGround` (ITopDownGround from the cells — same level connects,
+  ramps join N→N+1 end-on and refuse sides, parallel ramp columns connect, sea refuses, escape
+  rule kept; **the default GroundAuthority**); `TilePiecePlanner` (pure: caps, ramp/stairs by
+  a host toggle, greedy-3-split faces, band-rule corner posts, cheek pairs, shore, one water
+  plane); `OverworldTileSet` (auto-filled). `OverworldGridHost` was rewritten around them —
+  worldgen is no longer referenced by the overworld path. **NavMesh bakes from the walkable tops
+  only** (caps/ramps/stairs under `Ground_Walkable`; cliffs are absent from the bake, not merely
+  steep), slope 40 (the 35° ramp must walk), climb 0.45. Tests: `OverworldTileGridTests` ×16.
+  **Same-evening fixes after first look (Matt spotted both):** the cheek's mirror twin is a
+  BAKED piece (`CLF_CheekM`) — negative scale reverses winding and renders inside-out; the shore
+  cape is a 45° chamfer wedge whose sides mate with the shore edges' end planes; the shore
+  INNER post was cut entirely (two banks meeting inward already intersect in the correct valley
+  — any patch is coplanar with both and shimmers); post rims ride 0.02 proud of face rims for
+  the same coplanarity reason. Still 17 pieces. **Two more artifacts hunted the same evening:**
+  the "dark stripe across the sea" was the water tile's own UV-guide texture — every guide has
+  its triangle wireframe drawn on, and the water is the one piece that stretches (×104), so its
+  triangulation diagonal became a sixty-metre line; the guide renderer now skips wireframe for
+  `WTR_Fill`. The faint line that remained after that was the **shadow cascade seam** crossing
+  the flat sea — `PC_RPAsset` now runs **1 cascade** (was 4): a fixed overhead camera at ~36 m
+  over a 96×72 map gains nothing from cascade splits, and the seam was the only thing they
+  drew. Diagnostic that solved all of these: toggle the sun's shadows off — what survives is
+  geometry or texture, what dies is shadow.
 
 ### Why (the reachability saga, 2026-08-04 afternoon — read before re-attempting Stålberg elevation)
 
@@ -724,6 +811,17 @@ New this session:
 26. **Three copies of a dedup rule is three chances for them to disagree.** The attack module, the
     training attacker and the down-thrust all need the same five steps around a hit. The third copy
     was the moment to extract `HitSweep`; it should have been the second.
+25. **Two tile pieces may never place same-facing surfaces on the same cell-boundary plane.**
+    The cap's slab sides sat exactly on the boundary plane — the same plane, same facing, as the
+    cliff face fronts covering that edge — and the cap's dark edge boiled through the face as a
+    stippled band whenever the camera moved. It looked like a lighting bug and survived turning
+    shadows off entirely, which is the diagnostic: view-dependent stipple that ignores lighting
+    is coplanar geometry, not light. The rules now baked into the tile generator/planner: cap
+    sides inset 0.02 m inside the boundary (the covering piece owns the plane alone); stacked
+    faces/posts step 0.01 m toward the low side per tier (an upper piece's skirt shares the
+    plane of the front below it); post rims ride 0.02 proud of face rims; and mirrored pieces
+    are baked twins, never negative scale (which reverses winding and renders inside-out).
+
 24. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
     `Parry.TryStart` armed and advanced so the action's tick zero is the tick the button was pressed
     — then fell through to the shared `Advance` below it. The parry window opened at elapsed 1

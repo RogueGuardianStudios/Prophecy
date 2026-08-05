@@ -57,7 +57,7 @@ namespace Rokkan.Prophecy.Overworld
         public float StartY;
 
         [Tooltip("Floor elevation at the head.")]
-        public float EndY = 0.7f;
+        public float EndY = OverworldTileGrid.Step;
 
         [Tooltip("Half the ramp's width, in metres. Wide enough to walk without hugging an edge.")]
         public float HalfWidth = 2f;

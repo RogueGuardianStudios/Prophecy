@@ -11,7 +11,8 @@
         "Rokkan.Animation",
         "RGS.GOAP.Core",
         "Rokkan.Prophecy.Goap",
-        "Rokkan.Prophecy.Overworld"
+        "Rokkan.Prophecy.Overworld",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"
