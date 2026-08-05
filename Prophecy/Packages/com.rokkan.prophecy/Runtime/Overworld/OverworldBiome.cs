@@ -31,6 +31,10 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("The minimap's tint for this biome.")]
         public Color MapTint = Color.white;
 
+        [Tooltip("The ground shader's base colour for this biome — what the caps wear, " +
+                 "cross-faded at biome borders by the baked LUT.")]
+        public Color GroundColor = new Color(0.45f, 0.66f, 0.45f);
+
         public OverworldBiomeVariant[] Cap;
         public OverworldBiomeVariant[] Ramp;
         public OverworldBiomeVariant[] Stairs;

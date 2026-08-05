@@ -14,9 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldBiome
   DisplayName: Test Moor
   MapTint: {r: 0.7, g: 0.5, b: 0.25, a: 1}
-  Cap:
-  - Prefab: {fileID: 3526374986776343492, guid: 5d27c8798d4b58b45acb31668413c405, type: 3}
-    Weight: 1
+  GroundColor: {r: 0.55, g: 0.4, b: 0.22, a: 1}
+  Cap: []
   Ramp: []
   Stairs: []
   Water: []

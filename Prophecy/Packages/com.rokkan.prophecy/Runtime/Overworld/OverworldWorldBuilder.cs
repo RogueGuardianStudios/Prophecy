@@ -34,6 +34,12 @@ namespace Rokkan.Prophecy.Overworld
         public GameObject RoadsObject;
         public GameObject WaterfallsObject;
         public GameObject PropsObject;
+
+        // The one ground material every cap wears, and its baked biome LUT. The texture
+        // refreshes in place on rebuilds, so untouched chunks' caps recolour without being
+        // re-instantiated.
+        public Material GroundMaterial;
+        public Texture2D GroundLutTexture;
     }
 
     public struct ChunkRoots
@@ -78,6 +84,8 @@ namespace Rokkan.Prophecy.Overworld
             output.Grid = OverworldTileGridCompiler.Compile(map, worldOffset);
             output.Placements = TilePiecePlanner.Plan(output.Grid, stairsForRamps);
 
+            BuildGroundMaterial(output);
+
             for (int i = 0; i < output.Placements.Count; i++)
                 Place(output, output.Placements[i]);
 
@@ -98,6 +106,8 @@ namespace Rokkan.Prophecy.Overworld
         {
             output.Grid = OverworldTileGridCompiler.Compile(output.Map, output.WorldOffset);
             output.Placements = TilePiecePlanner.Plan(output.Grid, output.StairsForRamps);
+
+            RefreshGroundLut(output);
 
             foreach (var chunk in dirty)
             {
@@ -168,6 +178,73 @@ namespace Rokkan.Prophecy.Overworld
             instance.transform.position = placement.Position;
             instance.transform.rotation = Quaternion.Euler(0f, placement.Yaw, 0f);
             instance.transform.localScale = placement.Scale;
+
+            // Caps wear the ONE ground material: albedo comes from the biome LUT by world
+            // position, so ten thousand caps share a material and biome borders cross-fade.
+            if (placement.Piece == OverworldTilePiece.Cap && output.GroundMaterial != null)
+                foreach (var renderer in instance.GetComponentsInChildren<MeshRenderer>())
+                    renderer.sharedMaterial = output.GroundMaterial;
+        }
+
+        // ---------------------------------------------------------------- the ground LUT
+
+        /// <summary>One material for every cap, its albedo driven by the baked biome LUT —
+        /// slice three of the splat: geometry flips discretely at dominance boundaries, and
+        /// this is the cross-fade that hides the flip. No shader asset present = the guide
+        /// materials stay (headless tests instantiate dummy tiles and never notice).</summary>
+        private static void BuildGroundMaterial(OverworldBuildOutput output)
+        {
+            var shader = Shader.Find("Prophecy/OverworldGround");
+            if (shader == null) return;
+
+            var grid = output.Grid;
+            var lut = new Texture2D(grid.Width, grid.Height, TextureFormat.RGBA32, false)
+            {
+                name = "OverworldGroundLut",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            lut.SetPixels32(OverworldGroundLut.Bake(grid));
+            lut.Apply();
+            output.GroundLutTexture = lut;
+            output.Transient.Add(lut);
+
+            var material = new Material(shader) { name = "Overworld_Ground" };
+            material.SetTexture("_GroundLut", lut);
+            material.SetVector("_LutRect", new Vector4(
+                grid.Origin.x, grid.Origin.y,
+                1f / (grid.Width * OverworldTileGrid.CellSize),
+                1f / (grid.Height * OverworldTileGrid.CellSize)));
+            material.SetColorArray("_BiomeColors", BiomeColours(output.Biomes));
+            output.GroundMaterial = material;
+            output.Transient.Add(material);
+        }
+
+        /// <summary>Re-bake the LUT pixels and colour table in place — untouched chunks'
+        /// caps recolour through the shared material without being touched themselves.</summary>
+        private static void RefreshGroundLut(OverworldBuildOutput output)
+        {
+            if (output.GroundLutTexture == null || output.GroundMaterial == null)
+            {
+                BuildGroundMaterial(output);
+                return;
+            }
+
+            output.GroundLutTexture.SetPixels32(OverworldGroundLut.Bake(output.Grid));
+            output.GroundLutTexture.Apply();
+            output.GroundMaterial.SetColorArray("_BiomeColors", BiomeColours(output.Biomes));
+        }
+
+        private static Color[] BiomeColours(OverworldBiomePalette palette)
+        {
+            // Magenta for referenced-but-missing entries: painting biome 3 with a two-biome
+            // palette should look wrong, loudly.
+            var colours = new Color[16];
+            for (int i = 0; i < colours.Length; i++) colours[i] = Color.magenta;
+            if (palette != null && palette.Biomes != null)
+                for (int i = 0; i < colours.Length && i < palette.Biomes.Length; i++)
+                    if (palette.Biomes[i] != null) colours[i] = palette.Biomes[i].GroundColor;
+            return colours;
         }
 
         private static Vector2Int ChunkOf(OverworldBuildOutput output, Vector3 position)

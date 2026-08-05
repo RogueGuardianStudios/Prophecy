@@ -338,6 +338,34 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheGroundLutBakesTheSplat()
+        {
+            var map = PlainMap(8f);
+            map.BiomeAreas = new[]
+            {
+                new AuthoredBiomeArea { Name = "West", BiomeIndex = 1,
+                                        Centre = new Vector2(-3f, 0f), Size = new Vector2(2f, 8f),
+                                        Feather = 4f },
+                new AuthoredBiomeArea { Name = "East", BiomeIndex = 2,
+                                        Centre = new Vector2(3f, 0f), Size = new Vector2(2f, 8f),
+                                        Feather = 4f },
+            };
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var pixels = OverworldGroundLut.Bake(grid);
+            int w = grid.Width;
+
+            Assert.AreEqual(1, pixels[4 * w + 0].r, "West edge texel carries West's index.");
+            var mid = pixels[4 * w + 4];
+            Assert.IsTrue(mid.r < 16 && mid.g < 16 && mid.b > 50,
+                "The seam texel carries both indices and a real lean.");
+
+            var bare = OverworldGroundLut.Bake(
+                OverworldTileGridCompiler.Compile(PlainMap(8f), Vector3.zero));
+            Assert.AreEqual(255, bare[4 * w + 4].r,
+                "No biome bakes 255 — the shader's default-ground sentinel.");
+        }
+
+        [Test]
         public void TheVariantPickerIsDeterministicAndFallsBackToGrayBox()
         {
             var map = PlainMap(8f);
