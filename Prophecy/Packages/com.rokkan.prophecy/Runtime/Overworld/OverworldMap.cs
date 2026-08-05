@@ -146,6 +146,76 @@ namespace Rokkan.Prophecy.Overworld
         public float HalfWidth = 1f;
     }
 
+    /// <summary>What a painted cell says about its terrain. None = whatever the shapes made.</summary>
+    public enum TerrainOverride : byte
+    {
+        None,
+        Ground,
+        Sea,
+    }
+
+    /// <summary>What a painted cell says about road paint. Add and Remove both beat the shapes.</summary>
+    public enum RoadOverride : byte
+    {
+        None,
+        Add,
+        Remove,
+    }
+
+    /// <summary>
+    /// One hand-painted cell: the fine-control half of the hybrid authoring grain. The shapes
+    /// block out the macro structure; these pin individual cells where the shapes aren't
+    /// enough. Sparse by design — overrides are exceptions, and a sparse list survives bounds
+    /// changes and diffs cleanly. Applied after regions and rivers (painted land can restore a
+    /// carved channel) and before ramps (a painted terrace edge is rampable).
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredCellOverride
+    {
+        public int X;
+        public int Z;
+
+        public TerrainOverride Terrain;
+
+        [Tooltip("Meaningful when Terrain is set. For Sea this is the WATER level.")]
+        public int Level;
+
+        public RoadOverride Road;
+    }
+
+    /// <summary>
+    /// A placed object on the tiles: a town, a tree, a signpost. Position is plane-only ON
+    /// PURPOSE — height derives from the ground at spawn (the base surface, or the overlay
+    /// deck when SurfaceLayer says so), so a terrain retune never strands a prop in the air.
+    /// The compiler reads only the footprint fields; the Prefab is the builder's business —
+    /// the headless contract holds.
+    /// </summary>
+    [Serializable]
+    public sealed class AuthoredProp
+    {
+        [Tooltip("For the inspector. Carries no behaviour.")]
+        public string Name = "Prop";
+
+        [Tooltip("What to spawn. Read by the world builder only, never the compiler.")]
+        public GameObject Prefab;
+
+        [Tooltip("Where it stands on the ground plane (X, world Z).")]
+        public Vector2 Position;
+
+        [Tooltip("Yaw in degrees. Cosmetic — the blocking footprint stays axis-aligned.")]
+        public float YawDegrees;
+
+        [Tooltip("0 = the base terrain; 1 = the overlay deck at this cell, when one exists.")]
+        public int SurfaceLayer;
+
+        [Tooltip("Whether walking through this prop's cells is refused.")]
+        public bool BlockCells;
+
+        [Tooltip("Blocking footprint in cells, centred on Position. Axis-aligned; yaw does " +
+                 "not rotate it (v1 limitation).")]
+        public Vector2Int BlockSize = Vector2Int.one;
+    }
+
     [CreateAssetMenu(menuName = "Prophecy/Overworld Map", fileName = "OverworldMap")]
     public sealed class OverworldMap : ScriptableObject
     {
@@ -187,5 +257,13 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Painted strips over the walk surface. Purely visual — walkability never " +
                  "changes. A road runs across any bridge deck on its course.")]
         public AuthoredRoad[] Roads = Array.Empty<AuthoredRoad>();
+
+        [Tooltip("Hand-painted per-cell exceptions to whatever the shapes produce. Authored " +
+                 "with the Overworld Map Tool, not by hand.")]
+        public AuthoredCellOverride[] CellOverrides = Array.Empty<AuthoredCellOverride>();
+
+        [Tooltip("Placed objects standing on the tiles: towns, trees, detail. Height derives " +
+                 "from the ground at spawn.")]
+        public AuthoredProp[] Props = Array.Empty<AuthoredProp>();
     }
 }

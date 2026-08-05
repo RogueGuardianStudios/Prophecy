@@ -23,7 +23,17 @@ namespace Rokkan.Prophecy.Editor.MapTool
         [SerializeField] private bool _previewEnabled;
         [SerializeField] private bool _handlesEnabled = true;
 
+        [SerializeField] private OverworldPropPalette _palette;
+        [SerializeField] private int _paletteIndex;
+        [SerializeField] private bool _placeArmed;
+        [SerializeField] private bool _snapToCell = true;
+        [SerializeField] private float _placeYaw;
+        [SerializeField] private bool _placeBlocks = true;
+        [SerializeField] private Vector2Int _placeBlockSize = Vector2Int.one;
+        [SerializeField] private int _placeSurfaceLayer;
+
         private OverworldMapPreview _preview;
+        private OverworldMapCanvas _canvas;
         private Vector3 _worldOrigin;
 
         /// <summary>Whether the hidden preview world currently exists.</summary>
@@ -53,6 +63,22 @@ namespace Rokkan.Prophecy.Editor.MapTool
             _preview.Flush();
         }
 
+        /// <summary>One paint stroke becomes one undo step and one partial preview rebuild.
+        /// RegisterCompleteObjectUndo rather than RecordObject — the override ARRAY resizes,
+        /// and delta recording is unreliable across resizes.</summary>
+        internal void CommitCellOverrides(AuthoredCellOverride[] overrides,
+                                          int minX, int minZ, int maxX, int maxZ)
+        {
+            if (_map == null) return;
+
+            Undo.IncrementCurrentGroup();
+            Undo.RegisterCompleteObjectUndo(_map, "Paint Overworld Cells");
+            _map.CellOverrides = overrides;
+            EditorUtility.SetDirty(_map);
+
+            if (PreviewActive) RebuildPreviewCells(minX, minZ, maxX, maxZ);
+        }
+
         [MenuItem("Prophecy/Overworld Map Tool", priority = 10)]
         private static void Open()
         {
@@ -64,6 +90,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
         {
             OverworldMapPreview.SweepOrphans();
             _preview = new OverworldMapPreview();
+            _canvas = new OverworldMapCanvas();
 
             AdoptSceneHost();
             if (_map == null)
@@ -72,11 +99,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (_tiles == null)
                 _tiles = AssetDatabase.LoadAssetAtPath<OverworldTileSet>(OverworldTileBuilder.TileSetPath);
 
+            _canvas.SyncFromMap(_map);
+
             SceneView.duringSceneGui += OnSceneGui;
             EditorApplication.update += OnEditorUpdate;
             Undo.undoRedoPerformed += OnUndoRedo;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
         }
+
+        private void OnFocus() => _canvas?.SyncFromMap(_map);
 
         private void OnDisable()
         {
@@ -109,6 +140,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                                                                    typeof(OverworldTileSet), false);
             _stairsForRamps = EditorGUILayout.Toggle("Stairs For Ramps", _stairsForRamps);
             bool assetsChanged = EditorGUI.EndChangeCheck();
+            if (assetsChanged) _canvas.SyncFromMap(_map);
 
             EditorGUILayout.Space();
 
@@ -147,14 +179,236 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 "Scene view: drag centres, edges and rotation discs on regions and layers; " +
                 "drag ramp ends and widths; drag river/road points, Ctrl+click a segment to " +
                 "insert a point, Shift+click a point to delete it.", MessageType.None);
+
+            if (_map == null) return;
+
+            // ------------------------------------------------------------ props
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Props", EditorStyles.boldLabel);
+            _palette = (OverworldPropPalette)EditorGUILayout.ObjectField(
+                "Palette", _palette, typeof(OverworldPropPalette), false);
+
+            if (_palette != null && _palette.Prefabs != null && _palette.Prefabs.Length > 0)
+            {
+                var names = new string[_palette.Prefabs.Length];
+                for (int i = 0; i < names.Length; i++)
+                    names[i] = _palette.Prefabs[i] != null ? _palette.Prefabs[i].name : "(empty)";
+                _paletteIndex = Mathf.Clamp(
+                    EditorGUILayout.Popup("Prefab", _paletteIndex, names), 0, names.Length - 1);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _snapToCell = EditorGUILayout.ToggleLeft("Snap to cell", _snapToCell,
+                                                             GUILayout.Width(110f));
+                    _placeBlocks = EditorGUILayout.ToggleLeft("Blocks", _placeBlocks,
+                                                              GUILayout.Width(70f));
+                    _placeBlockSize = EditorGUILayout.Vector2IntField(GUIContent.none,
+                                                                      _placeBlockSize);
+                    _placeSurfaceLayer = EditorGUILayout.IntSlider(_placeSurfaceLayer, 0, 1);
+                }
+
+                bool armed = GUILayout.Toggle(_placeArmed,
+                    _placeArmed ? "Placing — click the ground, R rotates, Esc stops" : "Place Prop",
+                    "Button");
+                if (armed != _placeArmed)
+                {
+                    _placeArmed = armed;
+                    SceneView.RepaintAll();
+                }
+            }
+
+            // ------------------------------------------------------------ the paint canvas
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Paint", EditorStyles.boldLabel);
+
+            _canvas.ActiveBrush = (OverworldMapCanvas.Brush)GUILayout.Toolbar(
+                (int)_canvas.ActiveBrush,
+                new[] { "Ground", "Sea", "Road +", "Road −", "Clear" });
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _canvas.PaintLevel = EditorGUILayout.IntSlider("Level", _canvas.PaintLevel, 0, 4);
+                _canvas.BrushSize = EditorGUILayout.IntSlider("Brush", _canvas.BrushSize, 1, 6);
+            }
+
+            var canvasRect = GUILayoutUtility.GetRect(position.width, 100f, position.width,
+                                                      float.MaxValue, GUILayout.ExpandHeight(true));
+            _canvas.OnGUI(canvasRect, _map, this, _worldOrigin);
+
+            EditorGUILayout.LabelField(
+                "LMB paint · MMB pan · scroll zoom · painted cells tint pink · one stroke = one undo",
+                EditorStyles.miniLabel);
         }
 
         private void OnSceneGui(SceneView view)
         {
-            if (!_handlesEnabled || _map == null) return;
+            if (_map == null) return;
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-            OverworldShapeHandles.Draw(_map, _preview, _worldOrigin);
+            if (_handlesEnabled) OverworldShapeHandles.Draw(_map, _preview, _worldOrigin);
+
+            DrawExistingProps();
+            if (_placeArmed) DrawPlacement(view);
+        }
+
+        // ---------------------------------------------------------------- prop placement
+
+        /// <summary>Existing props: a sphere handle each — drag to move (height re-derives on
+        /// rebuild), Shift+click to delete.</summary>
+        private void DrawExistingProps()
+        {
+            var grid = _preview.Grid;
+            var offset = new Vector2(_worldOrigin.x, _worldOrigin.z);
+
+            for (int i = 0; _map.Props != null && i < _map.Props.Length; i++)
+            {
+                var prop = _map.Props[i];
+                var world = prop.Position + offset;
+                float y = 0.2f;
+                if (grid != null && grid.TryCellAt(world, out int cx, out int cz))
+                    y = (prop.SurfaceLayer == 1 && grid.TryOverlayAt(cx, cz, out int overlay)
+                            ? overlay * OverworldTileGrid.Step
+                            : grid.SurfaceHeight(cx, cz, world)) + 0.2f;
+                var pos = new Vector3(world.x, y, world.y);
+
+                Handles.color = new Color(1f, 0.5f, 0.2f, 0.9f);
+                Handles.Label(pos + Vector3.up * 0.5f, prop.Name);
+
+                if (Event.current.shift)
+                {
+                    if (Handles.Button(pos, Quaternion.identity,
+                                       HandleUtility.GetHandleSize(pos) * 0.14f,
+                                       HandleUtility.GetHandleSize(pos) * 0.18f,
+                                       Handles.SphereHandleCap))
+                    {
+                        Undo.RecordObject(_map, "Delete Overworld Prop");
+                        var list = new System.Collections.Generic.List<AuthoredProp>(_map.Props);
+                        list.RemoveAt(i);
+                        _map.Props = list.ToArray();
+                        EditorUtility.SetDirty(_map);
+                        MarkPropCells(prop);
+                        return;
+                    }
+                    continue;
+                }
+
+                EditorGUI.BeginChangeCheck();
+                var moved = Handles.FreeMoveHandle(pos, HandleUtility.GetHandleSize(pos) * 0.12f,
+                                                   Vector3.zero, Handles.SphereHandleCap);
+                if (!EditorGUI.EndChangeCheck()) continue;
+
+                Undo.RecordObject(_map, "Move Overworld Prop");
+                MarkPropCells(prop);
+                prop.Position = new Vector2(moved.x, moved.z) - offset;
+                if (_snapToCell)
+                    prop.Position = new Vector2(Mathf.Floor(prop.Position.x) + 0.5f,
+                                                Mathf.Floor(prop.Position.y) + 0.5f);
+                EditorUtility.SetDirty(_map);
+                MarkPropCells(prop);
+            }
+        }
+
+        /// <summary>The armed placement: ray-march the analytic ground (tiles have no
+        /// colliders), ghost the footprint, click commits, R rotates, Esc disarms.</summary>
+        private void DrawPlacement(SceneView view)
+        {
+            var prefab = _palette != null && _palette.Prefabs != null &&
+                         _paletteIndex < _palette.Prefabs.Length
+                ? _palette.Prefabs[_paletteIndex]
+                : null;
+            var grid = _preview.Grid;
+            if (prefab == null || grid == null) return;
+
+            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+            var e = Event.current;
+
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            {
+                _placeArmed = false;
+                Repaint();
+                e.Use();
+                return;
+            }
+
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.R)
+            {
+                _placeYaw = Mathf.Repeat(_placeYaw + 15f, 360f);
+                e.Use();
+            }
+
+            if (!TryGroundHit(grid, e.mousePosition, out var hit)) return;
+
+            var offset = new Vector2(_worldOrigin.x, _worldOrigin.z);
+            var plane = new Vector2(hit.x, hit.z) - offset;
+            if (_snapToCell)
+                plane = new Vector2(Mathf.Floor(plane.x) + 0.5f, Mathf.Floor(plane.y) + 0.5f);
+            var ghost = new Vector3(plane.x + offset.x, hit.y, plane.y + offset.y);
+
+            Handles.color = new Color(0.4f, 1f, 0.6f, 0.9f);
+            Handles.DrawWireCube(ghost + Vector3.up * 0.5f,
+                                 new Vector3(_placeBlockSize.x, 1f, _placeBlockSize.y));
+            Handles.Label(ghost + Vector3.up * 1.4f, $"{prefab.name}  yaw {_placeYaw:0}°");
+            view.Repaint();
+
+            if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
+            {
+                Undo.RecordObject(_map, "Place Overworld Prop");
+                var list = _map.Props != null
+                    ? new System.Collections.Generic.List<AuthoredProp>(_map.Props)
+                    : new System.Collections.Generic.List<AuthoredProp>();
+                var prop = new AuthoredProp
+                {
+                    Name = prefab.name,
+                    Prefab = prefab,
+                    Position = plane,
+                    YawDegrees = _placeYaw,
+                    SurfaceLayer = _placeSurfaceLayer,
+                    BlockCells = _placeBlocks,
+                    BlockSize = Vector2Int.Max(Vector2Int.one, _placeBlockSize),
+                };
+                list.Add(prop);
+                _map.Props = list.ToArray();
+                EditorUtility.SetDirty(_map);
+                MarkPropCells(prop);
+                e.Use();
+            }
+        }
+
+        /// <summary>March a scene ray against the grid's analytic surface until it dips under.</summary>
+        private bool TryGroundHit(OverworldTileGrid grid, Vector2 mouse, out Vector3 hit)
+        {
+            var ray = HandleUtility.GUIPointToWorldRay(mouse);
+            for (float t = 0f; t < 300f; t += 0.25f)
+            {
+                var p = ray.origin + ray.direction * t;
+                var plane = new Vector2(p.x, p.z);
+                if (!grid.TryCellAt(plane, out int x, out int z)) continue;
+
+                float surface = _placeSurfaceLayer == 1 && grid.TryOverlayAt(x, z, out int overlay)
+                    ? overlay * OverworldTileGrid.Step
+                    : grid.SurfaceHeight(x, z, plane);
+                if (p.y > surface) continue;
+
+                hit = new Vector3(p.x, surface, p.z);
+                return true;
+            }
+
+            hit = default;
+            return false;
+        }
+
+        /// <summary>A prop edit dirties its footprint's chunks — the blocking recompiles and
+        /// the prop root re-spawns with the rebuild.</summary>
+        private void MarkPropCells(AuthoredProp prop)
+        {
+            var grid = _preview.Grid;
+            if (!PreviewActive || grid == null) return;
+
+            var world = prop.Position + new Vector2(_worldOrigin.x, _worldOrigin.z);
+            if (!grid.TryCellAt(world, out int x, out int z)) return;
+            int rx = Mathf.Max(1, prop.BlockSize.x);
+            int rz = Mathf.Max(1, prop.BlockSize.y);
+            RebuildPreviewCells(x - rx, z - rz, x + rx, z + rz);
         }
 
         private void OnEditorUpdate() => _preview.Tick();
@@ -162,6 +416,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
         /// <summary>Undo's touched cells are unknowable from here — full rebuild fallback.</summary>
         private void OnUndoRedo()
         {
+            _canvas?.SyncFromMap(_map);
             if (_previewEnabled && _preview.Active) _preview.MarkAll();
             Repaint();
         }

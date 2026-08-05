@@ -84,6 +84,176 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void APaintedCellBeatsTheShapesAndTheRiver()
+        {
+            var map = PlainMap(8f);
+            map.Rivers = new[]
+            {
+                new AuthoredRiver { Name = "Channel",
+                                    Points = new[] { new Vector2(0.5f, -4f), new Vector2(0.5f, 4f) },
+                                    HalfWidth = 0.6f },
+            };
+            map.CellOverrides = new[]
+            {
+                // Land painted back over the carved channel — a ford of solid ground.
+                new AuthoredCellOverride { X = 4, Z = 4, Terrain = TerrainOverride.Ground, Level = 0 },
+                // And a hand-carved pool with its own water level, off in dry land.
+                new AuthoredCellOverride { X = 1, Z = 1, Terrain = TerrainOverride.Sea, Level = 1 },
+            };
+
+            // Elevated painted water beside lower land IS the spill case — the warning firing
+            // here proves painted water gets the same audit carved water does.
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                new System.Text.RegularExpressions.Regex("hangs over lower ground"));
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.AreEqual(TileCellKind.Sea, grid.KindAt(4, 3), "The river still carves…");
+            Assert.AreEqual(TileCellKind.Ground, grid.KindAt(4, 4),
+                "…except where a painted cell restored the land.");
+            Assert.AreEqual(TileCellKind.Sea, grid.KindAt(1, 1), "Painted water carves…");
+            Assert.AreEqual(1, grid.LevelAt(1, 1), "…at its own painted water level.");
+        }
+
+        [Test]
+        public void APaintedTerraceEdgeIsRampable()
+        {
+            // No region terrace at all: the boundary exists ONLY because painted cells say so,
+            // and the authored ramp must still convert across it — overrides run before ramps.
+            var map = PlainMap(8f);
+            map.CellOverrides = new[]
+            {
+                new AuthoredCellOverride { X = 4, Z = 5, Terrain = TerrainOverride.Ground, Level = 1 },
+                new AuthoredCellOverride { X = 4, Z = 6, Terrain = TerrainOverride.Ground, Level = 1 },
+                new AuthoredCellOverride { X = 4, Z = 7, Terrain = TerrainOverride.Ground, Level = 1 },
+            };
+            map.Ramps = new[]
+            {
+                new AuthoredRamp { Name = "Up", Start = new Vector2(0.5f, -1f),
+                                   End = new Vector2(0.5f, 3f), StartY = 0f,
+                                   EndY = OverworldTileGrid.Step, HalfWidth = 0.6f },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.AreEqual(TileCellKind.Ramp, grid.KindAt(4, 4),
+                "The run's foot converts on the low side of the painted boundary…");
+            Assert.AreEqual(TileCellKind.Ramp, grid.KindAt(4, 5),
+                "…and its recessed top notches into the painted terrace.");
+        }
+
+        [Test]
+        public void RoadOverridesAddAndRemoveAgainstTheCourses()
+        {
+            var map = PlainMap(8f);
+            map.Roads = new[]
+            {
+                new AuthoredRoad { Name = "Course",
+                                   Points = new[] { new Vector2(-4f, 0.5f), new Vector2(4f, 0.5f) },
+                                   HalfWidth = 0.4f },
+            };
+            map.Rivers = new[]
+            {
+                new AuthoredRiver { Name = "Channel",
+                                    Points = new[] { new Vector2(-2.5f, -4f), new Vector2(-2.5f, 4f) },
+                                    HalfWidth = 0.4f },
+            };
+            map.CellOverrides = new[]
+            {
+                new AuthoredCellOverride { X = 2, Z = 4, Road = RoadOverride.Remove },
+                new AuthoredCellOverride { X = 5, Z = 6, Road = RoadOverride.Add },
+                // Painting road onto open water is refused, with a warning.
+                new AuthoredCellOverride { X = 1, Z = 6, Road = RoadOverride.Add },
+            };
+
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                new System.Text.RegularExpressions.Regex("painted road cell"));
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.IsTrue(grid.RoadAt(3, 4), "The course still paints its strip…");
+            Assert.IsFalse(grid.RoadAt(2, 4), "…minus the removed cell.");
+            Assert.IsTrue(grid.RoadAt(5, 6), "An added cell paints off the course.");
+            Assert.IsFalse(grid.RoadAt(1, 6), "Open water refuses the paint.");
+        }
+
+        [Test]
+        public void ABlockingPropRefusesItsCellsButNeverTrapsABody()
+        {
+            var map = PlainMap(8f);
+            map.Props = new[]
+            {
+                new AuthoredProp { Name = "Tree", Position = new Vector2(0.5f, 0.5f),
+                                   BlockCells = true, BlockSize = new Vector2Int(2, 1) },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var ground = new TileGridGround(grid);
+
+            // Position (0.5, 0.5) is cell (4, 4); an even width biases positive: (4,4)+(5,4).
+            Assert.IsTrue(grid.BlockedAt(4, 4) && grid.BlockedAt(5, 4),
+                "Exactly the 2×1 footprint stamps…");
+            Assert.IsFalse(grid.BlockedAt(3, 4) || grid.BlockedAt(4, 5) || grid.BlockedAt(6, 4),
+                "…and nothing beyond it.");
+
+            Assert.IsFalse(ground.CanStep(grid.CellCentre(4, 3), grid.CellCentre(4, 4)),
+                "Stepping into the prop refuses.");
+            Assert.IsTrue(ground.CanStep(grid.CellCentre(4, 4), grid.CellCentre(4, 3)),
+                "A body stranded inside may always step out — the escape rule.");
+        }
+
+        [Test]
+        public void DiagonalsCannotThreadThroughBlockedCorners()
+        {
+            var map = PlainMap(8f);
+            map.Props = new[]
+            {
+                new AuthoredProp { Name = "PostA", Position = new Vector2(0.5f, -0.5f),
+                                   BlockCells = true, BlockSize = Vector2Int.one },   // cell (4,3)
+                new AuthoredProp { Name = "PostB", Position = new Vector2(-0.5f, 0.5f),
+                                   BlockCells = true, BlockSize = Vector2Int.one },   // cell (3,4)
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var ground = new TileGridGround(grid);
+
+            Assert.IsFalse(ground.CanStep(grid.CellCentre(3, 3), grid.CellCentre(4, 4)),
+                "Both L-path corners blocked: the diagonal cannot thread between the posts.");
+            Assert.IsTrue(ground.CanStep(grid.CellCentre(4, 4), grid.CellCentre(5, 3)),
+                "One open corner is enough — the other L-path carries the step.");
+        }
+
+        [Test]
+        public void ADeckPropStandsOnTheDeckAndABasePropOnTheGround()
+        {
+            var map = PlainMap(8f);
+            map.Layers = new[]
+            {
+                new AuthoredLayer { Name = "Deck", Centre = new Vector2(0.5f, 0.5f),
+                                    Size = new Vector2(1f, 1f), Y = OverworldTileGrid.Step },
+            };
+
+            var prefab = new GameObject("PropPrefab");
+            _cleanup.Add(prefab);
+            map.Props = new[]
+            {
+                new AuthoredProp { Name = "OnDeck", Prefab = prefab,
+                                   Position = new Vector2(0.5f, 0.5f), SurfaceLayer = 1 },
+                new AuthoredProp { Name = "OnGround", Prefab = prefab,
+                                   Position = new Vector2(2.5f, 0.5f), SurfaceLayer = 0 },
+            };
+
+            var output = Build(map);
+            var props = output.PropsObject.transform;
+
+            Assert.AreEqual(2, props.childCount, "Both props spawned under the props root.");
+            Assert.AreEqual(OverworldTileGrid.Step, props.GetChild(0).position.y, 0.001f,
+                "The deck prop derives the deck's height.");
+            Assert.AreEqual(0f, props.GetChild(1).position.y, 0.001f,
+                "The ground prop derives the terrain's height.");
+        }
+
+        [Test]
         public void RebuildTouchesOnlyTheDirtyChunks()
         {
             var map = PlainMap(40f);

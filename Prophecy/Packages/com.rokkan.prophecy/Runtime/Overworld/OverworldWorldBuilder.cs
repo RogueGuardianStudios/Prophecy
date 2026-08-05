@@ -28,9 +28,11 @@ namespace Rokkan.Prophecy.Overworld
         public Vector3 WorldOffset;
         public bool StairsForRamps;
 
-        // The global merged meshes, rebuilt whole on every rebuild (they are cheap).
+        // The global merged meshes and the prop root, rebuilt whole on every rebuild (they
+        // are cheap — a few meshes and a handful of prop instances).
         public GameObject RoadsObject;
         public GameObject WaterfallsObject;
+        public GameObject PropsObject;
     }
 
     public struct ChunkRoots
@@ -78,6 +80,7 @@ namespace Rokkan.Prophecy.Overworld
 
             BuildRoads(output);
             BuildWaterfalls(output);
+            SpawnProps(output);
 
             return output;
         }
@@ -124,14 +127,22 @@ namespace Rokkan.Prophecy.Overworld
             return set;
         }
 
-        /// <summary>Destroy the global merged meshes and rebuild them from the current grid —
-        /// part of <see cref="RebuildChunks"/>, public for owners that need it alone.</summary>
+        /// <summary>Destroy the global merged meshes and the prop root, and rebuild them from
+        /// the current grid — part of <see cref="RebuildChunks"/>, public for owners that need
+        /// it alone. Props re-place wholesale so a terrain edit under one re-derives its
+        /// height.</summary>
         public static void RebuildGlobalMeshes(OverworldBuildOutput output)
         {
             DestroyMerged(output, ref output.RoadsObject);
             DestroyMerged(output, ref output.WaterfallsObject);
+            if (output.PropsObject != null)
+            {
+                DestroySmart(output.PropsObject);
+                output.PropsObject = null;
+            }
             BuildRoads(output);
             BuildWaterfalls(output);
+            SpawnProps(output);
         }
 
         // ---------------------------------------------------------------- placement
@@ -286,6 +297,43 @@ namespace Rokkan.Prophecy.Overworld
             var sheetRenderer = sheets.AddComponent<MeshRenderer>();
             if (renderer != null) sheetRenderer.sharedMaterial = renderer.sharedMaterial;
             output.WaterfallsObject = sheets;
+        }
+
+        // ---------------------------------------------------------------- props
+
+        /// <summary>
+        /// Placed objects, standing on whatever the ground turned out to be: height derives
+        /// from the grid at spawn — the base surface, or the overlay deck when the prop says
+        /// so — so terrain retunes never strand a prop in the air. Their BLOCKING lives in the
+        /// compiled grid (RasterProps), not here; this is only the visible half.
+        /// </summary>
+        private static void SpawnProps(OverworldBuildOutput output)
+        {
+            var props = output.Map.Props;
+            if (props == null || props.Length == 0) return;
+
+            var root = new GameObject("Props");
+            root.transform.SetParent(output.SceneryRoot, false);
+            output.PropsObject = root;
+
+            var offset = new Vector2(output.WorldOffset.x, output.WorldOffset.z);
+            for (int i = 0; i < props.Length; i++)
+            {
+                var prop = props[i];
+                if (prop.Prefab == null) continue;
+
+                var world = prop.Position + offset;
+                if (!output.Grid.TryCellAt(world, out int x, out int z)) continue;
+
+                float y = prop.SurfaceLayer == 1 && output.Grid.TryOverlayAt(x, z, out int overlay)
+                    ? overlay * OverworldTileGrid.Step
+                    : output.Grid.SurfaceHeight(x, z, world);
+
+                var instance = Object.Instantiate(prop.Prefab, root.transform);
+                instance.name = prop.Name;
+                instance.transform.position = new Vector3(world.x, y, world.y);
+                instance.transform.rotation = Quaternion.Euler(0f, prop.YawDegrees, 0f);
+            }
         }
 
         // ---------------------------------------------------------------- teardown helpers

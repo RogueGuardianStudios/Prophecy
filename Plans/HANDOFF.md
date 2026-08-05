@@ -126,6 +126,34 @@ single slot is overwritten before it is read — that bug lived for one test cyc
 targeting the **`@return` spawn id** arrives exactly where the player left. The traversal
 course's exits use it, which is Zelda II's encounter rule: the fight interrupts the journey.
 
+**THE OVERWORLD MAP TOOL (2026-08-05, Matt: "the real overworld will likely be done by hand —
+can we create a tool?"):** the architecture already allowed it (one data asset, pure compiler,
+pure planner, scenes storing recipes), so the tool is UI over existing seams plus one enabling
+refactor. **`OverworldWorldBuilder`** extracts the host's assembly steps into a shared static
+builder the play host and the editor preview both call — and buckets tile instances into
+**16×16-cell chunk roots** (Matt: "will this be auto chunked?"): compile+plan re-run whole per
+edit (pure C#, milliseconds), only touched chunks re-instantiate. Measured: 150 ms full 96×72
+build in edit mode, 32 ms per painted patch. The host inherits the chunk structure — the hook
+for streaming and per-chunk mesh combining later. **`Prophecy > Overworld Map Tool`** owns: a
+hidden never-saved preview root (`OverworldMapPreview~`, orphan-swept, torn down entering
+play); Scene-view handles for every shape noun (rect centre/edges/rotation disc, ramp
+ends/width, course points with Ctrl+click insert / Shift+click delete); a **2D paint canvas**
+(one texture pixel per cell, point-filtered — never a widget per cell; paints against the
+COMPILED grid, stroke lives in a mirror dict, MouseUp commits one undo step via
+`RegisterCompleteObjectUndo`); and **prop placement** (palette asset → armed ghost → analytic
+ray-march onto the grid surface, R rotates, Esc disarms, Shift+click deletes, snap-to-cell).
+The HYBRID GRAIN is data: `AuthoredCellOverride` (sparse; Terrain Ground/Sea + level, Road
+Add/Remove) applies after regions+rivers and BEFORE ramps — painted land restores a carved
+channel, painted terrace edges are rampable, painted road obeys the flat-or-deck invariant.
+`AuthoredProp` (prefab, plane position, yaw, SurfaceLayer 0/1, BlockCells+BlockSize) spawns
+under a Props root with height DERIVED from the grid at spawn (a terrain retune never strands
+one); blocking stamps the compiled grid (`RasterProps`, last) and walkability treats blocked
+as NO-SURFACE in both `HasSurface` and `EdgeHeight` — step-in refuses, the escape rule still
+frees a stranded body, diagonals cannot thread a blocked corner. **Known gaps recorded:**
+NavMesh never sees prop blocking (one-line carving `NavMeshObstacle` in SpawnProps when AI
+consumes routing); block footprints are axis-aligned, yaw is cosmetic; the rect rotation
+disc's sign and the canvas's north-up orientation want one visual confirmation pass in use.
+
 **ELEVATED WATER AND WATERFALLS (2026-08-05, Matt: "focus on the elevated water and
 waterfall"):** water gained a LEVEL with zero new authoring. A sea cell always stored a level;
 it was just always 0. Now a river INHERITS the level of the terrain along its course,

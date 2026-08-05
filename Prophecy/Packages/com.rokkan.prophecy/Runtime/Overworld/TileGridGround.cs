@@ -119,8 +119,12 @@ namespace Rokkan.Prophecy.Overworld
 
         // ---------------------------------------------------------------- internals
 
+        // A blocked cell (a prop's footprint) reads as having no surface at all: stepping INTO
+        // one refuses, while a body stranded ON one gets the escape rule and may step off —
+        // the same grace the sea gives.
         private bool HasSurface(int x, int z) =>
-            _grid.KindAt(x, z) != TileCellKind.Sea || _grid.TryOverlayAt(x, z, out _);
+            !_grid.BlockedAt(x, z) &&
+            (_grid.KindAt(x, z) != TileCellKind.Sea || _grid.TryOverlayAt(x, z, out _));
 
         /// <summary>The surface the token actually names on this cell: base unless the token
         /// says overlay AND one exists. A body over open sea under a bridge is on the deck
@@ -177,6 +181,14 @@ namespace Rokkan.Prophecy.Overworld
         /// </summary>
         private int EdgeHeight(int x, int z, int surfaceLayer, int dx, int dz, out bool exists)
         {
+            // Blocked kills both surfaces: without this, the diagonal corner-threading path
+            // could route THROUGH a prop's corner cell that HasSurface already refuses.
+            if (_grid.BlockedAt(x, z))
+            {
+                exists = false;
+                return -1;
+            }
+
             if (surfaceLayer == 1)
             {
                 exists = _grid.TryOverlayAt(x, z, out int overlay);

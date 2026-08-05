@@ -144,6 +144,24 @@ namespace Rokkan.Prophecy.Overworld
             if (InBounds(x, z)) _roads.Add(z * _width + x);
         }
 
+        public void ClearRoad(int x, int z)
+        {
+            if (InBounds(x, z)) _roads.Remove(z * _width + x);
+        }
+
+        // Cells a blocking prop stands on. Walkability treats them as having no surface at
+        // all, which keeps the escape rule: a body somehow stranded INSIDE a prop's footprint
+        // may always step out, it just can't step in.
+        private readonly HashSet<int> _blocked = new HashSet<int>();
+
+        /// <summary>Whether a blocking prop occupies this cell.</summary>
+        public bool BlockedAt(int x, int z) => InBounds(x, z) && _blocked.Contains(z * _width + x);
+
+        public void SetBlocked(int x, int z)
+        {
+            if (InBounds(x, z)) _blocked.Add(z * _width + x);
+        }
+
         public bool TryCellAt(Vector2 worldXZ, out int x, out int z)
         {
             x = Mathf.FloorToInt((worldXZ.x - _origin.x) / CellSize);
@@ -236,11 +254,100 @@ namespace Rokkan.Prophecy.Overworld
 
             RasterRegions(grid, map, offset);
             RasterRivers(grid, map, offset);
+            ApplyTerrainOverrides(grid, map);
+            WarnWhereWaterSpills(grid);
             ConvertRamps(grid, map, offset);
             RasterLayers(grid, map, offset);
             RasterRoads(grid, map, offset);
+            ApplyRoadOverrides(grid, map);
+            RasterProps(grid, map, offset);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Blocking props stamp their footprints LAST, over the finished ground. The compiler
+        /// reads only positions and footprints — the Prefab field is the world builder's, and
+        /// this pass compiling headless is what keeps prop collision testable.
+        /// </summary>
+        private static void RasterProps(OverworldTileGrid grid, OverworldMap map, Vector2 offset)
+        {
+            var props = map.Props;
+
+            for (int i = 0; props != null && i < props.Length; i++)
+            {
+                var prop = props[i];
+                if (!prop.BlockCells) continue;
+                if (!grid.TryCellAt(prop.Position + offset, out int cx, out int cz)) continue;
+
+                // The footprint centres on the prop's cell: odd sizes sit symmetric, even
+                // sizes bias toward positive — deterministic either way.
+                int halfX = (prop.BlockSize.x - 1) / 2;
+                int halfZ = (prop.BlockSize.y - 1) / 2;
+                for (int dz = 0; dz < Mathf.Max(1, prop.BlockSize.y); dz++)
+                    for (int dx = 0; dx < Mathf.Max(1, prop.BlockSize.x); dx++)
+                        grid.SetBlocked(cx - halfX + dx, cz - halfZ + dz);
+            }
+        }
+
+        /// <summary>
+        /// The hand-painted cells, the fine half of the hybrid grain: applied AFTER regions and
+        /// rivers (painting Ground over a carved channel restores land; painting Sea carves a
+        /// cell at its own water level) and BEFORE the ramps (a painted terrace boundary is
+        /// rampable). The spill warning runs after this pass so painted water is checked too.
+        /// </summary>
+        private static void ApplyTerrainOverrides(OverworldTileGrid grid, OverworldMap map)
+        {
+            var overrides = map.CellOverrides;
+
+            for (int i = 0; overrides != null && i < overrides.Length; i++)
+            {
+                var cell = overrides[i];
+                if (cell.Terrain == TerrainOverride.None) continue;
+
+                grid.Set(cell.X, cell.Z,
+                         cell.Terrain == TerrainOverride.Sea ? TileCellKind.Sea : TileCellKind.Ground,
+                         cell.Level);
+            }
+        }
+
+        /// <summary>
+        /// Road paint overrides, LAST: Remove erases what the shape courses drew; Add obeys the
+        /// same invariant the courses do — flat Ground or an overlay deck, never a slope or
+        /// open water.
+        /// </summary>
+        private static void ApplyRoadOverrides(OverworldTileGrid grid, OverworldMap map)
+        {
+            var overrides = map.CellOverrides;
+            int refused = 0;
+            int firstX = 0, firstZ = 0;
+
+            for (int i = 0; overrides != null && i < overrides.Length; i++)
+            {
+                var cell = overrides[i];
+                if (cell.Road == RoadOverride.None) continue;
+
+                if (cell.Road == RoadOverride.Remove)
+                {
+                    grid.ClearRoad(cell.X, cell.Z);
+                    continue;
+                }
+
+                if (grid.TryOverlayAt(cell.X, cell.Z, out _) ||
+                    grid.KindAt(cell.X, cell.Z) == TileCellKind.Ground)
+                {
+                    grid.SetRoad(cell.X, cell.Z);
+                }
+                else
+                {
+                    if (refused == 0) { firstX = cell.X; firstZ = cell.Z; }
+                    refused++;
+                }
+            }
+
+            if (refused > 0)
+                Debug.LogWarning($"[Prophecy] {refused} painted road cell(s) refused — road " +
+                                 $"rides flat ground or a deck, first refusal at ({firstX}, {firstZ}).");
         }
 
         /// <summary>
@@ -292,8 +399,8 @@ namespace Rokkan.Prophecy.Overworld
                 for (int s = 0; s < points.Count; s++)
                     CarveDisc(grid, points[s], river.HalfWidth, levels[s]);
             }
-
-            WarnWhereWaterSpills(grid);
+            // The spill warning runs from Compile, after the terrain overrides — painted
+            // water deserves the same check the carved kind gets.
         }
 
         private static void CarveDisc(OverworldTileGrid grid, Vector2 centre, float radius, int level)
