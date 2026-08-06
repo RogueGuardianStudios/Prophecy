@@ -185,8 +185,25 @@ bare blocked cells (no scatter: rocks, rubble, not-this-way), and **Block − is
 LAST WORD, unblocking anything including thickets and prop footprints** (applied dead last in
 the compile). Demo: Province_Heartland (EMPTY table = safe — the authored end of wanderers
 eating playtests) on the Heartland region, Province_Westwood on the grove; probed live.
-REMAINING for provinces: the spawner/contact WIRING (player's province drives what spawns;
-contact cell drives where you fight; road contact = the safe crossing).
+**The spawner/contact WIRING is BUILT (2026-08-05 night) and the wanderers are back ON.**
+`OverworldEncounterSpawner` MOVED into the Overworld assembly (git mv, GUID kept — provinces
+are a grid question; the sim seam was never meant to keep the overworld's own presentation
+off the grid) and owns NO prefab/cadence/cap anymore: the player's cell's province supplies
+all three each beat, wilderness rechecks every 2 s and never spawns. Spawn placement asks
+`OverworldEncounterRules.CanHostAWanderer` (plain Ground, not unwalkable, in bounds — no
+ramps, water, bridges): 8 bearings tried, all refused skips the beat, no clamping. Contact
+resolves from the ground under the PLAYER's feet via `OverworldEncounterRules.ResolveContact`
+(road cell + roadScene → safe crossing; else contact cell's province.EncounterScene; else
+fallback; EMPTY resolved scene = the touch is shrugged off). All three rules are pure statics
+in `OverworldEncounterRules.cs`, pinned by tests. Builder wires _gridHost + road/fallback
+strings (all at GrayBox_Traversal/centre until real battle scenes exist) and enables the
+spawner — safety is authored now. Demo: Province_MesaMoor (Enemy_Wanderer ×1, 8 s cadence,
+MaxAlive 3) on the Mesa Moor biome area. LIVE-VERIFIED: 3 spawned on the moor and capped;
+wanderers at the mesa FOOT (y=0) could not touch the player on the terrace (y=2) — the
+touch height gate doing its job; same-floor touch carried the player to GrayBox_Traversal
+centre. KNOWN GAP (recorded, not new): wanderer ROAMING ignores the grid — they walk
+through cliffs and water because their GOAP seek has no ground provider; fix rides with the
+NavMesh/routing work.
 **Encounters resolve at CONTACT TIME by LOCATION (Matt): the systems are separate.** The
 player's province drives WHAT spawns around them (empty table = safe province — the authored
 end of wanderers eating verification passes); wanderers roam FREE, no leash; on contact the
@@ -1131,10 +1148,11 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    through the agent, actuation through the buttons — decision 38 survives with pathfinding
    attached.
 
-   **Wanderers are OFF (2026-08-04)** — the encounter spawner ships disabled in the overworld
-   scene while the map is being authored; an idle player was hunted on an eleven-second fuse,
-   which made judging coasts and terraces impossible. One checkbox (or one builder line) brings
-   the menace back; the pipeline behind it is untouched and tested.
+   **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
+   disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the
+   spawner reads the player's cell's PROVINCE (table, cadence, cap) and the provinces around
+   the arrival spawn have empty tables, so authoring passes stay undisturbed while the Mesa
+   Moor hunts. The menace exists exactly where a province table says it does.
 
    **NavMesh integrated (2026-08-04, later the same day) — and it is the DEFAULT ground.** The
    grid host bakes a runtime `NavMeshSurface` over the placed tiles (render meshes; the stripped

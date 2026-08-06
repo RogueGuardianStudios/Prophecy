@@ -1,5 +1,6 @@
 using System.IO;
 using Rokkan.Prophecy.Core;
+using Rokkan.Prophecy.Overworld;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.World;
@@ -265,38 +266,25 @@ namespace Rokkan.Prophecy.Editor.Build
         /// <summary>The Zelda II layer: wanderers popping up around the player.</summary>
         private static void CreateEncounters(Transform markers)
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-                "Assets/_Prophecy/Prefabs/Enemy_Wanderer.prefab");
-
-            if (prefab == null)
-                Debug.LogWarning("[Prophecy] No Enemy_Wanderer prefab — run Prophecy > Build > " +
-                                 "Generate Enemies first, then regenerate the overworld. The " +
-                                 "spawner was created unarmed.");
-
             var spawnerObject = new GameObject("OverworldEncounters");
             spawnerObject.transform.SetParent(markers, false);
 
             var spawner = spawnerObject.AddComponent<OverworldEncounterSpawner>();
 
-            // OFF while the overworld is being authored (decided 2026-08-04). Walking the map to
-            // judge coasts and terraces is impossible when idle players are hunted on an
-            // eleven-second fuse — the wanderers ate every verification pass this session too.
-            // One checkbox to bring the menace back; the whole encounter pipeline behind it is
-            // untouched and tested.
-            spawner.enabled = false;
+            // ON again (2026-08-05): safety became an authored property. The spawner reads the
+            // player's province — WHAT wanders, how often, how many — and the provinces around
+            // the arrival spawn have empty tables, so walking the map to judge coasts stays
+            // undisturbed. The menace exists exactly where a province table says it does.
+            SetPrivate(spawner, "_gridHost", Object.FindAnyObjectByType<OverworldGridHost>());
 
-            SetPrivate(spawner, "_wandererPrefab", prefab);
-
-            // Sized from the ground this builder just generated — the spawner must not learn
-            // the plain's size a second way.
-            SetPrivate(spawner, "_plainHalfExtents",
-                       new Vector2(PlainWidth * 0.5f, PlainDepth * 0.5f));
-
-            // Touching a wanderer carries the player to the side-scroll course, arriving at the
-            // same mid-level spawn the return cube uses. When a real battle scene exists, this is
-            // the one string to re-point.
-            SetPrivate(spawner, "_encounterScene", GrayBoxTraversalBuilder.SceneName);
-            SetPrivate(spawner, "_encounterSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
+            // WHERE a contact carries you is the contact cell's business: road cells give the
+            // safe crossing, provinces name their own sections, and both point at the traversal
+            // course until real battle scenes exist. Re-point these strings and the province
+            // assets when they do.
+            SetPrivate(spawner, "_roadScene", GrayBoxTraversalBuilder.SceneName);
+            SetPrivate(spawner, "_roadSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
+            SetPrivate(spawner, "_fallbackScene", GrayBoxTraversalBuilder.SceneName);
+            SetPrivate(spawner, "_fallbackSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
         }
 
         // ------------------------------------------------------------------ helpers

@@ -632,5 +632,93 @@ namespace Rokkan.Prophecy.Tests
             Assert.AreEqual(1, output.Grid.LevelAt(2, 2),
                 "The rebuild compiled the edited map, not the remembered one.");
         }
+
+        [Test]
+        public void TheProvinceTableSaysWhatWandersAndEmptyMeansSafe()
+        {
+            var grunt = new GameObject("Grunt");
+            var brute = new GameObject("Brute");
+            try
+            {
+                var table = new[]
+                {
+                    new ProvinceWanderer { Prefab = grunt, Weight = 1f },
+                    new ProvinceWanderer { Prefab = brute, Weight = 3f },
+                };
+
+                Assert.AreSame(grunt, OverworldEncounterRules.PickWanderer(table, 0.1f),
+                    "A low roll lands in the first entry's quarter of the weight…");
+                Assert.AreSame(brute, OverworldEncounterRules.PickWanderer(table, 0.9f),
+                    "…and a high roll in the heavy entry's three quarters.");
+
+                Assert.IsNull(OverworldEncounterRules.PickWanderer(
+                        System.Array.Empty<ProvinceWanderer>(), 0.5f),
+                    "An empty table spawns nothing — that is what a safe province IS.");
+                Assert.IsNull(OverworldEncounterRules.PickWanderer(
+                        new[] { new ProvinceWanderer { Prefab = grunt, Weight = 0f } }, 0.5f),
+                    "All-zero weights are an empty table with extra steps.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(grunt);
+                Object.DestroyImmediate(brute);
+            }
+        }
+
+        [Test]
+        public void TheContactCellDecidesWhereTheFightHappens()
+        {
+            var moor = ScriptableObject.CreateInstance<OverworldProvince>();
+            moor.DisplayName = "Moor";
+            moor.EncounterScene = "Moor_Section";
+            moor.EncounterSpawnId = "east";
+
+            var map = PlainMap(8f);
+            map.Regions[0].Province = moor;
+            map.CellOverrides = new[]
+            {
+                new AuthoredCellOverride { X = 2, Z = 2, Road = RoadOverride.Add },
+            };
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            OverworldEncounterRules.ResolveContact(grid, 2, 2, "RoadCrossing", "mid",
+                                                   "Wilds", "default",
+                                                   out var scene, out var spawn);
+            Assert.AreEqual("RoadCrossing", scene,
+                "A road cell gives the safe crossing WHATEVER province the road runs through.");
+            Assert.AreEqual("mid", spawn);
+
+            OverworldEncounterRules.ResolveContact(grid, 5, 5, "RoadCrossing", "mid",
+                                                   "Wilds", "default", out scene, out spawn);
+            Assert.AreEqual("Moor_Section", scene,
+                "Off the road, the contact cell's province names its own section.");
+            Assert.AreEqual("east", spawn);
+
+            var wilds = OverworldTileGridCompiler.Compile(PlainMap(8f), Vector3.zero);
+            OverworldEncounterRules.ResolveContact(wilds, 5, 5, "RoadCrossing", "mid",
+                                                   "Wilds", "default", out scene, out spawn);
+            Assert.AreEqual("Wilds", scene, "No province at all: the wilderness fallback.");
+        }
+
+        [Test]
+        public void WanderersSpawnOnPlainGroundOnly()
+        {
+            var map = PlainMap(8f);
+            map.CellOverrides = new[]
+            {
+                new AuthoredCellOverride { X = 1, Z = 1, Terrain = TerrainOverride.Sea },
+                new AuthoredCellOverride { X = 2, Z = 2, Unwalkable = UnwalkableOverride.Add },
+            };
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.IsTrue(OverworldEncounterRules.CanHostAWanderer(grid, 4, 4),
+                "Plain walkable ground hosts a spawn.");
+            Assert.IsFalse(OverworldEncounterRules.CanHostAWanderer(grid, 1, 1),
+                "Not in the water…");
+            Assert.IsFalse(OverworldEncounterRules.CanHostAWanderer(grid, 2, 2),
+                "…not on refused ground…");
+            Assert.IsFalse(OverworldEncounterRules.CanHostAWanderer(grid, -1, 3),
+                "…and not off the map's edge.");
+        }
     }
 }
