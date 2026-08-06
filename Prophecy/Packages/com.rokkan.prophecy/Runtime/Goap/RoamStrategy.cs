@@ -67,6 +67,13 @@ namespace Rokkan.Prophecy.Goap
             var heading = RoamSteering.Heading(sim.State.CombatId, sim.CurrentTick, repick,
                                                toTarget, bias);
 
+            // Routing through the agent, actuation through the buttons: a body carrying a
+            // steering oracle gets its rolled heading bent along the walkable mesh before it
+            // becomes intent. No oracle — headless tests, bodies in worlds without a bake —
+            // and the raw heading flows exactly as it always did.
+            var oracle = host.GetComponent<NavSteeringOracle>();
+            if (oracle != null) heading = oracle.Route(heading);
+
             host.Intent.MoveX = heading.x * scale;
             host.Intent.MoveY = heading.y * scale;
 

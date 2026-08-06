@@ -35,6 +35,7 @@ namespace Rokkan.Prophecy.Overworld
         public GameObject WaterfallsObject;
         public GameObject PropsObject;
         public GameObject ScatterObject;
+        public GameObject CarvesObject;
 
         // The one ground material every cap wears, and its baked biome LUT. The texture
         // refreshes in place on rebuilds, so untouched chunks' caps recolour without being
@@ -94,6 +95,7 @@ namespace Rokkan.Prophecy.Overworld
             BuildWaterfalls(output);
             SpawnProps(output);
             SpawnScatter(output);
+            CarveUnwalkables(output);
 
             return output;
         }
@@ -160,10 +162,16 @@ namespace Rokkan.Prophecy.Overworld
                 DestroySmart(output.ScatterObject);
                 output.ScatterObject = null;
             }
+            if (output.CarvesObject != null)
+            {
+                DestroySmart(output.CarvesObject);
+                output.CarvesObject = null;
+            }
             BuildRoads(output);
             BuildWaterfalls(output);
             SpawnProps(output);
             SpawnScatter(output);
+            CarveUnwalkables(output);
         }
 
         // ---------------------------------------------------------------- placement
@@ -435,6 +443,51 @@ namespace Rokkan.Prophecy.Overworld
         /// yaw, deterministic per cell forever. Open walkable ground is NEVER scattered:
         /// travelling space belongs to hand-placed props and shaders (Matt, 2026-08-05).
         /// </summary>
+        /// <summary>
+        /// Cut every unwalkable cell out of the NavMesh with a carving obstacle — greeble
+        /// masses, prop footprints, painted refusals, all of them, because
+        /// <c>UnwalkableAt</c> is already their union. The bake can't know: caps are placed
+        /// under unwalkable cells for the LOOK (ground under the trees), and bake sources are
+        /// collected wholesale from the walkable root. Without the carve the mesh disagrees
+        /// with the sim exactly where refusal matters, and anything steering by the mesh —
+        /// the wanderers' oracle, NavMeshGround as authority — walks its agents into ground
+        /// the sim then refuses. Carving resolves at runtime against the baked instance;
+        /// in the editor preview, with no bake, the obstacles are inert.
+        /// </summary>
+        private static void CarveUnwalkables(OverworldBuildOutput output)
+        {
+            var grid = output.Grid;
+            GameObject root = null;
+
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (!grid.UnwalkableAt(x, z)) continue;
+
+                    if (root == null)
+                    {
+                        root = new GameObject("NavCarves");
+                        root.transform.SetParent(output.SceneryRoot, false);
+                        output.CarvesObject = root;
+                    }
+
+                    var centre = grid.CellCentre(x, z);
+                    float y = grid.SurfaceHeight(x, z, centre);
+
+                    var carve = new GameObject($"Carve_{x}_{z}");
+                    carve.transform.SetParent(root.transform, false);
+                    carve.transform.position = new Vector3(centre.x, y + 1f, centre.y);
+
+                    var obstacle = carve.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                    obstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+                    obstacle.size = new Vector3(OverworldTileGrid.CellSize, 3f,
+                                                OverworldTileGrid.CellSize);
+                    obstacle.carving = true;
+                }
+            }
+        }
+
         private static void SpawnScatter(OverworldBuildOutput output)
         {
             if (output.Biomes == null) return;

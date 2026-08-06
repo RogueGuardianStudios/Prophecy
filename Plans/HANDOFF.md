@@ -150,9 +150,12 @@ under a Props root with height DERIVED from the grid at spawn (a terrain retune 
 one); blocking stamps the compiled grid (`RasterProps`, last) and walkability treats blocked
 as NO-SURFACE in both `HasSurface` and `EdgeHeight` — step-in refuses, the escape rule still
 frees a stranded body, diagonals cannot thread a blocked corner. **Known gaps recorded:**
-NavMesh never sees prop blocking (one-line carving `NavMeshObstacle` in SpawnProps when AI
-consumes routing); block footprints are axis-aligned, yaw is cosmetic; the rect rotation
-disc's sign and the canvas's north-up orientation want one visual confirmation pass in use.
+~~NavMesh never sees prop blocking~~ CLOSED 2026-08-05 — `CarveUnwalkables` in the shared
+builder drops a carving `NavMeshObstacle` box on EVERY unwalkable cell (`UnwalkableAt` is
+already the union of greeble masses, prop footprints and painted refusals), so the baked
+mesh and the sim agree about refusal wherever anything steers by the mesh; block footprints
+are axis-aligned, yaw is cosmetic; the rect rotation disc's sign and the canvas's north-up
+orientation want one visual confirmation pass in use.
 
 **BIOMES AND PROVINCES — DESIGN SETTLED WITH MATT, 2026-08-05 (build in progress):** the pause
 after the tool's first drives produced the ontology conversation, and two nouns came out of it.
@@ -201,9 +204,11 @@ spawner — safety is authored now. Demo: Province_MesaMoor (Enemy_Wanderer ×1,
 MaxAlive 3) on the Mesa Moor biome area. LIVE-VERIFIED: 3 spawned on the moor and capped;
 wanderers at the mesa FOOT (y=0) could not touch the player on the terrace (y=2) — the
 touch height gate doing its job; same-floor touch carried the player to GrayBox_Traversal
-centre. KNOWN GAP (recorded, not new): wanderer ROAMING ignores the grid — they walk
-through cliffs and water because their GOAP seek has no ground provider; fix rides with the
-NavMesh/routing work.
+centre. ~~KNOWN GAP: wanderer ROAMING ignores the grid~~ CLOSED 2026-08-05, same night —
+the wanderers are TIED TO THE NAVMESH (Matt) via the agreed oracle shape, see the routing
+paragraph in the decisions section. Live probe: wanderers at y=0.0 → y=0.5 → y=2.0, walking
+the STAIRS onto the mesa and catching the player on top — where before the oracle they
+piled at the cliff foot forever.
 **Encounters resolve at CONTACT TIME by LOCATION (Matt): the systems are separate.** The
 player's province drives WHAT spawns around them (empty table = safe province — the authored
 end of wanderers eating verification passes); wanderers roam FREE, no leash; on contact the
@@ -1147,6 +1152,20 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    `EnemyIntent.MoveX/MoveY`, and the sim stays the only thing that moves anybody. Routing
    through the agent, actuation through the buttons — decision 38 survives with pathfinding
    attached.
+   **BUILT 2026-08-05 ("tie the Wanderers to the nav mesh"): `NavSteeringOracle`** (main asm,
+   Presentation) — adds the hidden agent, syncs `nextPosition` to the sim-moved body per
+   frame, and `Route(heading)` paths a 6 m LOOKAHEAD of the desired heading (SamplePosition
+   radius 4 — a point wished into a cliff face resolves to the terrace above, which is how a
+   ramp becomes worth walking toward) and returns desiredVelocity's direction at the input's
+   magnitude. Deliberately a lookahead and NOT the target: routing to the target would turn
+   the drunken menace into a homing missile — the player-bias stays in `RoamSteering`'s roll,
+   the oracle only answers "which way is that, along ground that exists". EVERY failure
+   (off-mesh, unsampleable wish, pending path) returns the caller's heading unchanged, so
+   headless tests and side-scroll bodies never notice it. `RoamStrategy` routes through an
+   oracle when the body carries one; the overworld SPAWNER attaches it (the spawner is the
+   thing that knows this world has a bake — side-scroll enemies never get one). Rode along:
+   `CarveUnwalkables` (see props gap above) because the mesh became a steering authority the
+   moment the oracle shipped.
 
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
    disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the

@@ -223,6 +223,11 @@ namespace Rokkan.Prophecy.Overworld
                 var host = wanderer.GetComponent<PlayerCharacterHost>();
                 if (host != null) host.ConfigureSpace(MovementSpace.TopDown);
 
+                // …and it is the thing that knows this world has a baked mesh: the oracle
+                // bends the wanderer's roam headings along it (side-scroll bodies never get
+                // one, and the strategies degrade to their raw headings without it).
+                wanderer.AddComponent<NavSteeringOracle>();
+
                 _alive.Add(wanderer);
                 return;
             }
