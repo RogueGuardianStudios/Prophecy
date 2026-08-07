@@ -809,6 +809,46 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void TheSightlineKnowsWhenTheCameraCannotSee()
+        {
+            var map = PlainMap(12f);
+            map.Regions = new[]
+            {
+                map.Regions[0],
+                new AuthoredRegion { Name = "Terrace", Centre = Vector2.zero,
+                                     Size = new Vector2(4f, 4f), Y = 2f * OverworldTileGrid.Step },
+            };
+            map.Layers = new[]
+            {
+                new AuthoredLayer { Name = "Deck", Centre = new Vector2(4f, 4f),
+                                    Size = new Vector2(2f, 2f), Y = OverworldTileGrid.Step },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            // A camera-height point south, a chest-height point north, the tall terrace
+            // between them: blocked.
+            Assert.IsTrue(OverworldSightline.Blocked(
+                    grid, new Vector3(0f, 10f, -9f), new Vector3(0f, 0.9f, 3f)),
+                "The terrace stands between the camera and the player.");
+
+            // The same geometry, but looking along open ground beside the terrace: clear.
+            Assert.IsFalse(OverworldSightline.Blocked(
+                    grid, new Vector3(-5f, 10f, -9f), new Vector3(-5f, 0.9f, 3f)),
+                "Nothing between them over the open plain.");
+
+            // A chest UNDER the deck: the ray must cross the slab to reach it.
+            Assert.IsTrue(OverworldSightline.Blocked(
+                    grid, new Vector3(4f, 10f, -6f), new Vector3(4f, 0.9f, 4.2f)),
+                "The deck lids the player standing beneath it.");
+
+            // A chest ON the deck: the ray arrives from above without crossing it.
+            Assert.IsFalse(OverworldSightline.Blocked(
+                    grid, new Vector3(4f, 10f, -6f), new Vector3(4f, 2.9f, 4.2f)),
+                "Standing on top of the deck is plain sight.");
+        }
+
+        [Test]
         public void WanderersSpawnOnPlainGroundOnly()
         {
             var map = PlainMap(8f);

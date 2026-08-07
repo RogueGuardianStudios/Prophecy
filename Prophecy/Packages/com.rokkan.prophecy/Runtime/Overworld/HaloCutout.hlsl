@@ -1,13 +1,16 @@
 // The halo cutout — cutaway style 1 of 3 (Matt): anything between the camera and the player
 // gets a dithered hole punched through it, so walking behind a wall, a tree, or a bridge
-// deck never hides the character. A world-space cylinder along the camera→player axis:
-// fragments inside the radius AND nearer than the player are dither-discarded with a soft
-// edge. Driven by shader globals from HaloCutoutDriver; strength 0 (side-scroll, edit mode,
-// no player) makes the whole test free-exit.
+// deck never hides the character. A world-space CONE from the camera through a player-sized
+// disc at the player's depth: fragments whose view rays strike that disc, and which are
+// nearer than the player, are dither-discarded with a soft edge. Driven by shader globals
+// from HaloCutoutDriver; strength 0 (side-scroll, edit mode, no player) makes the whole
+// test free-exit.
 //
-// Called from ForwardLit AND DepthOnly — depth must match color or depth-reading effects
-// (the cave invert, SSAO) see ghosts of the cut geometry. NEVER from ShadowCaster: the hole
-// is a courtesy to the camera, not a hole in the world, and light must not leak through it.
+// Called from ForwardLit only. NEVER from ShadowCaster: the hole is a courtesy to the
+// camera, not a hole in the world, and light must not leak through it. Not from DepthOnly
+// either — cutting depth there emptied the depth texture pipeline-wide once (2026-08-07)
+// and nothing critical reads depth anymore (the cave invert lives in the geometry shaders);
+// SSAO seeing ghost depth inside a halo hole is a gray-box shrug.
 #ifndef PROPHECY_HALO_CUTOUT_INCLUDED
 #define PROPHECY_HALO_CUTOUT_INCLUDED
 
@@ -29,11 +32,18 @@ void ApplyHaloCutout(float3 positionWS, float4 positionCS)
 
     // Only true occluders: past the near plane's neighbourhood, and NEARER than the player
     // by a margin — the ground at their feet and the wall at their back stay whole.
-    if (along < 0.5 || along > playerDistance - 0.4)
+    if (along < 0.5 || along > playerDistance - 0.25)
         return;
 
+    // A CONE, not a cylinder (Matt's shape, 2026-08-07): apex at the camera, opening
+    // through a player-sized disc at the player's depth. A fragment is cut only if ITS OWN
+    // view ray goes on to strike that virtual player billboard — meaning it genuinely
+    // screens the body. A wall beside the player never does, however close it stands to
+    // the sight line; the cylinder this replaces drilled smudges through every such wall.
+    // Implemented by projecting the fragment's axis offset onto the player's depth plane.
     float axisDistance = length(toFragment - axis * along);
-    float cut = (1.0 - smoothstep(_HaloRadius * 0.6, _HaloRadius, axisDistance))
+    float atPlayerPlane = axisDistance * (playerDistance / max(along, 0.5));
+    float cut = (1.0 - smoothstep(_HaloRadius * 0.7, _HaloRadius, atPlayerPlane))
                 * _HaloStrength;
     if (cut <= 0.0)
         return;

@@ -1,56 +1,47 @@
 using System.Collections.Generic;
 using Rokkan.Prophecy.World;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Rokkan.Prophecy.Overworld
 {
     /// <summary>
     /// The invert cutout's runtime half: watches which cave room the player is INSIDE
     /// (<see cref="OverworldCoverRules.ActiveCaveRegion"/> — the covered floor, not the roof
-    /// above it), hides that room's roof pieces wholesale, and fades the fullscreen pass that
-    /// blacks the world outside the room. Attached by the grid host after its build; the
-    /// editor preview never carries one, so the pass stays a plain copy there.
+    /// above it), hides that room's roof pieces wholesale, and fades the invert. The mask
+    /// itself lives in the geometry shaders (CaveInvertMask.hlsl), fed by four plain shader
+    /// globals — take two of this design: the fullscreen depth-reconstruction pass it
+    /// replaces died of an empty depth texture, and geometry fragments never needed any of
+    /// that, they know their world positions exactly.
     ///
-    /// <para><b>Everything the pass needs goes through its MATERIAL</b> (loaded from
-    /// Resources — the one asset the renderer feature also references). Two traps live here,
-    /// both paid for on 2026-08-07: texture GLOBALS never reach a RenderGraph fullscreen
-    /// pass even though scalar globals do, and UNITY_MATRIX_I_VP is the blit's matrix, not
-    /// the camera's — so the LUT binds to the material and the camera's inverse
-    /// view-projection is handed over explicitly every frame.</para>
+    /// <para>The void outside the world's silhouette is the CAMERA's own background: while
+    /// the reveal runs, the clear fades to black and restores on the way out — including on
+    /// teardown, so a scene transition mid-cave cannot strand a black sky.</para>
     ///
-    /// <para>The roof swap is instant and the darkness is a fast fade — the pop of the roof
-    /// coming off happens inside the swallow-to-black, which reads as entering, not as
-    /// geometry vanishing. On teardown everything restores: roofs back on, the material
-    /// zeroed, so a scene transition mid-cave cannot strand the world dark.</para>
+    /// <para>Attached by the grid host after its build; the editor preview never carries
+    /// one, so the globals stay zeroed there and the shaders' invert branch is inert.</para>
     /// </summary>
     public sealed class CaveRevealDriver : MonoBehaviour
     {
         private const float FadePerSecond = 5f;
 
         private OverworldBuildOutput _built;
-        private Material _passMaterial;
         private int _active = -1;
         private float _strength;
 
-        public void Bind(OverworldBuildOutput built)
-        {
-            _built = built;
-            _passMaterial = Resources.Load<Material>("CaveInvert");
-            if (_passMaterial == null || _built.CoverLutTexture == null) return;
+        private Camera _faded;
+        private CameraClearFlags _originalClear;
+        private Color _originalBackground;
 
-            var grid = _built.Grid;
-            _passMaterial.SetTexture("_CoverLut", _built.CoverLutTexture);
-            _passMaterial.SetVector("_CoverLutRect", new Vector4(
-                grid.Origin.x, grid.Origin.y,
-                1f / (grid.Width * OverworldTileGrid.CellSize),
-                1f / (grid.Height * OverworldTileGrid.CellSize)));
-        }
+        /// <summary>True while a room is active or the fade has not fully cleared — the
+        /// halo cutout suppresses itself for the duration, because punching a hole through
+        /// a revealed room's wall shows the void, and the reveal already guarantees the
+        /// player is visible.</summary>
+        public bool Revealing => _active >= 0 || _strength > 0.01f;
+
+        public void Bind(OverworldBuildOutput built) => _built = built;
 
         private void Update()
         {
-            if (_passMaterial == null) return;
-
             var director = SceneDirector.Instance;
             var player = director != null ? director.Player : null;
 
@@ -64,31 +55,41 @@ namespace Rokkan.Prophecy.Overworld
                 SetRoofVisible(region, false);
                 _active = region;
                 if (region >= 0)
-                    _passMaterial.SetFloat("_CaveRoofY", RoomRoofY(region));
+                    Shader.SetGlobalFloat("_CaveRoofY", RoomRoofY(region));
             }
 
             _strength = Mathf.MoveTowards(_strength, _active >= 0 ? 1f : 0f,
                                           FadePerSecond * Time.deltaTime);
-            _passMaterial.SetFloat("_CaveInvertStrength", _strength);
-            _passMaterial.SetFloat("_ActiveCoverRegion", _active + 1);
+            Shader.SetGlobalFloat("_CaveInvertStrength", _strength);
+            Shader.SetGlobalFloat("_ActiveCoverRegion", _active + 1);
+
+            FadeBackground();
         }
 
-        private void OnEnable() => RenderPipelineManager.beginCameraRendering += OnBeginCamera;
-
-        /// <summary>
-        /// The matrix hand-off happens HERE, per camera about to render — not in Update.
-        /// The rig moves the camera in LateUpdate, so an Update-time matrix is one frame of
-        /// camera motion stale, and the mask crawls against the image whenever anything
-        /// moves. renderIntoTexture: TRUE — URP draws through an intermediate target when
-        /// features are present, and ComputeClipSpacePosition's UV_STARTS_AT_TOP flip pairs
-        /// with that convention; false "almost works" and smears the mask along view-Z.
-        /// </summary>
-        private void OnBeginCamera(ScriptableRenderContext context, Camera camera)
+        /// <summary>The sky is not a fragment: the void beyond the world's silhouette comes
+        /// from fading the camera's clear itself.</summary>
+        private void FadeBackground()
         {
-            if (_passMaterial == null) return;
-            _passMaterial.SetMatrix("_CaveCamInvVP",
-                (GL.GetGPUProjectionMatrix(camera.projectionMatrix, true)
-                 * camera.worldToCameraMatrix).inverse);
+            if (_strength > 0.001f && _faded == null)
+            {
+                _faded = Camera.main;
+                if (_faded == null) return;
+                _originalClear = _faded.clearFlags;
+                _originalBackground = _faded.backgroundColor;
+            }
+
+            if (_faded == null) return;
+
+            if (_strength <= 0.001f)
+            {
+                _faded.clearFlags = _originalClear;
+                _faded.backgroundColor = _originalBackground;
+                _faded = null;
+                return;
+            }
+
+            _faded.clearFlags = CameraClearFlags.SolidColor;
+            _faded.backgroundColor = Color.Lerp(_originalBackground, Color.black, _strength);
         }
 
         /// <summary>The room's roof plane: the highest base terrain over its cells. The
@@ -117,14 +118,17 @@ namespace Rokkan.Prophecy.Overworld
 
         private void OnDisable()
         {
-            RenderPipelineManager.beginCameraRendering -= OnBeginCamera;
             SetRoofVisible(_active, true);
             _active = -1;
             _strength = 0f;
-            if (_passMaterial == null) return;
-            _passMaterial.SetFloat("_CaveInvertStrength", 0f);
-            _passMaterial.SetFloat("_ActiveCoverRegion", 0f);
-            _passMaterial.SetTexture("_CoverLut", null);
+            Shader.SetGlobalFloat("_CaveInvertStrength", 0f);
+            Shader.SetGlobalFloat("_ActiveCoverRegion", 0f);
+            if (_faded != null)
+            {
+                _faded.clearFlags = _originalClear;
+                _faded.backgroundColor = _originalBackground;
+                _faded = null;
+            }
         }
     }
 }

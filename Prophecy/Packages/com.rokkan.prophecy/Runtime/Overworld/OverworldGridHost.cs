@@ -96,9 +96,11 @@ namespace Rokkan.Prophecy.Overworld
             Presentation.TopDownGroundSource.Current = _published;
 
             // The cutaways' runtime halves — play mode only, so the editor preview never
-            // hides a roof, darkens a scene view, or punches a hole in a wall.
+            // hides a roof, darkens a scene view, or punches a hole in a wall. Order
+            // matters a little: the halo driver binds AFTER the cave driver exists, so it
+            // can defer to the reveal.
             gameObject.AddComponent<CaveRevealDriver>().Bind(_built);
-            gameObject.AddComponent<HaloCutoutDriver>();
+            gameObject.AddComponent<HaloCutoutDriver>().Bind(_built);
         }
 
         /// <summary>

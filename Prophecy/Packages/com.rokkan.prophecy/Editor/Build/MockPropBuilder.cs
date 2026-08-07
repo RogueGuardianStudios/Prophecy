@@ -35,7 +35,10 @@ namespace Rokkan.Prophecy.Editor.Build
         }
 
         /// <summary>A gray-box tree with the ALttP read from overhead: a fat green blob on a
-        /// stub of trunk, about a cell wide and a body taller than the player is not.</summary>
+        /// stub of trunk, about a cell wide and a body taller than the player is not.
+        /// (A billboard-disc canopy was tried and reverted, 2026-08-07 — the interlocked
+        /// discs read worse than the blobs, and the halo's cone sees the player through a
+        /// canopy either way.)</summary>
         private static GameObject BuildTree()
         {
             var root = new GameObject("Prop_Tree");

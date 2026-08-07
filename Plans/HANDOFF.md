@@ -1204,9 +1204,42 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    via the generators' idempotent set-every-run) and `Prophecy/OverworldGround` (bridge
    DECKS are caps, so the see-the-player-underneath hole is the ground shader's job — the
    deck-halo-under-bridges half of Matt's pick came free). `HaloCutoutDriver` (host-attached)
-   feeds three globals — chest position, radius 1.4 m, fade — and zeroes on disable, so
-   side-scroll scenes wear the same shader inert. Verified live at the Foothills Overlook:
-   player readable through the deck, rim cut cleanly at the cylinder, dither ring soft.
+   feeds the globals and zeroes on disable, so side-scroll scenes wear the same shader
+   inert.
+   **REWORKED THE SAME NIGHT after Matt drove it — the shipped design differs from the
+   first cut in four load-bearing ways:**
+   (1) **The INVERT moved INTO the geometry shaders** (`CaveInvertMask.hlsl`, applied in
+   ForwardLit of both gray-box shaders; the fullscreen pass, its material, its renderer
+   feature are DELETED). The depth-reconstruction pass died of an empty depth texture after
+   the world moved onto our own shaders — root cause never pinned, and it never needed to
+   be: geometry fragments know their world positions exactly. The void beyond the world's
+   silhouette is the CAMERA BACKGROUND, faded to black by the reveal driver (clear flags
+   stored/restored, including on teardown). No matrices, no per-camera hooks, no RenderGraph
+   binding rules. Wanderer-shaped caveat: anything on a STOCK shader outside a room stays
+   lit during a reveal (only our shaders carry the mask) — irrelevant today, remember it
+   when new shaders arrive.
+   (2) **The halo's cut volume is a CONE, not a cylinder** (Matt's shape): apex at the
+   camera, opening through a player-sized disc (radius 0.75 m) at the player's depth, far
+   cap just before the anchor. A fragment is cut only if ITS view ray strikes the disc —
+   walls BESIDE the player stay whole (the cylinder drilled smudges through every wall edge
+   walked past), while lids, canopies and cliff faces that truly screen the body always cut.
+   (3) **The halo cuts BOTH faces and never gates on geometry heuristics.** GrayBoxLit is
+   Cull Off; backfaces shade near-black (the world's inside — a hole shows dark rock, not
+   the under-terrain water plane), but backfaces INSIDE the cone are cut like anything else:
+   exempting them sealed the player behind the first shell's interior ("only cutting the
+   first thing it hits"). An above-the-head-only rule was tried and reverted — it starved
+   legitimate reveals into slits.
+   (4) **The halo is EARNED via `OverworldSightline`** (pure, tested): the grid marched
+   camera→chest — terrain mass, greeble/unwalkable cells carrying a canopy-height mass
+   (2.5 m), deck slabs by segment straddle. The sightline is deliberately LIBERAL (no
+   hugging exemptions — one hid the player behind hugged walls entirely): with a surgical
+   cone, a false trigger cuts nothing visible.
+   Also: roads wear GrayBoxLit (they must black out in reveals and take the halo);
+   billboard-disc treetops were tried and REVERTED (interlocked discs read worse than
+   blobs, and the cone sees the player through a sphere canopy anyway). The halo cuts
+   ForwardLit ONLY — never ShadowCaster (light must not leak) and never DepthOnly (cutting
+   depth there emptied the depth texture pipeline-wide once; SSAO ghost-depth in holes is a
+   gray-box shrug). Matt's verdict after driving all of it: "that fixed everything."
    Remaining slice: camera cuts (Cinemachine migration).
 
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped

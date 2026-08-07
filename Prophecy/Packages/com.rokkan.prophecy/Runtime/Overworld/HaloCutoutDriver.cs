@@ -11,32 +11,58 @@ namespace Rokkan.Prophecy.Overworld
     /// OnDisable zeroes the strength, which makes the cylinder test free-exit everywhere
     /// else. Plain globals are fine here — only RenderGraph fullscreen passes refuse them,
     /// and these are ordinary geometry passes.
+    ///
+    /// <para><b>The hole is earned, not ambient</b> (Matt, live): the halo fades in only
+    /// while <see cref="OverworldSightline"/> says the camera genuinely cannot see the
+    /// player, and never while the cave reveal is running — inside a revealed room the
+    /// player is already visible, and a halo there punches through the room's own walls
+    /// into the void.</para>
     /// </summary>
     public sealed class HaloCutoutDriver : MonoBehaviour
     {
-        [SerializeField, Tooltip("Radius of the see-through cylinder, in metres. A body's " +
+        [SerializeField, Tooltip("Radius of the cone's player-disc, in metres. A body's " +
                                  "width and a bit — enough to read the character and their " +
-                                 "immediate footing, not enough to undress the wall.")]
-        private float _radius = 1.4f;
+                                 "immediate footing, not enough to undress the wall. Tuned " +
+                                 "down twice (1.4 → 1.0 → 0.75) chasing overcut.")]
+        private float _radius = 0.75f;
 
         [SerializeField, Tooltip("Height above the feet the cylinder aims at — the chest, " +
                                  "so the hole frames the character rather than their shoes.")]
         private float _chestHeight = 0.9f;
 
         private const float FadePerSecond = 5f;
+        private OverworldBuildOutput _built;
+        private CaveRevealDriver _cave;
         private float _strength;
+
+        public void Bind(OverworldBuildOutput built)
+        {
+            _built = built;
+            _cave = GetComponent<CaveRevealDriver>();
+        }
 
         private void Update()
         {
             var director = SceneDirector.Instance;
             var player = director != null ? director.Player : null;
+            var camera = Camera.main;
 
-            _strength = Mathf.MoveTowards(_strength, player != null ? 1f : 0f,
+            var chest = player != null
+                ? player.FeetWorldPosition + Vector3.up * _chestHeight
+                : Vector3.zero;
+
+            // Chest always tracks while a player exists — a fading-out halo must die where
+            // the player IS, not snap to origin the frame its reason goes away.
+            bool wanted = player != null && camera != null
+                          && (_cave == null || !_cave.Revealing)
+                          && OverworldSightline.Blocked(
+                                 _built != null ? _built.Grid : null,
+                                 camera.transform.position, chest);
+
+            _strength = Mathf.MoveTowards(_strength, wanted ? 1f : 0f,
                                           FadePerSecond * Time.deltaTime);
 
-            if (player != null)
-                Shader.SetGlobalVector("_HaloCentre",
-                    player.FeetWorldPosition + Vector3.up * _chestHeight);
+            if (player != null) Shader.SetGlobalVector("_HaloCentre", chest);
             Shader.SetGlobalFloat("_HaloRadius", _radius);
             Shader.SetGlobalFloat("_HaloStrength", _strength);
         }

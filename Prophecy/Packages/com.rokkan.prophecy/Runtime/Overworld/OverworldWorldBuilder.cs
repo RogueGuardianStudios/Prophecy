@@ -283,11 +283,11 @@ namespace Rokkan.Prophecy.Overworld
             output.GroundMaterial.SetColorArray("_BiomeColors", BiomeColours(output.Biomes));
         }
 
-        /// <summary>The cave-room mask for the invert cutout's fullscreen pass. LINEAR on
-        /// purpose — the default sRGB flag decodes a stored 1/255 to nearly zero and the
-        /// shader's id compare dies (found the hard way, 2026-08-07). The reveal driver binds
-        /// it to the pass MATERIAL: texture GLOBALS never reach a RenderGraph fullscreen
-        /// pass, though scalar globals do — the second half of the same hard way.</summary>
+        /// <summary>The cave-room mask, read by the geometry shaders' invert branch. LINEAR
+        /// on purpose — the default sRGB flag decodes a stored 1/255 to nearly zero and the
+        /// shader's id compare dies (found the hard way, 2026-08-07). Published as GLOBALS:
+        /// ordinary geometry passes read texture globals fine — it was only the abandoned
+        /// RenderGraph fullscreen pass that refused them.</summary>
         private static void BuildCoverLut(OverworldBuildOutput output)
         {
             var grid = output.Grid;
@@ -301,6 +301,12 @@ namespace Rokkan.Prophecy.Overworld
             lut.Apply();
             output.CoverLutTexture = lut;
             output.Transient.Add(lut);
+
+            Shader.SetGlobalTexture("_CoverLut", lut);
+            Shader.SetGlobalVector("_CoverLutRect", new Vector4(
+                grid.Origin.x, grid.Origin.y,
+                1f / (grid.Width * OverworldTileGrid.CellSize),
+                1f / (grid.Height * OverworldTileGrid.CellSize)));
         }
 
         private static void RefreshCoverLut(OverworldBuildOutput output)
@@ -393,16 +399,13 @@ namespace Rokkan.Prophecy.Overworld
             mesh.RecalculateBounds();
             output.Transient.Add(mesh);
 
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            // GrayBoxLit, like everything else that occludes or inverts: a road must black
+            // out with the world during a cave reveal and take the halo like any surface.
+            var material = new Material(Shader.Find("Prophecy/GrayBoxLit"))
             {
                 name = "Road_Surface",
-                color = new Color(0.72f, 0.62f, 0.47f),
             };
-            material.SetFloat("_Smoothness", 0f);
-            material.SetFloat("_SpecularHighlights", 0f);
-            material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
-            material.SetFloat("_EnvironmentReflections", 0f);
-            material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+            material.SetColor("_BaseColor", new Color(0.72f, 0.62f, 0.47f));
             output.Transient.Add(material);
 
             var roads = new GameObject("Roads");

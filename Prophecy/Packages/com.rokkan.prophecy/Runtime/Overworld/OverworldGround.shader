@@ -43,6 +43,7 @@ Shader "Prophecy/OverworldGround"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "HaloCutout.hlsl"
+            #include "CaveInvertMask.hlsl"
 
             TEXTURE2D(_GroundLut);
             TEXTURE2D(_DetailTex);
@@ -128,6 +129,10 @@ Shader "Prophecy/OverworldGround"
                 half lambert = saturate(dot(normal, light.direction));
                 half3 lit = albedo * (light.color * (light.shadowAttenuation * lambert) +
                                       SampleSH(normal));
+
+                // Inside a cave, everything outside the active room goes to the void —
+                // applied here, where the fragment's world position is exact.
+                lit = ApplyCaveInvert(lit, input.positionWS);
                 return half4(lit, 1);
             }
             ENDHLSL
@@ -188,8 +193,6 @@ Shader "Prophecy/OverworldGround"
             #pragma vertex vert
             #pragma fragment frag
 
-            #include "HaloCutout.hlsl"
-
             struct Attributes
             {
                 float4 positionOS : POSITION;
@@ -198,22 +201,17 @@ Shader "Prophecy/OverworldGround"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float3 positionWS : TEXCOORD0;
             };
 
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
-                output.positionCS = TransformWorldToHClip(output.positionWS);
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                // Depth must agree with color about the halo's hole, or depth-reading
-                // effects see ghosts of the cut geometry.
-                ApplyHaloCutout(input.positionWS, input.positionCS);
                 return 0;
             }
             ENDHLSL

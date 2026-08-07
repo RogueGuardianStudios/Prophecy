@@ -37,7 +37,8 @@ namespace Rokkan.Prophecy.Editor.Build
         public static Material PropFoliage() =>
             Ensure("GrayBox_PropFoliage.mat", new Color(0.16f, 0.42f, 0.2f));
 
-        private static Material Ensure(string fileName, Color colour)
+        private static Material Ensure(string fileName, Color colour,
+                                       string shaderName = "Prophecy/GrayBoxLit")
         {
             string path = $"{Folder}/{fileName}";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -47,16 +48,15 @@ namespace Rokkan.Prophecy.Editor.Build
                 if (!AssetDatabase.IsValidFolder(Folder))
                     AssetDatabase.CreateFolder("Assets/_Prophecy/Data", "Materials");
 
-                material = new Material(Shader.Find("Prophecy/GrayBoxLit"));
+                material = new Material(Shader.Find(shaderName));
                 AssetDatabase.CreateAsset(material, path);
             }
 
             // Set on every run, not just on creation, so retuning the colour here reaches scenes
             // on their next regeneration — the same idempotence contract as every generator.
-            // GrayBoxLit carries the halo cutout, so a tree or a wall wearing one of these can
-            // have the see-the-player hole punched through it; in side-scroll scenes the halo
-            // strength is zero and the shader is just matte lambert.
-            material.shader = Shader.Find("Prophecy/GrayBoxLit");
+            // The gray-box shaders carry the cutaways (halo hole, cave invert); in side-scroll
+            // scenes their globals are zero and they are just matte lambert.
+            material.shader = Shader.Find(shaderName);
             material.SetColor("_BaseColor", colour);
             EditorUtility.SetDirty(material);
 
