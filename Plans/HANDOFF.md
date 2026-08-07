@@ -1256,6 +1256,25 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    note: overworld zones are scene-side for now; a map-tool noun (AuthoredCameraZone) is
    future work if the real overworld wants many of them.
 
+**COMBAT AI TESTER (2026-08-07, after the cutaways):** Matt imported the Iron Roc Warrior
+(Meshy, `Assets/MeshyImports/Iron Roc Warrior_*` — UNTRACKED like the hero's T-pose figure;
+the prefab reference lives on Matt's machine, which is the only machine) as the placeholder
+bad guy. `EnemyModelInstaller` ("Install Roc Model On Grunt") mirrors HeroModelInstaller
+onto `Enemy_Capsule.prefab`, plus one improvement: it flips the FBX importer to HUMANOID
+itself and reimports before asking for the avatar (the hero's install once stalled on that
+manual step). Scaled to StandHeight exactly — NOT bigger for menace, because the hurtbox is
+sim-side and an oversized model lies about where it can be hit. Locomotion/attacks come
+from the shared `BodyAnimationSet` retargeting onto the Roc's humanoid rig; a Meshy walk
+clip sits beside the model unused, future flavor. `GrayBox_CombatTester` (generated,
+"Generate GrayBox_CombatTester"): a FLAT featureless sparring floor — no ledges, no
+stations, nothing that could excuse the AI — with the player spawn and a
+`CombatTesterRespawner` (deliberately dumber than the encounter spawner: a metronome, not a
+menace) standing a fresh grunt up 2.5 s after each death. Verified live: the Roc spawns,
+closes and swings on its own, model animates via retargeted clips. OPEN QUESTION from the
+first live frame: the HUD logged five 10-damage slash_high hits on the player while player
+health stayed 100/100 — either the readout or the damage application wants a look while
+Matt drives the fight.
+
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
    disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the
    spawner reads the player's cell's PROVINCE (table, cadence, cap) and the provinces around
