@@ -20,6 +20,7 @@ Shader "Prophecy/CaveInvert"
         _CoverLutRect ("Mask Rect", Vector) = (0, 0, 0, 0)
         _ActiveCoverRegion ("Active Room", Float) = 0
         _CaveInvertStrength ("Strength", Float) = 0
+        _CaveRoofY ("Active Room Roof Height", Float) = 0
     }
 
     SubShader
@@ -43,6 +44,7 @@ Shader "Prophecy/CaveInvert"
             float4 _CoverLutRect;        // xy: world origin XZ; zw: 1 / world size
             float  _ActiveCoverRegion;   // room id + 1; 0 = no room active
             float  _CaveInvertStrength;  // 0..1, the driver's fade
+            float  _CaveRoofY;           // the active room's roof height, world Y
             float4x4 _CaveCamInvVP;      // the CAMERA's inverse view-projection
 
             float4 Frag(Varyings input) : SV_Target
@@ -57,13 +59,30 @@ Shader "Prophecy/CaveInvert"
 
                 // Outside the map rect (including the sky, whose far-plane world position
                 // lands nowhere near it) counts as room 0 = "no cave", which is outside
-                // every active room — exactly the void the style wants.
+                // every active room — exactly the void the style wants. Four taps a SLIVER
+                // out, OR-ed: the room's WALLS sit exactly on cell boundaries, and a single
+                // point sample there flickers with depth precision as the camera moves. The
+                // sliver is deliberately small — half a cell lit ribbons of the surrounding
+                // terrace TOP around the room, which read as ground beyond the map.
                 float2 uv = (world.xz - _CoverLutRect.xy) * _CoverLutRect.zw;
-                float id = 0.0;
-                if (all(uv >= 0.0) && all(uv <= 1.0))
-                    id = SAMPLE_TEXTURE2D_LOD(_CoverLut, sampler_CoverLut, uv, 0).r * 255.0;
+                float inside = 0.0;
+                [unroll]
+                for (int tap = 0; tap < 4; tap++)
+                {
+                    float2 offset = float2(tap < 2 ? -0.15 : 0.15,
+                                           tap % 2 == 0 ? -0.15 : 0.15) * _CoverLutRect.zw;
+                    float2 tapUv = uv + offset;
+                    if (any(tapUv < 0.0) || any(tapUv > 1.0)) continue;
+                    float id = SAMPLE_TEXTURE2D_LOD(_CoverLut, sampler_CoverLut, tapUv, 0).r
+                               * 255.0;
+                    if (abs(id - _ActiveCoverRegion) < 0.5) inside = 1.0;
+                }
 
-                float inside = abs(id - _ActiveCoverRegion) < 0.5 ? 1.0 : 0.0;
+                // The reveal exists BELOW the room's roof plane, full stop. Whatever the
+                // mask says, the terrace tops around (and over) the room stay in the void —
+                // they are the outside world, however close their cells sit.
+                if (world.y > _CaveRoofY - 0.25) inside = 0.0;
+
                 color.rgb *= 1.0 - _CaveInvertStrength * (1.0 - inside);
                 return color;
             }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Rokkan.Prophecy.World;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Rokkan.Prophecy.Overworld
 {
@@ -62,22 +63,46 @@ namespace Rokkan.Prophecy.Overworld
                 SetRoofVisible(_active, true);
                 SetRoofVisible(region, false);
                 _active = region;
+                if (region >= 0)
+                    _passMaterial.SetFloat("_CaveRoofY", RoomRoofY(region));
             }
 
             _strength = Mathf.MoveTowards(_strength, _active >= 0 ? 1f : 0f,
                                           FadePerSecond * Time.deltaTime);
             _passMaterial.SetFloat("_CaveInvertStrength", _strength);
             _passMaterial.SetFloat("_ActiveCoverRegion", _active + 1);
+        }
 
-            // renderIntoTexture: TRUE — URP draws through an intermediate target when
-            // features are present, and ComputeClipSpacePosition's UV_STARTS_AT_TOP flip
-            // pairs with that convention. The false variant looks almost right and smears
-            // the mask along view-Z, which is worse than obviously wrong.
-            var camera = Camera.main;
-            if (camera != null)
-                _passMaterial.SetMatrix("_CaveCamInvVP",
-                    (GL.GetGPUProjectionMatrix(camera.projectionMatrix, true)
-                     * camera.worldToCameraMatrix).inverse);
+        private void OnEnable() => RenderPipelineManager.beginCameraRendering += OnBeginCamera;
+
+        /// <summary>
+        /// The matrix hand-off happens HERE, per camera about to render — not in Update.
+        /// The rig moves the camera in LateUpdate, so an Update-time matrix is one frame of
+        /// camera motion stale, and the mask crawls against the image whenever anything
+        /// moves. renderIntoTexture: TRUE — URP draws through an intermediate target when
+        /// features are present, and ComputeClipSpacePosition's UV_STARTS_AT_TOP flip pairs
+        /// with that convention; false "almost works" and smears the mask along view-Z.
+        /// </summary>
+        private void OnBeginCamera(ScriptableRenderContext context, Camera camera)
+        {
+            if (_passMaterial == null) return;
+            _passMaterial.SetMatrix("_CaveCamInvVP",
+                (GL.GetGPUProjectionMatrix(camera.projectionMatrix, true)
+                 * camera.worldToCameraMatrix).inverse);
+        }
+
+        /// <summary>The room's roof plane: the highest base terrain over its cells. The
+        /// shader refuses to reveal anything above it — the terrace tops around the room
+        /// are the outside world, however close their cells sit to the mask's edge.</summary>
+        private float RoomRoofY(int region)
+        {
+            var grid = _built.Grid;
+            int highest = 1;
+            for (int z = 0; z < grid.Height; z++)
+                for (int x = 0; x < grid.Width; x++)
+                    if (grid.CoverRegionAt(x, z) == region)
+                        highest = Mathf.Max(highest, grid.LevelAt(x, z));
+            return highest * OverworldTileGrid.Step;
         }
 
         private void SetRoofVisible(int region, bool visible)
@@ -92,6 +117,7 @@ namespace Rokkan.Prophecy.Overworld
 
         private void OnDisable()
         {
+            RenderPipelineManager.beginCameraRendering -= OnBeginCamera;
             SetRoofVisible(_active, true);
             _active = -1;
             _strength = 0f;
