@@ -1192,8 +1192,22 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    Material.SetTexture → the Properties block is load-bearing; UNITY_MATRIX_I_VP in a
    fullscreen pass is the blit's matrix, and the camera inverse VP must be handed over with
    GL.GetGPUProjectionMatrix(renderIntoTexture: TRUE) — false "almost works" and smears the
-   mask along view-Z. Tool: Layer selection panel gained the Cover dropdown. Remaining
-   slices: halo (+ bridge deck halo), camera cuts.
+   mask along view-Z. Tool: Layer selection panel gained the Cover dropdown.
+   **Slice 2 BUILT (2026-08-07, same day): the HALO cutout.** `HaloCutout.hlsl` — a
+   world-space cylinder along the camera→player axis; fragments inside the radius AND
+   nearer than the player (margins both ends, so their footing and back wall stay whole)
+   are Bayer-4×4 dither-discarded with a soft edge in the outer 40%. Cut in ForwardLit AND
+   DepthOnly (depth must agree with color or depth-reading effects see ghosts of cut
+   geometry), NEVER ShadowCaster (the hole is a courtesy to the camera, not a hole in the
+   world — light does not leak). Lives in TWO shaders: `Prophecy/GrayBoxLit` (new — guide
+   texture/plain colour matte lambert, replaces URP Lit on ALL tile and gray-box materials
+   via the generators' idempotent set-every-run) and `Prophecy/OverworldGround` (bridge
+   DECKS are caps, so the see-the-player-underneath hole is the ground shader's job — the
+   deck-halo-under-bridges half of Matt's pick came free). `HaloCutoutDriver` (host-attached)
+   feeds three globals — chest position, radius 1.4 m, fade — and zeroes on disable, so
+   side-scroll scenes wear the same shader inert. Verified live at the Foothills Overlook:
+   player readable through the deck, rim cut cleanly at the cylinder, dither ring soft.
+   Remaining slice: camera cuts (Cinemachine migration).
 
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
    disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the

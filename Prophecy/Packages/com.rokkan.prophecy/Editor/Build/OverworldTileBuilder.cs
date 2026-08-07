@@ -152,9 +152,14 @@ namespace Rokkan.Prophecy.Editor.Build
 
             if (material == null)
             {
-                material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                material = new Material(Shader.Find("Prophecy/GrayBoxLit"));
                 AssetDatabase.CreateAsset(material, path);
             }
+
+            // Set every regenerate, not just on creation (the idempotence contract): the
+            // gray-box lit shader carries the halo cutout, and it is matte by construction —
+            // the old URP Lit smoothness/keyword dance is gone with it.
+            material.shader = Shader.Find("Prophecy/GrayBoxLit");
 
             // The guide is the placeholder skin. A real texture (anything outside UVGuides)
             // survives a regenerate — that is the reskin contract.
@@ -166,15 +171,6 @@ namespace Rokkan.Prophecy.Editor.Build
                 material.SetTexture("_BaseMap", guideTex);
                 material.SetColor("_BaseColor", Color.white);
             }
-
-            // Matte, every regenerate: the URP default smoothness puts a specular glint on every
-            // stair riser edge, and glints crawling under a moving camera read exactly like
-            // z-fighting. Gray-box rock does not gleam.
-            material.SetFloat("_Smoothness", 0f);
-            material.SetFloat("_SpecularHighlights", 0f);
-            material.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
-            material.SetFloat("_EnvironmentReflections", 0f);
-            material.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
 
             EditorUtility.SetDirty(material);
             return material;

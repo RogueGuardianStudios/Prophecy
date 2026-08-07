@@ -95,9 +95,10 @@ namespace Rokkan.Prophecy.Overworld
                 : new TileGridGround(_built.Grid);
             Presentation.TopDownGroundSource.Current = _published;
 
-            // The invert cutaway's runtime half — play mode only, so the editor preview never
-            // hides a roof or darkens a scene view.
+            // The cutaways' runtime halves — play mode only, so the editor preview never
+            // hides a roof, darkens a scene view, or punches a hole in a wall.
             gameObject.AddComponent<CaveRevealDriver>().Bind(_built);
+            gameObject.AddComponent<HaloCutoutDriver>();
         }
 
         /// <summary>
