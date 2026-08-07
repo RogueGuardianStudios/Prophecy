@@ -849,6 +849,16 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void ACameraCutZoneKnowsItsInside()
+        {
+            var half = new Vector3(3f, 2f, 1.5f);
+            Assert.IsTrue(Rokkan.Prophecy.Presentation.CameraCutZone.Contains(
+                half, new Vector3(2.9f, -1.9f, 1.4f)), "Corners count…");
+            Assert.IsFalse(Rokkan.Prophecy.Presentation.CameraCutZone.Contains(
+                half, new Vector3(0f, 0f, 1.6f)), "…a step past any face does not.");
+        }
+
+        [Test]
         public void WanderersSpawnOnPlainGroundOnly()
         {
             var map = PlainMap(8f);

@@ -1240,7 +1240,21 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    ForwardLit ONLY — never ShadowCaster (light must not leak) and never DepthOnly (cutting
    depth there emptied the depth texture pipeline-wide once; SSAO ghost-depth in holes is a
    gray-box shrug). Matt's verdict after driving all of it: "that fixed everything."
-   Remaining slice: camera cuts (Cinemachine migration).
+   **Slice 3 BUILT (2026-08-07): CAMERA CUT zones — and the "Cinemachine migration" turned
+   out to already be reality** (OverworldCameraRig has been a CinemachineCamera + Position
+   Composer with priority handover all along; nothing to migrate). `CameraCutZone`
+   (Presentation): a feet-in-volume trigger resolved like a portal — OBB via
+   InverseTransformPoint, no colliders — that raises a posed shot vcam's priority (rig 50 →
+   zone 150) while the player stands inside, per-zone blend seconds (0 = hard cut; the
+   brain's default blend is set per transition and RESTORED on teardown). The shot is
+   authored AS A CAMERA — its transform and lens are the framing — and the zone
+   SELF-ASSEMBLES one from serialized pose numbers when none is wired, so scene generators
+   stay Cinemachine-free (the rigs' own pattern). `SetHeld(bool)` is the interaction-system
+   hook for later conversation/lever shots. Demo: CameraCut_EastwaterBridge in the overworld
+   builder — crossing the bridge eases 0.7 s into a low yawed river vista (the rig doc's
+   sanctioned set-piece yaw), stepping off hands back. Verified live both ways. Authoring
+   note: overworld zones are scene-side for now; a map-tool noun (AuthoredCameraZone) is
+   future work if the real overworld wants many of them.
 
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
    disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the

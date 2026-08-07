@@ -102,6 +102,7 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateCamera(tuning);
             CreateCombatDirector();
             CreateEncounters(markers);
+            CreateCameraCut(markers);
         }
 
         /// <summary>
@@ -261,6 +262,27 @@ namespace Rokkan.Prophecy.Editor.Build
             var director = new GameObject("CombatDirector");
             var component = director.AddComponent<CombatDirector>();
             SetPrivate(component, "_space", MovementSpace.TopDown);
+        }
+
+        /// <summary>
+        /// Cutaway style 3's demo: crossing the Eastwater Bridge eases the camera into a
+        /// low, yawed river shot — the deck, the channel, the falls — and hands back on
+        /// stepping off. The zone self-assembles its Cinemachine shot from the pose numbers
+        /// (this assembly deliberately knows nothing of Cinemachine, same as with the rigs);
+        /// the yaw is the rig doc's sanctioned exception: an authored set-piece.
+        /// </summary>
+        private static void CreateCameraCut(Transform markers)
+        {
+            var zone = new GameObject("CameraCut_EastwaterBridge");
+            zone.transform.SetParent(markers, false);
+            zone.transform.position = new Vector3(12.7f, 0f, -4.5f);
+
+            var cut = zone.AddComponent<CameraCutZone>();
+            SetPrivate(cut, "_halfExtents", new Vector3(3.2f, 2f, 1.6f));
+            SetPrivate(cut, "_blendSeconds", 0.7f);
+            SetPrivate(cut, "_shotLocalPosition", new Vector3(-7f, 4.5f, -9f));
+            SetPrivate(cut, "_shotEulerAngles", new Vector3(24f, 38f, 0f));
+            SetPrivate(cut, "_shotFieldOfView", 38f);
         }
 
         /// <summary>The Zelda II layer: wanderers popping up around the player.</summary>
