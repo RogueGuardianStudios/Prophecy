@@ -316,6 +316,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
             string shapeName = null;
             OverworldProvince province = null;
             bool takesProvince = false;
+            CoverStyle cover = CoverStyle.Auto;
+            bool takesCover = false;
 
             switch (_selectedKind)
             {
@@ -352,6 +354,8 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 case OverworldShapeHandles.KindLayer when InRange(_map.Layers):
                     kindLabel = "Layer";
                     shapeName = _map.Layers[_selectedIndex].Name;
+                    cover = _map.Layers[_selectedIndex].Cover;
+                    takesCover = true;
                     break;
             }
 
@@ -377,8 +381,16 @@ namespace Rokkan.Prophecy.Editor.MapTool
                         newProvince = CreateProvinceAsset(newName);
                 }
             }
+            CoverStyle newCover = cover;
+            if (takesCover)
+                newCover = (CoverStyle)EditorGUILayout.EnumPopup(
+                    new GUIContent("Cover", "Cave inverts the picture when the player is " +
+                                            "underneath; Bridge does not. Auto derives it: " +
+                                            "floor below terrain = Cave, deck above = Bridge."),
+                    cover);
 
-            if (!EditorGUI.EndChangeCheck() && newProvince == province) return;
+            if (!EditorGUI.EndChangeCheck() && newProvince == province && newCover == cover)
+                return;
 
             Undo.RecordObject(_map, "Edit Overworld Shape");
             switch (_selectedKind)
@@ -402,7 +414,9 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 case OverworldShapeHandles.KindRoad:
                     _map.Roads[_selectedIndex].Name = newName; break;
                 case OverworldShapeHandles.KindLayer:
-                    _map.Layers[_selectedIndex].Name = newName; break;
+                    _map.Layers[_selectedIndex].Name = newName;
+                    _map.Layers[_selectedIndex].Cover = newCover;
+                    break;
             }
             EditorUtility.SetDirty(_map);
             _canvas.MarkStale();

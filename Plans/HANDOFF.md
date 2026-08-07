@@ -1167,6 +1167,34 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    `CarveUnwalkables` (see props gap above) because the mesh became a steering authority the
    moment the oracle shipped.
 
+   **THE THREE CUTAWAY STYLES (Matt, 2026-08-07)** — the deferred camera/shader conversation
+   landed: (1) HALO cutout for walking behind things, (2) INVERT cutout for caves (world goes
+   black, the covered room is revealed), (3) CAMERA CUT zones that re-orient to display
+   something. Decisions: build order invert → halo → camera cut; cave-vs-bridge is a
+   `CoverStyle` flag on the layer noun (Auto derives from geometry — floor below terrain =
+   Cave, deck above = Bridge — override for overhangs), bridges additionally get a deck halo
+   in slice 2; camera cuts ride a CINEMACHINE MIGRATION of the overworld rig (Matt chose the
+   bigger rebuild over a pose-override stack).
+   **Slice 1 BUILT (2026-08-07): the INVERT cutout.** Compiler: `SetOverlay` resolves cover
+   style at stamp time, `BakeCoverRegions` flood-fills connected cave cells into rooms
+   (`CoverRegionAt`, 255 cap); `OverworldCoverLut.Bake` = R8 room mask;
+   `OverworldCoverRules.ActiveCaveRegion` = the one runtime decision (on the covered FLOOR,
+   not the roof — RoofClearance 1 m), all headless-tested (825 green). Builder: LINEAR R8
+   mask texture, roof pieces bucketed per room at Place time (OwnerCell in room + y above
+   floor + 1 m), pruned on chunk rebuilds. Runtime: `CaveRevealDriver` (host-attached, play
+   only) hides the active room's roof and fades `Prophecy/CaveInvert` — a FullScreenPass
+   renderer feature on PC_Renderer that reconstructs world XZ from depth and blacks
+   everything outside the room's mask. The Foothills Hollow needed ZERO touches: Auto
+   derived it Cave. **FOUR TRAPS, paid for live:** texture GLOBALS never reach a RenderGraph
+   fullscreen pass (scalar globals do) → bind through the pass MATERIAL, loaded via
+   Resources; `new Texture2D` defaults to sRGB, which crushes an R8 id mask to ~zero → pass
+   linear:true; a shader uniform WITHOUT a Properties entry silently refuses
+   Material.SetTexture → the Properties block is load-bearing; UNITY_MATRIX_I_VP in a
+   fullscreen pass is the blit's matrix, and the camera inverse VP must be handed over with
+   GL.GetGPUProjectionMatrix(renderIntoTexture: TRUE) — false "almost works" and smears the
+   mask along view-Z. Tool: Layer selection panel gained the Cover dropdown. Remaining
+   slices: halo (+ bridge deck halo), camera cuts.
+
    **Wanderers are back ON (2026-08-05) — safety became an authored property.** They shipped
    disabled 2026-08-04 because an idle player was hunted on an eleven-second fuse; now the
    spawner reads the player's cell's PROVINCE (table, cadence, cap) and the provinces around

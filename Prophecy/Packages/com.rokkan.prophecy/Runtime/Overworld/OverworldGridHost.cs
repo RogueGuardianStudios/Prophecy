@@ -94,6 +94,10 @@ namespace Rokkan.Prophecy.Overworld
                 ? (ITopDownGround)new NavMeshGround()
                 : new TileGridGround(_built.Grid);
             Presentation.TopDownGroundSource.Current = _published;
+
+            // The invert cutaway's runtime half — play mode only, so the editor preview never
+            // hides a roof or darkens a scene view.
+            gameObject.AddComponent<CaveRevealDriver>().Bind(_built);
         }
 
         /// <summary>

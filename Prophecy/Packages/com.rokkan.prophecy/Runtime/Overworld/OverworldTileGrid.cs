@@ -114,6 +114,14 @@ namespace Rokkan.Prophecy.Overworld
             _rampIndices[i] = (byte)Mathf.Clamp(rampIndex, 0, RampRun - 1);
         }
 
+        // Resolved cover style per overlay cell (true = cave), and the cave-region ids the
+        // compiler bakes last: connected cave-covered cells share an id, so "which room am I
+        // in" is one array read at runtime. Bridges need no regions — their behaviour is
+        // per-cell (the halo through the deck), not per-room.
+        private readonly Dictionary<int, bool> _caveCover = new Dictionary<int, bool>();
+        private byte[] _coverRegions;
+        private int _coverRegionCount;
+
         /// <summary>The cell's overlay surface — bridge deck or cave floor — if it has one.</summary>
         public bool TryOverlayAt(int x, int z, out int level)
         {
@@ -129,7 +137,81 @@ namespace Rokkan.Prophecy.Overworld
 
         public void SetOverlay(int x, int z, int level)
         {
-            if (InBounds(x, z)) _overlays[z * _width + x] = (sbyte)level;
+            // Auto style: a floor below the terrain is a cave (the terrain is its roof), a
+            // deck above it a bridge. Resolved HERE, at stamp time, because this is the one
+            // moment both the overlay's level and the finished terrain level are in hand.
+            SetOverlay(x, z, level,
+                       level < LevelAt(x, z) && KindAt(x, z) == TileCellKind.Ground
+                           ? CoverStyle.Cave : CoverStyle.Bridge);
+        }
+
+        public void SetOverlay(int x, int z, int level, CoverStyle resolved)
+        {
+            if (!InBounds(x, z)) return;
+            _overlays[z * _width + x] = (sbyte)level;
+            _caveCover[z * _width + x] = resolved == CoverStyle.Cave;
+        }
+
+        /// <summary>True when the cell has cover at all; <paramref name="isCave"/> says which
+        /// kind — cave cover inverts the picture, bridge cover does not.</summary>
+        public bool TryCoverAt(int x, int z, out bool isCave)
+        {
+            if (InBounds(x, z) && _caveCover.TryGetValue(z * _width + x, out bool cave))
+            {
+                isCave = cave;
+                return true;
+            }
+
+            isCave = false;
+            return false;
+        }
+
+        /// <summary>The connected cave room this cell belongs to, or −1. Baked by the
+        /// compiler after everything that can move terrain has had its say.</summary>
+        public int CoverRegionAt(int x, int z)
+        {
+            if (_coverRegions == null || !InBounds(x, z)) return -1;
+            byte id = _coverRegions[z * _width + x];
+            return id == 255 ? -1 : id;
+        }
+
+        public int CoverRegionCount => _coverRegionCount;
+
+        /// <summary>Flood-fill connected cave-covered cells into rooms (4-connected, capped at
+        /// 255 rooms — a map with more has bigger problems). Public so hand-built test grids
+        /// can bake without the compiler.</summary>
+        public void BakeCoverRegions()
+        {
+            _coverRegions = new byte[_width * _height];
+            for (int i = 0; i < _coverRegions.Length; i++) _coverRegions[i] = 255;
+            _coverRegionCount = 0;
+
+            var stack = new Stack<(int x, int z)>();
+            for (int z = 0; z < _height; z++)
+            {
+                for (int x = 0; x < _width; x++)
+                {
+                    if (_coverRegions[z * _width + x] != 255) continue;
+                    if (!TryCoverAt(x, z, out bool cave) || !cave) continue;
+                    if (_coverRegionCount >= 255) return;
+
+                    byte id = (byte)_coverRegionCount++;
+                    stack.Push((x, z));
+                    while (stack.Count > 0)
+                    {
+                        var (cx, cz) = stack.Pop();
+                        if (!InBounds(cx, cz)) continue;
+                        if (_coverRegions[cz * _width + cx] != 255) continue;
+                        if (!TryCoverAt(cx, cz, out bool c) || !c) continue;
+
+                        _coverRegions[cz * _width + cx] = id;
+                        stack.Push((cx + 1, cz));
+                        stack.Push((cx - 1, cz));
+                        stack.Push((cx, cz + 1));
+                        stack.Push((cx, cz - 1));
+                    }
+                }
+            }
         }
 
         // Road cells are paint: the host draws a strip over their walk surface and nothing else
@@ -397,6 +479,7 @@ namespace Rokkan.Prophecy.Overworld
             RasterProvinces(grid, map, offset);
             RasterProps(grid, map, offset);
             ApplyUnwalkableOverrides(grid, map);
+            grid.BakeCoverRegions();   // derived data, after everything that shapes terrain
 
             return grid;
         }
@@ -868,8 +951,12 @@ namespace Rokkan.Prophecy.Overworld
                         float localX = p.x * cos - p.y * sin;
                         float localZ = p.x * sin + p.y * cos;
 
-                        if (Mathf.Abs(localX) <= half.x && Mathf.Abs(localZ) <= half.y)
-                            grid.SetOverlay(x, z, level);
+                        if (Mathf.Abs(localX) > half.x || Mathf.Abs(localZ) > half.y) continue;
+
+                        if (authored.Cover == CoverStyle.Auto)
+                            grid.SetOverlay(x, z, level);           // derive cave/bridge
+                        else
+                            grid.SetOverlay(x, z, level, authored.Cover);
                     }
                 }
             }

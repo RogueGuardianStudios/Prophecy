@@ -42,6 +42,13 @@ namespace Rokkan.Prophecy.Overworld
         // re-instantiated.
         public Material GroundMaterial;
         public Texture2D GroundLutTexture;
+
+        // The invert cutout's data: the cave-room mask texture (published as shader globals
+        // for the fullscreen pass) and each room's roof pieces, hidden wholesale when the
+        // player stands inside that room.
+        public Texture2D CoverLutTexture;
+        public readonly Dictionary<int, List<GameObject>> RoofByRegion =
+            new Dictionary<int, List<GameObject>>();
     }
 
     public struct ChunkRoots
@@ -87,6 +94,7 @@ namespace Rokkan.Prophecy.Overworld
             output.Placements = TilePiecePlanner.Plan(output.Grid, stairsForRamps);
 
             BuildGroundMaterial(output);
+            BuildCoverLut(output);
 
             for (int i = 0; i < output.Placements.Count; i++)
                 Place(output, output.Placements[i]);
@@ -112,6 +120,7 @@ namespace Rokkan.Prophecy.Overworld
             output.Placements = TilePiecePlanner.Plan(output.Grid, output.StairsForRamps);
 
             RefreshGroundLut(output);
+            RefreshCoverLut(output);
 
             foreach (var chunk in dirty)
             {
@@ -119,6 +128,11 @@ namespace Rokkan.Prophecy.Overworld
                 DestroyChildren(roots.Walkable);
                 DestroyChildren(roots.Scenery);
             }
+
+            // Roof buckets: the teardown above just killed some entries, and re-Placing the
+            // dirty chunks below re-adds their pieces — prune the dead so lists stay honest.
+            foreach (var list in output.RoofByRegion.Values)
+                list.RemoveAll(go => go == null);
 
             for (int i = 0; i < output.Placements.Count; i++)
             {
@@ -200,6 +214,24 @@ namespace Rokkan.Prophecy.Overworld
             if (placement.Piece == OverworldTilePiece.Cap && output.GroundMaterial != null)
                 foreach (var renderer in instance.GetComponentsInChildren<MeshRenderer>())
                     renderer.sharedMaterial = output.GroundMaterial;
+
+            // Roof bookkeeping for the invert cutout: a piece owned by a cave-room cell that
+            // sits above the room's floor IS its roof (the base-terrain cap over the corridor,
+            // its skirts, the mouth face). The reveal driver hides the room's list wholesale
+            // when the player is inside; everything at floor height stays.
+            var owner = placement.OwnerCell;
+            if (owner.x >= 0)
+            {
+                int region = output.Grid.CoverRegionAt(owner.x, owner.y);
+                if (region >= 0
+                    && output.Grid.TryOverlayAt(owner.x, owner.y, out int floorLevel)
+                    && placement.Position.y > floorLevel * OverworldTileGrid.Step + 1f)
+                {
+                    if (!output.RoofByRegion.TryGetValue(region, out var list))
+                        output.RoofByRegion[region] = list = new List<GameObject>();
+                    list.Add(instance);
+                }
+            }
         }
 
         // ---------------------------------------------------------------- the ground LUT
@@ -249,6 +281,38 @@ namespace Rokkan.Prophecy.Overworld
             output.GroundLutTexture.SetPixels32(OverworldGroundLut.Bake(output.Grid));
             output.GroundLutTexture.Apply();
             output.GroundMaterial.SetColorArray("_BiomeColors", BiomeColours(output.Biomes));
+        }
+
+        /// <summary>The cave-room mask for the invert cutout's fullscreen pass. LINEAR on
+        /// purpose — the default sRGB flag decodes a stored 1/255 to nearly zero and the
+        /// shader's id compare dies (found the hard way, 2026-08-07). The reveal driver binds
+        /// it to the pass MATERIAL: texture GLOBALS never reach a RenderGraph fullscreen
+        /// pass, though scalar globals do — the second half of the same hard way.</summary>
+        private static void BuildCoverLut(OverworldBuildOutput output)
+        {
+            var grid = output.Grid;
+            var lut = new Texture2D(grid.Width, grid.Height, TextureFormat.R8, false, true)
+            {
+                name = "OverworldCoverLut",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            lut.SetPixelData(OverworldCoverLut.Bake(grid), 0);
+            lut.Apply();
+            output.CoverLutTexture = lut;
+            output.Transient.Add(lut);
+        }
+
+        private static void RefreshCoverLut(OverworldBuildOutput output)
+        {
+            if (output.CoverLutTexture == null)
+            {
+                BuildCoverLut(output);
+                return;
+            }
+
+            output.CoverLutTexture.SetPixelData(OverworldCoverLut.Bake(output.Grid), 0);
+            output.CoverLutTexture.Apply();
         }
 
         private static Color[] BiomeColours(OverworldBiomePalette palette)

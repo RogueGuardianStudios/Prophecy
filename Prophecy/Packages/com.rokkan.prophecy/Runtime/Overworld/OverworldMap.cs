@@ -87,6 +87,25 @@ namespace Rokkan.Prophecy.Overworld
         Rectangular,
     }
 
+    /// <summary>What being UNDER a layer's cover does to the picture — the three-cutaway
+    /// conversation's first noun (Matt, 2026-08-07). Cave inverts: the world outside goes
+    /// black and the covered room is revealed. Bridge does not: the player just passes
+    /// beneath (a halo through the deck keeps them visible — cutaway slice 2).</summary>
+    public enum CoverStyle : byte
+    {
+        /// <summary>Derive from geometry: a floor below the terrain is a Cave, a deck above
+        /// it is a Bridge. Right for almost everything; override for the ambiguous shapes.</summary>
+        Auto,
+
+        /// <summary>Force cave behaviour — an overhang above a walkway that should still
+        /// read as a covered tunnel.</summary>
+        Cave,
+
+        /// <summary>Force bridge behaviour — an under-terrain passage that should NOT
+        /// invert (a shallow underpass, say).</summary>
+        Bridge,
+    }
+
     /// <summary>
     /// A hand-authored SECOND walkable surface over a footprint: below the terrain it is a cave
     /// floor (the terrain above becomes the roof), above it a bridge deck or overhang. Its edges
@@ -111,6 +130,10 @@ namespace Rokkan.Prophecy.Overworld
         [Tooltip("Elevation of the extra surface. Below the terrain here: a cave floor. Above " +
                  "it: a bridge deck or overhang.")]
         public float Y;
+
+        [Tooltip("Cave inverts the picture when the player is underneath (outside goes black, " +
+                 "the room is revealed); Bridge does not. Auto derives it from the geometry.")]
+        public CoverStyle Cover = CoverStyle.Auto;
     }
 
     /// <summary>

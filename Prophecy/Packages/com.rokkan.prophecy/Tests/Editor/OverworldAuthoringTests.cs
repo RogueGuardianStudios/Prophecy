@@ -701,6 +701,114 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void CaveAndBridgeDeriveFromGeometryAndTheFlagOverrides()
+        {
+            var map = PlainMap(12f);
+            map.Regions = new[]
+            {
+                map.Regions[0],
+                new AuthoredRegion { Name = "Terrace", Centre = new Vector2(-3f, 0f),
+                                     Size = new Vector2(6f, 6f), Y = OverworldTileGrid.Step },
+            };
+            map.Layers = new[]
+            {
+                // A floor at plain level under the terrace: cave, by geometry.
+                new AuthoredLayer { Name = "Hollow", Centre = new Vector2(-3f, 0f),
+                                    Size = new Vector2(2f, 2f), Y = 0f },
+                // A deck above open ground: bridge, by geometry.
+                new AuthoredLayer { Name = "Deck", Centre = new Vector2(3f, 3f),
+                                    Size = new Vector2(2f, 2f), Y = OverworldTileGrid.Step },
+                // A deck above open ground FLAGGED Cave — the overhang case.
+                new AuthoredLayer { Name = "Overhang", Centre = new Vector2(3f, -3f),
+                                    Size = new Vector2(2f, 2f), Y = OverworldTileGrid.Step,
+                                    Cover = CoverStyle.Cave },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            Assert.IsTrue(grid.TryCoverAt(3, 6, out bool hollowCave) && hollowCave,
+                "A floor below the terrain derives Cave…");
+            Assert.GreaterOrEqual(grid.CoverRegionAt(3, 6), 0, "…and gets a room id.");
+
+            Assert.IsTrue(grid.TryCoverAt(9, 9, out bool deckCave) && !deckCave,
+                "A deck above the terrain derives Bridge…");
+            Assert.AreEqual(-1, grid.CoverRegionAt(9, 9), "…and bridges have no rooms.");
+
+            Assert.IsTrue(grid.TryCoverAt(9, 3, out bool overhangCave) && overhangCave,
+                "The flag overrides geometry: an overhang can insist on being a cave.");
+
+            Assert.IsFalse(grid.TryCoverAt(6, 6, out _), "Open ground has no cover at all.");
+        }
+
+        [Test]
+        public void EachCaveIsItsOwnRoom()
+        {
+            var map = PlainMap(12f);
+            map.Regions = new[]
+            {
+                map.Regions[0],
+                new AuthoredRegion { Name = "Terrace", Centre = Vector2.zero,
+                                     Size = new Vector2(12f, 12f), Y = OverworldTileGrid.Step },
+            };
+            map.Layers = new[]
+            {
+                new AuthoredLayer { Name = "West Hollow", Centre = new Vector2(-4f, 0f),
+                                    Size = new Vector2(2f, 2f), Y = 0f },
+                new AuthoredLayer { Name = "East Hollow", Centre = new Vector2(4f, 0f),
+                                    Size = new Vector2(2f, 2f), Y = 0f },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+
+            int west = grid.CoverRegionAt(2, 6);
+            int east = grid.CoverRegionAt(10, 6);
+            Assert.GreaterOrEqual(west, 0);
+            Assert.GreaterOrEqual(east, 0);
+            Assert.AreNotEqual(west, east, "Disconnected hollows are different rooms.");
+            Assert.AreEqual(2, grid.CoverRegionCount);
+            Assert.AreEqual(west, grid.CoverRegionAt(1, 6),
+                "Adjacent cells of one hollow share its room.");
+
+            var lut = OverworldCoverLut.Bake(grid);
+            Assert.AreEqual(west + 1, lut[6 * grid.Width + 2],
+                "The mask names the room, id plus one…");
+            Assert.AreEqual(0, lut[0], "…and zero where there is no cave.");
+        }
+
+        [Test]
+        public void InsideMeansUnderTheRoofNotOnIt()
+        {
+            var map = PlainMap(12f);
+            map.Regions = new[]
+            {
+                map.Regions[0],
+                new AuthoredRegion { Name = "Terrace", Centre = new Vector2(-3f, 0f),
+                                     Size = new Vector2(6f, 6f), Y = OverworldTileGrid.Step },
+            };
+            map.Layers = new[]
+            {
+                new AuthoredLayer { Name = "Hollow", Centre = new Vector2(-3f, 0f),
+                                    Size = new Vector2(2f, 2f), Y = 0f },
+            };
+
+            var grid = OverworldTileGridCompiler.Compile(map, Vector3.zero);
+            var floor = grid.CellCentre(3, 6);
+
+            Assert.GreaterOrEqual(
+                OverworldCoverRules.ActiveCaveRegion(grid, new Vector3(floor.x, 0f, floor.y)),
+                0, "Feet on the covered floor are inside the room.");
+            Assert.AreEqual(-1,
+                OverworldCoverRules.ActiveCaveRegion(
+                    grid, new Vector3(floor.x, OverworldTileGrid.Step, floor.y)),
+                "Feet on the ROOF are not inside the room beneath them.");
+
+            var open = grid.CellCentre(9, 6);
+            Assert.AreEqual(-1,
+                OverworldCoverRules.ActiveCaveRegion(grid, new Vector3(open.x, 0f, open.y)),
+                "Open ground is inside nothing.");
+        }
+
+        [Test]
         public void WanderersSpawnOnPlainGroundOnly()
         {
             var map = PlainMap(8f);
