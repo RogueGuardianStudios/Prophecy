@@ -57,6 +57,14 @@ namespace Rokkan.Prophecy.Sim.AI
         /// <summary>True while any press is waiting to be spent. For diagnostics.</summary>
         public bool HasPendingPress => _attack || _jump || _dodge;
 
+        /// <summary>An attack press is waiting to be spent. The pacing gate reads this.</summary>
+        public bool HasPendingAttack => _attack;
+
+        /// <summary>Take back an unspent attack press — the attack director's veto. The one
+        /// intent a brain can be overruled on, because permission to swing is the fight's to
+        /// give, not the brain's to take.</summary>
+        public void CancelAttackPress() => _attack = false;
+
         /// <summary>
         /// Turn this into one tick of input, spending every latched press.
         ///

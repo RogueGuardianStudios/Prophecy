@@ -85,7 +85,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // anything else so no hit lands on the tick control was taken away.
             if (_runner.IsAttacking && !sim.HoldsLock(this))
             {
-                Abandon();
+                Abandon(sim, info.Tick);
                 return;
             }
 
@@ -98,7 +98,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (!_runner.IsAttacking)
             {
                 // Ran out with nothing queued. Control comes back this tick, not next.
-                Finish(sim);
+                Finish(sim, info.Tick);
                 return;
             }
 
@@ -171,20 +171,31 @@ namespace Rokkan.Prophecy.Sim.Abilities
             }
 
             _sweep.Begin();
+
+            // The attack REALLY started — tell the fight, so the attack director's pacing
+            // spends its token here and never on a press that a lock or a stun stripped.
+            (sim.CombatWorld as IAttackObserver)
+                ?.OnAttackStarted(state.CombatId, info.Tick, definition.TotalTicks);
         }
 
-        private void Finish(CharacterSim sim)
+        private void Finish(CharacterSim sim, long tick)
         {
             sim.ReleaseLock(this);
             _sweep.Begin();
+
+            (sim.CombatWorld as IAttackObserver)?.OnAttackEnded(sim.State.CombatId, tick);
         }
 
         /// <summary>Interrupted by something with a stronger claim. The lock is already theirs, so
-        /// releasing it here would free <i>their</i> claim — hence only local state is cleared.</summary>
-        private void Abandon()
+        /// releasing it here would free <i>their</i> claim — hence only local state is cleared.
+        /// The fight still hears the end: an interrupted attack frees the pacing budget the
+        /// same tick, though its beat — stamped at the start — still holds.</summary>
+        private void Abandon(CharacterSim sim, long tick)
         {
             _runner.End();
             _sweep.Begin();
+
+            (sim.CombatWorld as IAttackObserver)?.OnAttackEnded(sim.State.CombatId, tick);
         }
 
         // ------------------------------------------------------------------ hits

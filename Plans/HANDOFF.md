@@ -1256,6 +1256,41 @@ built since. Renumbered and re-checked against the code on 2026-07-30.)*
    note: overworld zones are scene-side for now; a map-tool noun (AuthoredCameraZone) is
    future work if the real overworld wants many of them.
 
+**THE ATTACK DIRECTOR (2026-08-07, night) — §11.11 BUILT, and the rapid fire is dead.**
+The Roc machine-gunned its slash (~46-tick hit deltas, ~5 ticks of neutral) because
+`SwingSettings.RecoveryTicks=45` was reasoned against the player's 22-tick move, then
+`SlowWindUp` grew the enemy's move to 40 ticks and nobody moved the 45 — and NOTHING
+remembered when an enemy last attacked (scratch wiped per plan, instant replan on success,
+zero sim-side lockout; the authored `AttackCooldownTicks=90` ran only in the non-GOAP
+fallback). Built exactly to the §11.11 seam: **`AttackDirector`** (plain C#, owned by
+`CombatState.Attacks`, ticked FIRST in the fight's tick) grants tokens from Melee/Ranged
+budgets (1 each) to the longest-idle standing requester, deterministic, space-agnostic.
+The token is consumed on the REAL attack start — `AttackModule` reports start/end through
+`IAttackObserver` — and the beat stamps there:
+`next = start + max(authoredBeat, TotalTicks + MinNeutralGap)` — the drift class is
+structurally impossible. Return on Finish AND Abandon; **a parried attack still spends its
+beat** (Matt: the parry buys the stun AND the beat). Silent holders lapse. The press gate
+(`AttackPacingLink`, applied in `EnemyBrainHost.ConsumeFrame`) strips unlicensed presses —
+paces the planner AND the fallback with one rule. GOAP: `ProphecyAttackTokenSensor`
+publishes `HasAttackToken`; Swing/Fire take it as a precondition; `StrikeTarget` takes it
+as VALIDITY (refused enemies plan idle cleanly); the grunt gained **GiveGround** (Matt's
+refused pose: KeepDistance to 2 m, facing you — the in-and-out duel). `SwingStrategy`
+dropped its blind RecoveryTicks and OBSERVES the attack module: Success means "it swung",
+a stripped press Fails to the planner. **§11.10 DECIDED with it:** double damage stands;
+longest-stun-wins was ALREADY the code (`CharacterSim.Stun` — the section's old
+"second hit wins" text was stale). Overlay: hit log prints `#attacker->#target`, a pacing
+column shows TOKEN/IN-FLIGHT/beat-remaining, and `_host` resolution now refuses enemy
+hosts (a host with an `EnemyBrainHost` beside it is an enemy — the overlay once reported
+a grunt's full health while the player died beside it, which manufactured the "100/100
+mystery"). Generation-time warning if the authored beat cannot outlast the move.
+**TRAP paid for live: the request-freshness window.** The director grants on the clock's
+tick; an enemy stamps requests with its sim's pre-advance tick, legitimately trailing by
+two — a freshness window of 1 refused every request forever (token never granted, enemy
+never attacked). `RequestFreshTicks=3`. 22 new tests (director grant/beat/fairness/lapse
+pure; a mashing brain through the real sim proving starts ≥ beat; brain-asset wiring
+assertions) — 849 green. Live: hit deltas 116–121 ticks (beat 90 + approach), verified in
+the tester. Ambusher's Spring stays un-tokened (trap, not duelist — revisit at the horde).
+
 **COMBAT AI TESTER (2026-08-07, after the cutaways):** Matt imported the Iron Roc Warrior
 (Meshy, `Assets/MeshyImports/Iron Roc Warrior_*` — UNTRACKED like the hero's T-pose figure;
 the prefab reference lives on Matt's machine, which is the only machine) as the placeholder

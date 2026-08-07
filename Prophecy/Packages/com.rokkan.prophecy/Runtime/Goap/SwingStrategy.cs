@@ -3,6 +3,7 @@ using RGS.GOAP.Core;
 using RGS.GOAP.Core.Interfaces;
 using RGS.GOAP.Core.Strategies;
 using Rokkan.Prophecy.Presentation;
+using Rokkan.Prophecy.Sim.Abilities;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Goap
@@ -13,18 +14,22 @@ namespace Rokkan.Prophecy.Goap
         [Tooltip("Horizontal reach, in metres. Beyond this the action fails and the planner closes " +
                  "again rather than swinging at air.")]
         public float Reach = 1.4f;
-
-        [Tooltip("Ticks to wait after the swing before this action reports success. Long enough " +
-                 "that the planner does not immediately queue another mid-recovery.")]
-        public int RecoveryTicks = 45;
     }
 
     /// <summary>
-    /// Swing once, then wait out the recovery.
+    /// Swing once — for real. Press the button, then WATCH the simulation's attack module
+    /// until the swing it started ends; success means "it swung", never "a timer ran out".
     ///
-    /// <para>It presses the button and lets the simulation own everything after that. Whether the
-    /// swing connects, is blocked, is parried or is interrupted by a hit-react is not this action's
-    /// business — which is the point of pressing buttons rather than dealing damage.</para>
+    /// <para><b>The blind timer this replaces was the rapid fire.</b> The old settings carried
+    /// a RecoveryTicks reasoned against the player's 22-tick move; the enemy's move later grew
+    /// to 40 ticks and the number never moved, leaving ~5 ticks of neutral per cycle. The
+    /// PACING now belongs to the fight's <c>AttackDirector</c> — the beat between attack
+    /// starts is granted as a token, floored at the move's own length — and this action's only
+    /// timing job is honesty: report what the body actually did.</para>
+    ///
+    /// <para>Whether the swing connects, is blocked or is parried is still not this action's
+    /// business. But whether it RAN is — a press stripped by the pacing gate or eaten by a
+    /// stun fails here, so the planner falls back instead of believing a swing it never threw.</para>
     ///
     /// <para>One ScriptableObject per file, named for it — see <see cref="PatrolStrategy"/> for what
     /// happens otherwise.</para>
@@ -32,6 +37,10 @@ namespace Rokkan.Prophecy.Goap
     [CreateAssetMenu(menuName = "Prophecy/GOAP/Action - Swing", fileName = "Action_Swing")]
     public sealed class SwingStrategy : ProphecyActionStrategy
     {
+        /// <summary>Ticks to keep believing in a pressed-but-unseen attack: the sim's input
+        /// buffer (10) plus handoff slack. Past this, the press was stripped or refused.</summary>
+        private const int PressPatienceTicks = 12;
+
         public override Type GetSettingsType() => typeof(SwingSettings);
 
         public override void OnStart(IGoapAgentContext context, GoapBlackboard blackboard,
@@ -42,7 +51,9 @@ namespace Rokkan.Prophecy.Goap
             // On the HOST, not on this asset. See EnemyBrainHost.ActionScratch: a field here is
             // shared by every enemy in the game, and the second one to swing inherits the first
             // one's timestamp.
-            if (host != null) host.Scratch.StartedTick = long.MinValue;
+            if (host == null) return;
+            host.Scratch.StartedTick = long.MinValue;
+            host.Scratch.AttackObserved = false;
         }
 
         public override GoapActionStatus OnUpdate(IGoapAgentContext context, GoapBlackboard blackboard,
@@ -59,7 +70,6 @@ namespace Rokkan.Prophecy.Goap
 
             var config = settings as SwingSettings;
             float reach = config?.Reach ?? 1.4f;
-            int recovery = config?.RecoveryTicks ?? 45;
 
             var percept = host.Percept;
             long tick = CurrentTick(host);
@@ -77,6 +87,12 @@ namespace Rokkan.Prophecy.Goap
 #endif
                     return GoapActionStatus.Failure;   // it moved; close again rather than whiff
                 }
+
+                // The plan was made with a token; the token can have lapsed between planning
+                // and this frame. The press gate downstream is the authoritative veto — this
+                // is just failing fast so the planner re-decides instead of waiting out a
+                // press that cannot survive.
+                if (!host.HasAttackToken) return GoapActionStatus.Failure;
 
                 // Face the target BEFORE pressing.
                 //
@@ -109,8 +125,22 @@ namespace Rokkan.Prophecy.Goap
 
             host.Intent.MoveX = 0f;
 
-            return tick - host.Scratch.StartedTick >= recovery
-                ? GoapActionStatus.Success
+            // The closed loop: watch the module, not a clock.
+            var attack = AttackOf(host);
+            if (attack != null && attack.IsAttacking)
+            {
+                host.Scratch.AttackObserved = true;
+                return GoapActionStatus.Running;
+            }
+
+            if (host.Scratch.AttackObserved)
+                return GoapActionStatus.Success;   // it swung and the swing has ended
+
+            // Pressed but nothing ever ran: the pacing gate stripped it, a lock refused it,
+            // or a stun ate it. Fail so the planner falls back — never count a swing that
+            // was not thrown.
+            return tick - host.Scratch.StartedTick > PressPatienceTicks
+                ? GoapActionStatus.Failure
                 : GoapActionStatus.Running;
         }
 
@@ -125,6 +155,12 @@ namespace Rokkan.Prophecy.Goap
         {
             var body = host.GetComponent<PlayerCharacterHost>();
             return body?.Sim?.CurrentTick ?? 0L;
+        }
+
+        private static AttackModule AttackOf(EnemyBrainHost host)
+        {
+            var body = host.GetComponent<PlayerCharacterHost>();
+            return body?.Sim?.Get<AttackModule>();
         }
     }
 }

@@ -36,6 +36,11 @@ namespace Rokkan.Prophecy.Presentation
                                  "project and a shot has to agree with it.")]
         private PlayerCharacterHost _geometrySource;
 
+        [SerializeField, Tooltip("The attack director's dials — budgets, beats, gaps. Live: " +
+                                 "edits in play mode reach the fight immediately, the same " +
+                                 "surface every tuning asset offers.")]
+        private AttackDirectorTuning _attackPacing = new AttackDirectorTuning();
+
         private readonly List<Combatant> _presented = new List<Combatant>();
         private SimClockDriver _registeredWith;
 
@@ -62,6 +67,9 @@ namespace Rokkan.Prophecy.Presentation
 
         private void Start()
         {
+            // The class REFERENCE, not a copy — inspector edits in play mode land live.
+            State.Attacks.Tuning = _attackPacing;
+
             _registeredWith = SimClockDriver.RegisterWithScene(_clockDriver, this, this);
 
             AdoptCombatantsAlreadyInTheWorld();

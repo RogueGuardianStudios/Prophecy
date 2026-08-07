@@ -41,7 +41,7 @@ namespace Rokkan.Prophecy.Sim.Combat
     /// and the target decides what it means. Damage numbers, i-frames and blocking are the
     /// receiving end's business.</para>
     /// </summary>
-    public sealed class CombatState : ICombatWorld
+    public sealed class CombatState : ICombatWorld, IAttackObserver
     {
         /// <summary>How many recent hits to keep. A diagnostic, not a game system.</summary>
         public const int HitLogLength = 12;
@@ -110,8 +110,23 @@ namespace Rokkan.Prophecy.Sim.Combat
 
         public IReadOnlyList<LoggedHit> HitLog => _hitLog;
 
+        /// <summary>The fight's attack arbiter — who may swing, and when. Enemies READ it;
+        /// the writers are the enemy input path and <see cref="AttackModule"/>'s real
+        /// start/end reports, forwarded through this world's <see cref="IAttackObserver"/>.</summary>
+        public AttackDirector Attacks { get; } = new AttackDirector();
+
         /// <summary>An id no authored combatant can have. See <see cref="FirstRuntimeId"/>.</summary>
         public int AllocateId() => _nextRuntimeId++;
+
+        // ------------------------------------------------------------- attack observation
+
+        /// <summary>Ids that never requested pacing — the player — pass through harmlessly:
+        /// the director ignores records it does not hold.</summary>
+        public void OnAttackStarted(int combatId, long tick, int totalTicks) =>
+            Attacks.OnAttackStarted(combatId, tick, totalTicks);
+
+        public void OnAttackEnded(int combatId, long tick) =>
+            Attacks.OnAttackEnded(combatId, tick);
 
         // ---------------------------------------------------------------- registry
 
@@ -142,7 +157,10 @@ namespace Rokkan.Prophecy.Sim.Combat
             if (combatant == null) return;
 
             if (_combatants.Remove(combatant))
+            {
                 _byId.Remove(combatant.CombatId);
+                Attacks.Forget(combatant.CombatId);
+            }
         }
 
         public void Clear()
@@ -154,6 +172,7 @@ namespace Rokkan.Prophecy.Sim.Combat
             _hitLog.Clear();
             _hurtboxes.Clear();
             _projectiles.Clear();
+            Attacks.Clear();
         }
 
         // ---------------------------------------------------------------- tick
@@ -169,6 +188,9 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// </summary>
         public void Tick(CollisionWorld level, long tick, float deltaSeconds)
         {
+            // Grants land FIRST, so every enemy consuming input later this tick sees them.
+            Attacks.Tick(tick);
+
             RebuildHurtboxes();
 
             _projectiles.Tick(this, level, tick, deltaSeconds);

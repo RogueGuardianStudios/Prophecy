@@ -214,6 +214,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.EnemyBrainHost
   _host: {fileID: 2525887693954031853}
   _team: 2
+  _attackPool: 0
   _tuning:
     SightRange: 12
     AttackRange: 1.4
@@ -277,12 +278,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720558462763474
-  - rid: 2975720558462763475
+  - rid: 2975720640186679629
+  - rid: 2975720640186679630
+  - rid: 2975720640186679631
   references:
     version: 2
     RefIds:
-    - rid: 2975720558462763474
+    - rid: 2975720640186679629
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -300,7 +302,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720558462763475
+    - rid: 2975720640186679630
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -309,6 +311,15 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
+    - rid: 2975720640186679631
+      type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
+        UpdateInterval: 0.1
+        OutputMappings:
+        - OutputName: HasAttackToken
+          ExpectedType: 0
+          TargetSlot: {fileID: 11400000, guid: 06f2869bb1313f54eaa3278db751797e, type: 2}
 --- !u!114 &9216983949721803644
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -325,10 +336,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 610178421
-      Part2: 1080705060
-      Part3: 3650661291
-      Part4: 2091182961
+      Part1: 3340030660
+      Part2: 1269273556
+      Part3: 1780201355
+      Part4: 3518829287
     Actions: []
     Goals: []
     Beliefs: []

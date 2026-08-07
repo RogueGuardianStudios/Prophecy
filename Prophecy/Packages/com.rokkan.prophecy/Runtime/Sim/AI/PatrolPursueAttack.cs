@@ -28,6 +28,10 @@ namespace Rokkan.Prophecy.Sim.AI
         public float LoseInterestRange = 16f;
 
         [Tooltip("Ticks between swings once in range. The rhythm a player learns to read.")]
+        /// <summary>Minimum ticks between attack STARTS — the beat. Honored by the attack
+        /// director for planner and fallback alike, and floored there at the attack's own
+        /// length plus the neutral gap, so this can never be authored shorter than the move
+        /// it paces.</summary>
         public int AttackCooldownTicks = 90;
 
         [Tooltip("Ticks to keep chasing after losing sight, before giving up. Zero forgets the " +

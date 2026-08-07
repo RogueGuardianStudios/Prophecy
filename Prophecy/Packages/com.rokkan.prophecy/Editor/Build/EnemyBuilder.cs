@@ -4,6 +4,8 @@ using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Goap;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
+using Rokkan.Prophecy.Sim.AI;
+using Rokkan.Prophecy.Sim.Combat;
 using UnityEditor;
 using UnityEngine;
 
@@ -73,6 +75,7 @@ namespace Rokkan.Prophecy.Editor
 
             var targetSensor = CreateOrReplace<ProphecyTargetSensor>($"{Folder}/Sensor_Target.asset");
             var terrainSensor = CreateOrReplace<ProphecyTerrainSensor>($"{Folder}/Sensor_Terrain.asset");
+            var tokenSensor = CreateOrReplace<ProphecyAttackTokenSensor>($"{Folder}/Sensor_AttackToken.asset");
 
             var kit = new StrategyKit
             {
@@ -90,7 +93,8 @@ namespace Rokkan.Prophecy.Editor
             foreach (Archetype archetype in System.Enum.GetValues(typeof(Archetype)))
             {
                 var brain = BuildBrain(archetype, $"{Folder}/Brain_{archetype}.asset",
-                                       boolCheck, compare, targetSensor, terrainSensor, kit);
+                                       boolCheck, compare, targetSensor, terrainSensor,
+                                       tokenSensor, kit);
 
                 BuildPrefab(archetype, brain);
                 built.Append($"\n  {archetype,-9} {PrefabPathFor(archetype)}");
@@ -99,7 +103,37 @@ namespace Rokkan.Prophecy.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            WarnIfTheBeatCannotOutlastTheSwing();
+
             Debug.Log(built.ToString());
+        }
+
+        /// <summary>
+        /// The rapid-fire postmortem, institutionalised. The old pacing number was reasoned
+        /// against the player's 22-tick move; the enemy's move later grew to 40 ticks and
+        /// nobody moved the number — leaving five ticks of neutral and a grunt that never
+        /// stopped swinging. The attack director floors the beat at the move's own length at
+        /// runtime regardless; this warning exists so the AUTHORED number stays meaningful
+        /// instead of silently riding that floor.
+        /// </summary>
+        private static void WarnIfTheBeatCannotOutlastTheSwing()
+        {
+            var tuning = AssetDatabase.LoadAssetAtPath<CombatTuning>(
+                "Assets/_Prophecy/Data/CombatTuning_Grunt.asset");
+            if (tuning == null) return;
+
+            int beat = new EnemyBrainTuning().AttackCooldownTicks;
+            int neutral = new AttackDirectorTuning().MinNeutralGapTicks;
+
+            foreach (var attack in tuning.Data.Attacks)
+            {
+                if (attack == null || beat >= attack.TotalTicks + neutral) continue;
+
+                Debug.LogWarning($"[Prophecy] The authored beat ({beat} ticks) cannot outlast " +
+                                 $"'{attack.Id}' plus the neutral gap ({attack.TotalTicks} + " +
+                                 $"{neutral}). The attack director will floor it, but the " +
+                                 "authored number is now dead weight — raise it.");
+            }
         }
 
         /// <summary>The shared strategy assets, passed round rather than reloaded per archetype.</summary>
@@ -126,6 +160,7 @@ namespace Rokkan.Prophecy.Editor
                                               GoapBeliefSimpleCompare compare,
                                               ProphecyTargetSensor targetSensor,
                                               ProphecyTerrainSensor terrainSensor,
+                                              ProphecyAttackTokenSensor tokenSensor,
                                               StrategyKit kit)
         {
             var patrol = kit.Patrol;
@@ -144,6 +179,7 @@ namespace Rokkan.Prophecy.Editor
             var canSee = AddKey(brain, KeyCanSee, GoapKeyType.Boolean);
             var distanceX = AddKey(brain, KeyDistanceX, GoapKeyType.Float);
             var blocked = AddKey(brain, KeyBlocked, GoapKeyType.Boolean);
+            var tokenKey = AddKey(brain, ProphecyAttackTokenSensor.HasAttackToken, GoapKeyType.Boolean);
 
             // Written by the target sensor and unused by any belief here, but declared anyway: a
             // sensor output with no key is the same silent no-op as an unmapped one, and a mapping
@@ -158,6 +194,7 @@ namespace Rokkan.Prophecy.Editor
 
             brain.Sensors.Add(targetSensor);
             brain.Sensors.Add(terrainSensor);
+            brain.Sensors.Add(tokenSensor);
 
             // Closing distance sits INSIDE the swing's reach, and that gap is the whole point.
             // Pursue succeeds at StopWithin and Swing fails beyond Reach, so with the two equal the
@@ -187,6 +224,12 @@ namespace Rokkan.Prophecy.Editor
             var isPatrolling = Bool(boolCheck, patrolled, "Patrolling");
             var hasRammed = Bool(boolCheck, rammedKey, "Rammed");
 
+            // The attack director's licence, published by its sensor. HANDOFF §11.11 made
+            // real: attacks take it as a precondition, strike goals as a VALIDITY condition —
+            // so a beat-locked enemy never offers the goal at all and plans its idle cleanly
+            // instead of burning planner failures (the ambusher's lesson, applied).
+            var holdsToken = Bool(boolCheck, tokenKey, "HasAttackToken");
+
             // ---- actions. Preconditions are what must hold; effects are what the planner may
             //      assume afterwards. The chain patrol -> pursue -> swing falls out of these.
             var patrolAction = Action("Patrol", patrol, cost: 5f,
@@ -209,9 +252,9 @@ namespace Rokkan.Prophecy.Editor
                 settings: new PursueSettings { StopWithin = CloseTo });
 
             var swingAction = Action("Swing", swing, cost: 1f,
-                preconditions: new[] { On(withinReach) },
+                preconditions: new[] { On(withinReach), On(holdsToken) },
                 effects: new[] { On(wasStruck) },
-                settings: new SwingSettings { Reach = SwingReach, RecoveryTicks = 45 });
+                settings: new SwingSettings { Reach = SwingReach });
 
             // Springing range is wider than a swing's, and NOTHING can make it true — deliberately.
             // An ambusher is defined by only being dangerous when something has already come close,
@@ -242,16 +285,26 @@ namespace Rokkan.Prophecy.Editor
             // Firing is a swing with a longer arm: same action, same button, and the projectile
             // comes from the attack's own Spawns rather than from anything the planner knows about.
             var fireAction = Action("Fire", swing, cost: 1f,
-                preconditions: new[] { On(seesTarget), On(atRange) },
+                preconditions: new[] { On(seesTarget), On(atRange), On(holdsToken) },
                 effects: new[] { On(wasStruck) },
-                settings: new SwingSettings { Reach = CasterMaxRange, RecoveryTicks = 60 });
+                settings: new SwingSettings { Reach = CasterMaxRange });
+
+            // The duel's breath (Matt, 2026-08-07): a grunt whose beat has not come gives
+            // ground to ~2 m, facing you, then darts back in when the token arrives — the
+            // in-and-out rhythm. Cheaper than Patrol while a target is visible, so the idle
+            // goal picks it naturally; the tight hysteresis keeps it hovering at the edge of
+            // Pursue's approach rather than wandering off.
+            var giveGroundAction = Action("GiveGround", kit.KeepDistance, cost: 3f,
+                preconditions: new[] { On(seesTarget) },
+                effects: new[] { On(isPatrolling) },
+                settings: new KeepDistanceSettings { PreferredRange = 2f, Hysteresis = 0.4f });
 
             // ---- goals. Attacking outranks idling, and is only considered when there is something
             //      to attack — so an enemy with nothing in sight plans its idle instead of failing
             //      to plan at all.
             var killGoal = Goal("StrikeTarget", priority: 10f,
                 desired: new[] { On(wasStruck) },
-                validity: new[] { On(hasAnyTarget) });
+                validity: new[] { On(hasAnyTarget), On(holdsToken) });
 
             // The ambusher's version also requires the target to be CLOSE, not merely to exist.
             //
@@ -312,6 +365,7 @@ namespace Rokkan.Prophecy.Editor
                     state.Actions.Add(patrolAction);
                     state.Actions.Add(pursueAction);
                     state.Actions.Add(swingAction);
+                    state.Actions.Add(giveGroundAction);
                     state.Goals.Add(killGoal);
                     state.Goals.Add(patrolGoal);
                     break;
@@ -356,6 +410,7 @@ namespace Rokkan.Prophecy.Editor
             state.Beliefs.Add(wasStruck);
             state.Beliefs.Add(isPatrolling);
             state.Beliefs.Add(hasRammed);
+            state.Beliefs.Add(holdsToken);
 
             brain.States.Add(state);
             brain.DefaultStateId = state.StateId;
@@ -552,6 +607,12 @@ namespace Rokkan.Prophecy.Editor
                 Wire(brainHost, "_host", host);
                 Wire(brainHost, "_team", 2);
 
+                // The caster's bolts draw on the RANGED budget — a swing at arm's length and
+                // a bolt from twelve metres are different pressures and must never compete
+                // for one token (HANDOFF §11.11's "a single global cap is wrong" rule).
+                if (archetype == Archetype.Caster)
+                    Wire(brainHost, "_attackPool", (int)AttackPool.Ranged);
+
                 // Lookout eyes, wanderer only. The spawner places it 14 m from the player —
                 // outside the default 12 m sight — so without this it is born blind to the one
                 // thing it exists to menace, drifts at random, and is retired without ever
@@ -602,6 +663,7 @@ namespace Rokkan.Prophecy.Editor
             // to be authored; nothing infers them from the fact that a sensor declares an output.
             var targetSensor = Load<ProphecyTargetSensor>($"{Folder}/Sensor_Target.asset");
             var terrainSensor = Load<ProphecyTerrainSensor>($"{Folder}/Sensor_Terrain.asset");
+            var tokenSensor = Load<ProphecyAttackTokenSensor>($"{Folder}/Sensor_AttackToken.asset");
 
             sensors.Sensors.Clear();
             sensors.Sensors.Add(MapSensor(targetSensor,
@@ -612,6 +674,9 @@ namespace Rokkan.Prophecy.Editor
 
             sensors.Sensors.Add(MapSensor(terrainSensor,
                 (ProphecyTerrainSensor.BlockedAhead, GoapKeyType.Boolean)));
+
+            sensors.Sensors.Add(MapSensor(tokenSensor,
+                (ProphecyAttackTokenSensor.HasAttackToken, GoapKeyType.Boolean)));
         }
 
         /// <summary>

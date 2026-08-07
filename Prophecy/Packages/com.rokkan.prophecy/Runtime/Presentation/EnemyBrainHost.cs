@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.AI;
+using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Presentation
@@ -31,6 +32,10 @@ namespace Rokkan.Prophecy.Presentation
 
         [SerializeField, Tooltip("Who this fights alongside. Attacks skip their own team.")]
         private int _team = 2;
+
+        [SerializeField, Tooltip("Which of the attack director's budgets this enemy draws " +
+                                 "on. A swing and a bolt are different kinds of pressure.")]
+        private AttackPool _attackPool = AttackPool.Melee;
 
         [SerializeField]
         private EnemyBrainTuning _tuning = new EnemyBrainTuning();
@@ -82,6 +87,10 @@ namespace Rokkan.Prophecy.Presentation
 
             /// <summary>Which way it is going: a patrol's heading, or a spring's committed aim.</summary>
             public int Direction = 1;
+
+            /// <summary>The Swing action saw its attack actually running on the sim — the
+            /// closed loop: success means "it swung", never "the timer ran out".</summary>
+            public bool AttackObserved;
         }
 
         public ActionScratch Scratch { get; } = new ActionScratch();
@@ -138,11 +147,26 @@ namespace Rokkan.Prophecy.Presentation
             if (!_drivenExternally && _fallbackWhenNoBrain)
                 _builtIn.Tick(in _percept, _intent, sim.CurrentTick, _blockedAhead);
 
+            // The attack director's gate, between the decider and the sim: keep the standing
+            // request alive, strip any press the fight has not licensed. Paces the planner
+            // and the fallback with the same rule.
+            var fight = CombatDirector.Instance != null ? CombatDirector.Instance.State : null;
+            var hitReact = sim.Get<Sim.Abilities.HitReact>();
+            bool incapacitated = !sim.Vitals.IsAlive ||
+                                 (hitReact != null && hitReact.TicksRemaining(sim.CurrentTick) > 0);
+            HasAttackToken = AttackPacingLink.Apply(
+                fight, _intent, in _percept, sim.State.CombatId, _attackPool,
+                _tuning.AttackCooldownTicks, incapacitated, sim.CurrentTick);
+
 #if UNITY_EDITOR
             Trace(sim);
 #endif
             return _intent.Consume();
         }
+
+        /// <summary>Whether the fight has licensed this enemy to attack, refreshed once per
+        /// sim tick like <see cref="Percept"/>. GOAP sensors read it; nothing else should.</summary>
+        public bool HasAttackToken { get; private set; }
 
 #if UNITY_EDITOR
         // ---------------------------------------------------------------- trace

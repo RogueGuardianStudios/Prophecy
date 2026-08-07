@@ -86,10 +86,26 @@ namespace Rokkan.Prophecy.Presentation
         {
             _visible = _visibleOnStart;
 
-            if (_host == null) _host = FindAnyObjectByType<PlayerCharacterHost>();
+            if (_host == null) _host = FindThePlayerHost();
             if (_director == null) _director = FindAnyObjectByType<CombatDirector>();
 
             ResolveToggle();
+        }
+
+        /// <summary>
+        /// The PLAYER's host, never an enemy's. Every enemy also carries a
+        /// <see cref="PlayerCharacterHost"/>, so a bare FindAnyObjectByType has no defined
+        /// winner — and this overlay once reported a grunt's full health while the player was
+        /// being ground to death beside it. A host with an <see cref="EnemyBrainHost"/>
+        /// alongside is a body with a brain: an enemy.
+        /// </summary>
+        private static PlayerCharacterHost FindThePlayerHost()
+        {
+            var hosts = FindObjectsByType<PlayerCharacterHost>(FindObjectsSortMode.None);
+            for (int i = 0; i < hosts.Length; i++)
+                if (hosts[i].GetComponent<EnemyBrainHost>() == null)
+                    return hosts[i];
+            return null;
         }
 
         private void Start()
@@ -214,26 +230,36 @@ namespace Rokkan.Prophecy.Presentation
                                  $"   in the air {_director.Projectiles.Count}");
 
                 var combatants = _director.Combatants;
+                long paceTick = _host != null && _host.Sim != null ? _host.Sim.CurrentTick : 0;
                 for (int i = 0; i < combatants.Count && i < 7; i++)
                 {
                     var c = combatants[i];
                     if (c == null) continue;
 
+                    // The pacing column: whose turn it is, and how far off the next one is.
+                    string pace = "";
+                    if (_director.State.Attacks.TryDescribe(c.CombatId, paceTick, out var token))
+                        pace = token.InFlight ? "   IN-FLIGHT"
+                             : token.HoldsToken ? "   TOKEN"
+                             : token.TicksUntilEligible > 0 ? $"   beat {token.TicksUntilEligible}t"
+                             : "   ready";
+
                     _text.AppendLine($"  #{c.CombatId} {c.name,-18} {c.Health,4}/{c.MaxHealth}" +
-                                     $"{(c.IsAlive ? "" : "   DOWN")}");
+                                     $"{(c.IsAlive ? "" : "   DOWN")}{pace}");
                 }
 
                 var log = _director.HitLog;
                 if (log.Count > 0)
                 {
                     _text.AppendLine();
-                    _text.AppendLine("last hits (tick / target / dmg / outcome)");
+                    _text.AppendLine("last hits (tick / who / dmg / outcome)");
 
                     for (int i = log.Count - 1; i >= 0 && i >= log.Count - 5; i--)
                     {
                         var entry = log[i];
                         _text.AppendLine(
-                            $"  {entry.Hit.Tick,6}  #{entry.Hit.TargetId}  {entry.Result.DamageApplied,3}  " +
+                            $"  {entry.Hit.Tick,6}  #{entry.Hit.AttackerId}->#{entry.Hit.TargetId}  " +
+                            $"{entry.Result.DamageApplied,3}  " +
                             $"{Describe(entry.Result.Outcome)}  {entry.Hit.AttackId}");
                     }
                 }
