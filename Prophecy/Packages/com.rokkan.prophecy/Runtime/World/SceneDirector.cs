@@ -336,6 +336,33 @@ namespace Rokkan.Prophecy.World
                 DeathResetCount++;
                 Respawn();
             }
+
+            CullFallenEnemies();
+        }
+
+        /// <summary>
+        /// The same law for everyone else: below the kill plane, an enemy dies with its
+        /// object. The player gets a respawn because the player is the story continuing;
+        /// an enemy shoved off the world is simply gone — its unregister cleans the fight's
+        /// records behind it, and a tester's respawner sees the vacancy.
+        /// </summary>
+        private void CullFallenEnemies()
+        {
+            if (!_descriptor.KillPlaneEnabled) return;
+
+            var fight = Presentation.CombatDirector.Instance;
+            if (fight == null) return;
+
+            var combatants = fight.Combatants;
+            for (int i = combatants.Count - 1; i >= 0; i--)
+            {
+                var combatant = combatants[i];
+                if (combatant == null) continue;
+                if (_player != null && combatant.gameObject == _player.gameObject) continue;
+                if (combatant.transform.position.y > _descriptor.KillPlaneY) continue;
+
+                Destroy(combatant.gameObject);
+            }
         }
 
         /// <summary>

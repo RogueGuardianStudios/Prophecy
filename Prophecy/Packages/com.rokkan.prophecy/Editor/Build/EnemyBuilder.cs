@@ -109,6 +109,39 @@ namespace Rokkan.Prophecy.Editor
         }
 
         /// <summary>
+        /// The enemies' legs: the player's movement tuning, copied whole and slowed to 80%
+        /// (Matt, 2026-08-07) — an overworld you cannot outrun is a corridor with scenery,
+        /// and a lane you cannot disengage in is a fight you cannot decline. Derived rather
+        /// than authored twice, same contract as the combat tuning: retune the player,
+        /// regenerate, and the enemies keep their fraction.
+        /// </summary>
+        private static MovementTuning EnsureEnemyMovement()
+        {
+            const float EnemySpeedScale = 0.8f;
+
+            var player = Load<MovementTuning>("Assets/_Prophecy/Data/MovementTuning.asset");
+            if (player == null)
+            {
+                Debug.LogWarning("[Prophecy] No player MovementTuning to derive enemy legs from.");
+                return null;
+            }
+
+            var enemy = CreateOrReplace<MovementTuning>(
+                "Assets/_Prophecy/Data/MovementTuning_Enemy.asset");
+
+            // Copy EVERYTHING, then scale only the speeds — jump heights, gravity and body
+            // dimensions must keep matching the player's world, or platforming geometry
+            // derived from one tuning silently stops fitting the other.
+            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(player), enemy);
+            enemy.Data.WalkSpeed *= EnemySpeedScale;
+            enemy.Data.RunSpeed *= EnemySpeedScale;
+            enemy.Data.TopDownSpeed *= EnemySpeedScale;
+
+            EditorUtility.SetDirty(enemy);
+            return enemy;
+        }
+
+        /// <summary>
         /// The rapid-fire postmortem, institutionalised. The old pacing number was reasoned
         /// against the player's 22-tick move; the enemy's move later grew to 40 ticks and
         /// nobody moved the number — leaving five ticks of neutral and a grunt that never
@@ -554,7 +587,7 @@ namespace Rokkan.Prophecy.Editor
                 var combatant = root.AddComponent<Combatant>();
                 var brainHost = root.AddComponent<EnemyBrainHost>();
 
-                Wire(host, "_tuning", Load<MovementTuning>("Assets/_Prophecy/Data/MovementTuning.asset"));
+                Wire(host, "_tuning", EnsureEnemyMovement());
 
                 // Explicit, because "no loadout" means every module ON — so an enemy left empty
                 // silently owns the player's whole moveset. That is how the ambusher's spring

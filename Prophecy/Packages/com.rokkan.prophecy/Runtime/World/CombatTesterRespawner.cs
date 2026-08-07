@@ -1,3 +1,4 @@
+using Rokkan.Prophecy.Presentation;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.World
@@ -32,7 +33,21 @@ namespace Rokkan.Prophecy.World
 
         private void Update()
         {
-            if (_alive != null || _prefab == null) return;
+            // A corpse counts as gone: real death leaves the object standing (the death
+            // rule is still an open design), but the TESTER needs its loop — so a downed
+            // opponent is cleared here and the metronome continues. Falling off the world
+            // destroys the object outright (SceneDirector's cull), which lands in the same
+            // branch below by becoming null.
+            if (_alive != null)
+            {
+                var combatant = _alive.GetComponent<Combatant>();
+                if (combatant == null || combatant.IsAlive) return;
+
+                Destroy(_alive);
+                _alive = null;
+            }
+
+            if (_prefab == null) return;
 
             // Just died (or first frame): arm the timer once, then wait it out.
             if (_spawnAt <= 0f) _spawnAt = Time.time + _respawnSeconds;

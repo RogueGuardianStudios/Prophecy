@@ -1291,6 +1291,17 @@ pure; a mashing brain through the real sim proving starts ≥ beat; brain-asset 
 assertions) — 849 green. Live: hit deltas 116–121 ticks (beat 90 + approach), verified in
 the tester. Ambusher's Spring stays un-tokened (trap, not duelist — revisit at the horde).
 
+**ENEMY LEGS AND THE SHARED KILL PLANE (2026-08-07, after the director):** enemies move at
+**80% of the player's speed** (Matt) via `MovementTuning_Enemy.asset` — the player's tuning
+copied WHOLE by the enemy generator and only Walk/Run/TopDown speeds scaled, so jump
+heights, gravity and body dimensions keep matching the world's geometry; retune the player,
+regenerate, the fraction holds. And the kill plane now applies to everyone:
+`SceneDirector.CullFallenEnemies` destroys any non-player combatant below `KillPlaneY` —
+the player respawns because the player is the story continuing; a shoved-off enemy is just
+gone (unregister cleans the fight's pacing records behind it). The tester's respawner also
+clears CORPSES now (real death still leaves objects standing — the death rule remains the
+open design item — but the tester needs its fight-adjust-fight loop).
+
 **COMBAT AI TESTER (2026-08-07, after the cutaways):** Matt imported the Iron Roc Warrior
 (Meshy, `Assets/MeshyImports/Iron Roc Warrior_*` — UNTRACKED like the hero's T-pose figure;
 the prefab reference lives on Matt's machine, which is the only machine) as the placeholder
