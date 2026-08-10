@@ -144,6 +144,26 @@ namespace Rokkan.Prophecy.Sim.Combat
                  "in anything that cares which move killed something.")]
         public string DownThrustAttackId = "down_thrust";
 
+        // ------------------------------------------------------------------ up-thrust
+
+        [Header("Up-thrust")]
+        [Tooltip("The blade over the head during a rising stab. Like the dive's, its window is " +
+                 "not consulted: the thrust lasts from the press to the apex, and the volume is " +
+                 "live for exactly as long as the move is. Offset is from the feet, so it sits " +
+                 "just past the crown of a 1.8 m body.")]
+        public AttackHitBox UpThrustBox = new AttackHitBox
+        {
+            OpenTick = 0,
+            CloseTick = 1,
+            Offset = new Vector2(0f, 2.0f),
+            HalfExtents = new Vector2(0.45f, 0.35f),
+            Damage = 16,
+            Height = AttackHeight.Any,
+        };
+
+        [Tooltip("Id the up-thrust reports its hits under.")]
+        public string UpThrustAttackId = "up_thrust";
+
         // ------------------------------------------------------------------ health
 
         [Header("Health")]
@@ -349,6 +369,9 @@ namespace Rokkan.Prophecy.Sim.Combat
             // exactly like the bounce being broken.
             if (DownThrustBox.HalfExtents.x <= 0f || DownThrustBox.HalfExtents.y <= 0f)
                 problems.AppendLine("the down-thrust box has no size, so the dive can never connect");
+
+            if (UpThrustBox.HalfExtents.x <= 0f || UpThrustBox.HalfExtents.y <= 0f)
+                problems.AppendLine("the up-thrust box has no size, so the rising stab can never connect");
 
             return problems.Length == 0 ? null : problems.ToString().TrimEnd();
         }

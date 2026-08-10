@@ -40,5 +40,6 @@ namespace Rokkan.Prophecy.Sim
         Block = 20,
         Parry = 21,
         HitReact = 22,
+        UpThrust = 23,
     }
 }

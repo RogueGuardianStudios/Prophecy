@@ -53,6 +53,7 @@ namespace Rokkan.Prophecy.Presentation
         AttackStandB,
         AttackCrouch,
         DownThrust,
+        UpThrust,
 
         // ---- terminal
         Death,

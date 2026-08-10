@@ -77,7 +77,7 @@ MonoBehaviour:
     Clip: {fileID: 8332939666779294377, guid: b963d0c4e093a9c4ea792b8095e51ba2, type: 3}
     Loop: 0
     ReferenceSpeed: 0
-  - State: 22
+  - State: 23
     Clip: {fileID: -7862834798869268496, guid: 90f98101f7a4c2c4bbbf30f76e7b91c7, type: 3}
     Loop: 0
     ReferenceSpeed: 0

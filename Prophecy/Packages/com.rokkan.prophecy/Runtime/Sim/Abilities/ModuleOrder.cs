@@ -89,6 +89,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         public const int DownThrust = 50;
 
+        /// <summary>Beside the dive; their input conditions are disjoint (down vs up held), so
+        /// the order between them never decides anything — it just keeps the pair together.</summary>
+        public const int UpThrust = 52;
+
         public const int LedgeHang = 60;
         public const int LedgePullUp = 65;
         public const int LadderClimb = 70;

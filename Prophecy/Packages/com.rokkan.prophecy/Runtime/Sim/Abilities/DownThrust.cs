@@ -58,6 +58,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <summary>True while the dive is in progress. Debug overlay and, later, the hitbox driver.</summary>
         public bool IsActive => _active;
 
+        /// <summary>The box this dive swings, for the overlay. Neither thrust runs on the attack
+        /// timeline, so without this the overlay would draw every volume except theirs.</summary>
+        public AttackHitBox Volume => _combat != null ? _combat.DownThrustBox : default;
+
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
             if (_active)

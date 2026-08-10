@@ -63,6 +63,8 @@ namespace Rokkan.Prophecy.Presentation
         private Block _block;
         private DodgeStep _dodge;
         private HitReact _hitReact;
+        private DownThrust _downThrust;
+        private UpThrust _upThrust;
         private TrainingAttacker[] _attackers;
         private CharacterAnimator _animator;
         private ArenaStations _stations;
@@ -121,6 +123,8 @@ namespace Rokkan.Prophecy.Presentation
             _block = _host.Sim.Get<Block>();
             _dodge = _host.Sim.Get<DodgeStep>();
             _hitReact = _host.Sim.Get<HitReact>();
+            _downThrust = _host.Sim.Get<DownThrust>();
+            _upThrust = _host.Sim.Get<UpThrust>();
         }
 
         private void OnDestroy()
@@ -456,6 +460,7 @@ namespace Rokkan.Prophecy.Presentation
             }
 
             DrawAttackVolumes(space, depth);
+            DrawThrustVolumes(space, depth);
             DrawIncomingVolumes(space, depth);
             DrawSimulatedAttackerVolumes(space, depth);
             DrawProjectiles(space, depth);
@@ -584,6 +589,31 @@ namespace Rokkan.Prophecy.Presentation
                     for (int t = 0; t < found; t++)
                         DrawLine(origin, targets[_candidates[t]].Centre, _coverRayColour, space, depth);
                 }
+            }
+        }
+
+        /// <summary>
+        /// The thrusts' blades. Neither runs on the attack timeline — each swings its own box
+        /// through the shared sweep — so <see cref="DrawAttackVolumes"/> never sees them, and
+        /// for two milestones the dive's box was the one volume the overlay could not show.
+        /// Live colour for the same reason projectiles get it: live for their whole existence.
+        /// </summary>
+        private void DrawThrustVolumes(MovementSpace space, float depth)
+        {
+            var state = _host.Sim.State;
+
+            if (_downThrust != null && _downThrust.IsActive && !_downThrust.IsRising)
+            {
+                var box = _downThrust.Volume;
+                DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
+                        box.ResolveRotation(state.Facing), _liveBoxColour, space, depth);
+            }
+
+            if (_upThrust != null && _upThrust.IsActive)
+            {
+                var box = _upThrust.Volume;
+                DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
+                        box.ResolveRotation(state.Facing), _liveBoxColour, space, depth);
             }
         }
 

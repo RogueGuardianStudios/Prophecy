@@ -246,6 +246,7 @@ namespace Rokkan.Prophecy.Presentation
             var wallSlide = sim.Get<WallSlide>();
             var pullUp = sim.Get<LedgePullUp>();
             var downThrust = sim.Get<DownThrust>();
+            var upThrust = sim.Get<UpThrust>();
 
             return new BodyStateInputs
             {
@@ -265,6 +266,7 @@ namespace Rokkan.Prophecy.Presentation
                 // downward dive pose while the body pops upward would be a plain lie — the rise
                 // falls through to JumpRise, so a pogo chain reads as dive, up, dive.
                 DownThrusting = downThrust != null && downThrust.IsActive && !downThrust.IsRising,
+                UpThrusting = upThrust != null && upThrust.IsActive,
 
                 AttackId = attack != null && attack.IsAttacking && attack.Current != null
                     ? attack.Current.Id

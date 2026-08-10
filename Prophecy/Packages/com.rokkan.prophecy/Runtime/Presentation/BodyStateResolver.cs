@@ -25,6 +25,7 @@ namespace Rokkan.Prophecy.Presentation
         public bool WallSliding;
         public bool ClimbingLedge;
         public bool DownThrusting;
+        public bool UpThrusting;
 
         /// <summary>Null when not attacking; otherwise the running attack's authored id.</summary>
         public string AttackId;
@@ -73,6 +74,7 @@ namespace Rokkan.Prophecy.Presentation
             //    decides what the airborne body looks like, and a generic air-attack pose would
             //    hide the dive that is the whole point of it.
             if (input.DownThrusting) return BodyState.DownThrust;
+            if (input.UpThrusting) return BodyState.UpThrust;
 
             if (!string.IsNullOrEmpty(input.AttackId)) return ForAttack(input.AttackId, input.Stance);
 
@@ -141,6 +143,7 @@ namespace Rokkan.Prophecy.Presentation
                 case "slash_high_2": return BodyState.AttackStandB;
                 case "thrust_low":   return BodyState.AttackCrouch;
                 case "down_thrust":  return BodyState.DownThrust;
+                case "up_thrust":    return BodyState.UpThrust;
 
                 // An id nobody has mapped yet. Falling back on stance keeps the character swinging
                 // something rather than sliding about in idle while an attack is plainly running.

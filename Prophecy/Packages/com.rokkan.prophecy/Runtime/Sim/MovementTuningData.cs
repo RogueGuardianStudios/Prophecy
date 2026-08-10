@@ -237,6 +237,14 @@ namespace Rokkan.Prophecy.Sim
         [Tooltip("Minimum ticks the dive commits for before it can be cancelled.")]
         public int DownThrustMinTicks = 4;
 
+        // ------------------------------------------------------------------ up-thrust
+
+        [Header("Up-thrust")]
+        [Tooltip("Minimum ticks the rising stab commits for before it can be cancelled. The " +
+                 "move itself drives no speed — the jump arc is the movement half, and the " +
+                 "apex is what ends it.")]
+        public int UpThrustMinTicks = 4;
+
         // ------------------------------------------------------------------ landing
 
         [Header("Landing")]

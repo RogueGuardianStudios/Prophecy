@@ -75,9 +75,10 @@ namespace Rokkan.Prophecy.Sim
             sim.Vitals.Reset();
             sim.HitStunTicks = combat.HitStunTicks;
 
-            // Combat-adjacent movement. The down-thrust takes the combat tuning too: it swings its
-            // own blade, which is what lets it bounce itself off what it hits.
+            // Combat-adjacent movement. The thrusts take the combat tuning too: each swings its
+            // own blade, which is what lets the dive bounce itself off what it hits.
             sim.Add(new DownThrust(tuning, combat));
+            sim.Add(new UpThrust(tuning, combat));
             sim.Add(new Interact(tuning));
 
             // Declared, not yet built. See PlannedAbilities.
