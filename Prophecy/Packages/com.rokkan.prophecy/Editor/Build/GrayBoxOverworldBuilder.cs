@@ -96,13 +96,20 @@ namespace Rokkan.Prophecy.Editor.Build
             var markers = new GameObject("Markers").transform;
 
             CreateLighting();
-            CreateStalbergGround();
-            CreateReturnPortal(geometry);
-            CreateDescriptorAndSpawns(markers);
+            var map = CreateStalbergGround();
+
+            // The host sits at the scene origin and its transform is the map's bottom-left
+            // corner, so the world spans 0..BoundsSize and cell (x,z) IS world (x,z). The
+            // furniture is authored around the map's CENTRE — derived, so a bounds retune
+            // regenerates it back into the middle of wherever the middle now is.
+            var centre = Rokkan.Prophecy.Overworld.OverworldWorldBuilder.MapCentre(map, Vector3.zero);
+
+            CreateReturnPortal(geometry, centre);
+            CreateDescriptorAndSpawns(markers, centre);
             CreateCamera(tuning);
             CreateCombatDirector();
             CreateEncounters(markers);
-            CreateCameraCut(markers);
+            CreateCameraCut(markers, centre);
         }
 
         /// <summary>
@@ -112,7 +119,7 @@ namespace Rokkan.Prophecy.Editor.Build
         /// someone's authoring. The starter layout is an island: one big landmass with limbs,
         /// sized to keep the existing furniture (spawns, cube, spawner ring) on dry land.
         /// </summary>
-        private static void CreateStalbergGround()
+        private static Rokkan.Prophecy.Overworld.OverworldMap CreateStalbergGround()
         {
             const string mapPath = "Assets/_Prophecy/Data/OverworldMap.asset";
 
@@ -155,6 +162,8 @@ namespace Rokkan.Prophecy.Editor.Build
             var biomes = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldBiomePalette>(
                 "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
             if (biomes != null) SetPrivate(component, "_biomes", biomes);
+
+            return map;
         }
 
         private static void CreateLighting()
@@ -186,30 +195,32 @@ namespace Rokkan.Prophecy.Editor.Build
         // of sight (the lesson the plain taught).
 
         /// <summary>
-        /// The cube that carries you back — the portal colour, standing proud of the plain at its
-        /// centre, volume a little larger than the cube so touching it is entering it.
+        /// The cube that carries you to the fight — the portal colour, standing proud of the
+        /// plain at the map's centre, volume a little larger than the cube so touching it is
+        /// entering it. Targets the combat tester's fixed spawn; the tester's own portal
+        /// comes back via <c>@return</c>, so the round trip lands where the player left.
         /// </summary>
-        private static void CreateReturnPortal(Transform parent)
+        private static void CreateReturnPortal(Transform parent, Vector3 centre)
         {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = "Portal_Traversal";
+            cube.name = "Portal_CombatTester";
             cube.transform.SetParent(parent, false);
             cube.transform.localScale = new Vector3(1.6f, 1.6f, 1.6f);
-            cube.transform.position = new Vector3(0f, 0.8f, 0f);
+            cube.transform.position = centre + new Vector3(0f, 0.8f, 0f);
 
             Object.DestroyImmediate(cube.GetComponent<Collider>());
             cube.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
 
             var portal = cube.AddComponent<Portal>();
-            SetPrivate(portal, "_targetScene", GrayBoxTraversalBuilder.SceneName);
-            SetPrivate(portal, "_targetSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
+            SetPrivate(portal, "_targetScene", GrayBoxCombatTesterBuilder.SceneName);
+            SetPrivate(portal, "_targetSpawnId", GrayBoxCombatTesterBuilder.DefaultSpawnId);
             SetPrivate(portal, "_halfExtents", new Vector3(1.3f, 1.5f, 1.3f));
         }
 
-        private static void CreateDescriptorAndSpawns(Transform markers)
+        private static void CreateDescriptorAndSpawns(Transform markers, Vector3 centre)
         {
-            var west = Spawn(markers, WestSpawnId, new Vector3(-4f, 0f, 0f), facing: 1);
-            Spawn(markers, EastSpawnId, new Vector3(4f, 0f, 0f), facing: -1);
+            var west = Spawn(markers, WestSpawnId, centre + new Vector3(-4f, 0f, 0f), facing: 1);
+            Spawn(markers, EastSpawnId, centre + new Vector3(4f, 0f, 0f), facing: -1);
 
             var descriptorObject = new GameObject("SceneDescriptor");
             descriptorObject.transform.SetParent(markers, false);
@@ -271,11 +282,11 @@ namespace Rokkan.Prophecy.Editor.Build
         /// (this assembly deliberately knows nothing of Cinemachine, same as with the rigs);
         /// the yaw is the rig doc's sanctioned exception: an authored set-piece.
         /// </summary>
-        private static void CreateCameraCut(Transform markers)
+        private static void CreateCameraCut(Transform markers, Vector3 centre)
         {
             var zone = new GameObject("CameraCut_EastwaterBridge");
             zone.transform.SetParent(markers, false);
-            zone.transform.position = new Vector3(12.7f, 0f, -4.5f);
+            zone.transform.position = centre + new Vector3(12.7f, 0f, -4.5f);
 
             var cut = zone.AddComponent<CameraCutZone>();
             SetPrivate(cut, "_halfExtents", new Vector3(3.2f, 2f, 1.6f));

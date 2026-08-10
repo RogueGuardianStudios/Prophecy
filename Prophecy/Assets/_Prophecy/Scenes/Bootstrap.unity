@@ -564,7 +564,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.World.SceneDirector
   _player: {fileID: 6710946903416866677}
   _camera: {fileID: 597681943}
-  _firstWorldScene: GrayBox_Traversal
+  _firstWorldScene: GrayBox_Overworld
 --- !u!4 &1705434215
 Transform:
   m_ObjectHideFlags: 0

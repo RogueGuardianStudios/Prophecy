@@ -13,6 +13,89 @@ log — level = round(Y/oldStep), Y = level×newStep). Sea level is a fixed −0
 constant deliberately decoupled from the step. **East Mesa settled at level 1, so its 'Mesa
 Trail' compiles** — the warning from the first build is resolved.
 
+**THE KINGDOM FOOTPRINT AND THE CORNER CONVENTION (2026-08-09, Matt):** seven Kingdoms are
+the plan, and the sizing math is now measured: a CHUNK is 16×16 cells = 16×16 m
+(`OverworldWorldBuilder.ChunkSize`, `CellSize` 1 m), one camera screenful is ~25×14 m
+(share 0.13) ≈ 1.5 chunks wide — the chunk is the ENGINEERING grain (rebuild granularity,
+the streaming/mesh-combining hook), not a design unit. **A kingdom baseline is 12×9 chunks
+= 192×144 m** (~26 s × 19 s to run across at 7.5 m/s, ~4× the old demo's area; small vassal
+8×6, grand kingdom 16×12; keep bounds multiples of 16 so chunks tile exactly). Seven at
+baseline ≈ 194k cells ≈ three ALttP light-worlds of authoring — **each kingdom should be
+its own OverworldMap + scene** (one continuous map would be ~4 s per full build and several
+hundred thousand instances; per-chunk mesh combining becomes real work at kingdom size).
+**The demo map IS the kingdom footprint now: BoundsSize 96×72 → 192×144**, all content
+preserved. And the world went CORNER-ANCHORED (Matt: "use bottom left as 0x0"): the HOST's
+transform is the map's bottom-left corner (host at scene origin → cell (x,z) stands at
+world (x,z), chunk (0,0) at (0,0)); `OverworldWorldBuilder.MapCentre(map, corner)` is the
+one translation to the compiler, whose `worldOffset` parameter stays the CENTRE — tests
+author centred maps at Vector3.zero and never noticed. The scene builder now derives its
+furniture (portal, spawns, camera-cut zone) from the map centre, so a bounds retune
+regenerates them into the middle of wherever the middle now is. **TWO ANCHORING TRUTHS,
+paid for in one session:** (1) authored SHAPES are CENTRE-RELATIVE — the compiler adds
+worldOffset to every Centre/Point (`RasterX(grid, map, offset)`), so shapes ride a bounds
+change automatically and migrating them "to keep world position" is a double-shift that
+throws the land off the map (placements 4,417 → 1,066; reverted). (2) painted CELL
+OVERRIDES are INDEX-ANCHORED — a bounds change of Δ slides the shapes Δ/2 in index space
+while paints stay, so every resize must shift override X/Z by Δ/2 (this one: +48,+36 on
+206 cells) or the paints detach from the land they decorate. Worth enshrining as a
+`Resize Map` tool button before kingdom authoring starts — by hand it is a silent-refusal
+generator (the tell: "N painted road cells refused" plus every ramp climbing nothing).
+Verified: compile at the derived centre reproduces the pre-conversion grid exactly
+(4,417 placements, zero audit notes), scene regenerated, suite 849 green.
+
+**THE UP-THRUST EXISTS (2026-08-10) — the full move list landed, and its biggest gap is
+closed.** Matt delivered the phase's governing doc (`outside docs/Proxy-and-Gray-Box-Phase.md`
+— the design-bible section; the audit against it: 15 of 19 moves built, Crawl + FlameArt
+still stubs, up-thrust and swim/sink missing entirely; it also SETTLES gating: double jump =
+Gildhollow's Ascent flame-art CAST, wall jump = Veinwalkers item, dodge = Ashmoor's Mercy
+item, up-thrust Threnhold-taught — flags for later, gray box stays all-on). **`UpThrust`
+built as the dive's rising mirror:** jump + hold up + attack while RISING; the blade rides
+the jump arc (drives no velocity), strikes through the shared `HitSweep` (one hit per target
+per thrust, own attack id `up_thrust`), commits for `UpThrustMinTicks`, and **the apex
+sheathes it** — falling is the dive's domain, the pair partitions the air, and a test pins
+the Zelda II air sandwich (up-stab the rise, down-stab the fall, one-tick seam). No bounce,
+deliberately: the dive's pop rewards placing the hardest attack in the game; the up-thrust
+is placed by the jump that carries it. Parried = stunned and falling, the dive's rule.
+Slots cleanly: air attack entry is authored EMPTY, so a directional air press belongs to the
+thrusts (down → 50, up → 52). Loadouts "leave unknown abilities alone", so no asset edits.
+**Matt's first drive: "I don't see it working at all" — three compounding invisibilities,
+all real (2026-08-10):** (1) the F2 overlay NEVER drew either thrust's box — `DrawAttackVolumes`
+only knows the attack timeline, and the thrusts swing their own blades; the dive's box had
+been invisible for two milestones and nobody noticed because the plunge is its own tell.
+Both modules now expose `Volume` and the overlay draws them in the live colour (the
+projectile argument: live for their whole existence). (2) Nothing in any scene hung
+overhead to hit — the combat tester grew **`Dummy_UpThrust`** at x=−10: body centred 3.2 m
+up, placed by arithmetic where ONLY the rising blade reaches (blade spans feet+1.65..2.35,
+jump lifts feet 2.4 — above every grounded swing, below no one's feet). (3) The input seam:
+jump+attack on the EXACT same tick buys a standing slash and NO jump — the attack module
+runs first and its lock refuses the jump; an attack is a commitment. The thrust's input is
+jump, THEN attack while rising. All three pinned or drawn; the grounded gate simplified to
+velocity-only (a grounded body never carries upward velocity). Suite 862 green.
+**And a fourth, found by Matt in the same drive: the dummy's hurtbox sat on the FLOOR** —
+the tester builder's `SetPrivate` switch had no Vector2 case, so `_size`/`_offset` logged
+"Unhandled type" and kept their grounded-full-body defaults while the visual hung at 3.2 m.
+The trap: each builder carries its own `SetPrivate` copy with its own type list, and a
+missing case is a console error nobody reads plus an asset that LOOKS authored. Check the
+console after every regenerate — or better, someday unify the copies.
+`BodyState.UpThrust` inserted beside DownThrust (shifts Death's serialized value — the
+BodyAnimationSet was regenerated; the unmapped-states list is now SEVEN, up-thrust joining
+the six that fall back to Idle). 12 new tests, suite 861 green. NEXT per Matt: water —
+swim/sink as the global hazard rule, then Mirefen's Buoyancy flip.
+
+**THE OVERWORLD IS HOME (2026-08-09, Matt):** the game now boots into the map.
+`SceneDirector._firstWorldScene` = `GrayBox_Overworld` (code default AND Bootstrap's
+serialized copy — the scene instance carries its own value, changing only the code default
+changes nothing). The portal loop re-routed: the overworld's centre cube is
+**`Portal_CombatTester`** → the sparring floor's `default` spawn, and the tester grew
+**`Portal_Overworld`** at its west edge (behind the arriving player, the fight the other
+way) → **`@return`**, so leaving the duel stands you back exactly where you left the map.
+The traversal course is unchanged and still reachable the Zelda II way — wanderer touches
+and road crossings carry you there, and its exits already `@return`. The tester builder
+gained `SceneName`/`DefaultSpawnId` constants (derived, same pattern as the other builders)
+and a Vector3 case in its `SetPrivate`. Wiring verified in the regenerated scene files;
+suite 849 green. NOT yet driven live — worth one Bootstrap round trip
+(spawn → portal → fight → portal → same spot) next time the editor plays.
+
 **Shadow settings tuned for the tile world (2026-08-05 morning):** what read as "z-fighting
 between the stairs and the wall while moving" was shadow-map texel swim — a full coplanarity
 audit of the built world (every triangle bucketed by plane, overlaps reported; worth keeping
@@ -570,8 +653,8 @@ there is something to hang it on, and guessing now would be guessing.
 | `StatScale` | no `AttackDefinition` scales off a stat |
 | `AttackModifiers` window scales | gear, which does not exist |
 
-**Six animation states have no clip** and silently fall back to Idle: `WallSlide`, `LedgeHang`,
-`LedgeClimb`, `LadderIdle`, `LadderClimb`, `DownThrust`. Synty ships nothing for any of them — they
+**Seven animation states have no clip** and silently fall back to Idle: `WallSlide`, `LedgeHang`,
+`LedgeClimb`, `LadderIdle`, `LadderClimb`, `DownThrust`, `UpThrust`. Synty ships nothing for any of them — they
 are 3D action packs and these are 2.5D platformer moves, so a wall-slide currently looks like
 standing still. Jump variants are also unmapped, so a sprinting jump plays a standing leap.
 
@@ -1301,6 +1384,17 @@ the player respawns because the player is the story continuing; a shoved-off ene
 gone (unregister cleans the fight's pacing records behind it). The tester's respawner also
 clears CORPSES now (real death still leaves objects standing — the death rule remains the
 open design item — but the tester needs its fight-adjust-fight loop).
+
+**THE ROC FELL OFF AND IS BACK ON (2026-08-09):** the attack-director session's `Generate
+Enemies` run rebuilt `Enemy_Capsule.prefab` from scratch — `EnemyBuilder.BuildPrefab` makes a
+fresh capsule every time — and commit 39656aa silently shipped the capsule back one commit
+after 966beb3 installed the Roc. Reinstalled (measured 2.052 m, scaled 0.877 to StandHeight),
+and the regression is closed structurally: `EnemyModelInstaller.InstallIfModelPresent()` (a
+quiet no-op when the untracked MeshyImports model is absent) now runs at the end of
+`EnemyBuilder.Generate()`, so regeneration re-dresses the grunt instead of undressing it.
+THE PATTERN, worth remembering for the hero too if the player prefab ever grows a generator:
+an installer that decorates a generated asset loses to the generator unless the generator
+calls it.
 
 **COMBAT AI TESTER (2026-08-07, after the cutaways):** Matt imported the Iron Roc Warrior
 (Meshy, `Assets/MeshyImports/Iron Roc Warrior_*` — UNTRACKED like the hero's T-pose figure;

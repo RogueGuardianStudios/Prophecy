@@ -27,6 +27,12 @@ namespace Rokkan.Prophecy.Editor.Build
     {
         public const string ScenePath = "Assets/_Prophecy/Scenes/GrayBox_CombatTester.unity";
 
+        /// <summary>Scene name portals target. Derived so it cannot drift from the asset.</summary>
+        public static string SceneName => Path.GetFileNameWithoutExtension(ScenePath);
+
+        /// <summary>The one arrival spawn, west of the respawn post.</summary>
+        public const string DefaultSpawnId = "default";
+
         private const string GruntPrefabPath = "Assets/_Prophecy/Prefabs/Enemy_Capsule.prefab";
 
         private const float FloorWidth = 30f;
@@ -68,6 +74,73 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateCombatDirector();
             CreateDescriptorAndSpawn(markers);
             CreateRespawner(markers);
+            CreateExitPortal(geometry);
+            CreateUpThrustTarget(geometry);
+        }
+
+        /// <summary>
+        /// The up-thrust's proof: a dummy hung over the floor, placed by arithmetic where only
+        /// the rising blade reaches. The blade spans feet+1.65..feet+2.35 and a jump lifts the
+        /// feet 2.4, so a body centred at 3.2 (spanning 2.75..3.65) connects mid-rise, sits
+        /// above every grounded swing, and no jump puts feet above it to dive on — whatever
+        /// hits this was an up-thrust. Away from the respawn post so the duel stays a duel.
+        /// </summary>
+        private static void CreateUpThrustTarget(Transform parent)
+        {
+            const float x = -10f;
+            const float centreY = 3.2f;
+            var size = new Vector2(0.9f, 0.9f);
+
+            var root = new GameObject("Dummy_UpThrust");
+            root.transform.SetParent(parent, false);
+            root.transform.position = new Vector3(x, 0f, 0f);
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(size.x, size.y, 0.9f);
+            body.transform.localPosition = new Vector3(0f, centreY, 0f);
+            Object.DestroyImmediate(body.GetComponent<Collider>());
+
+            // A visual stalk so the thing reads as mounted rather than levitating. No collider —
+            // the sim never sees it, and a pole you could stand on would put feet above the box.
+            var stalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stalk.name = "Stalk";
+            stalk.transform.SetParent(root.transform, false);
+            float stalkTop = centreY - size.y * 0.5f;
+            stalk.transform.localScale = new Vector3(0.08f, stalkTop, 0.08f);
+            stalk.transform.localPosition = new Vector3(0f, stalkTop * 0.5f, 0f);
+            Object.DestroyImmediate(stalk.GetComponent<Collider>());
+
+            var combatant = root.AddComponent<Combatant>();
+            SetPrivate(combatant, "_combatId", 40);
+            SetPrivate(combatant, "_team", 2);
+            SetPrivate(combatant, "_size", size);
+            SetPrivate(combatant, "_offset", new Vector2(0f, centreY));
+            SetPrivate(combatant, "_maxHealth", 200);
+        }
+
+        /// <summary>
+        /// The way home, at the west edge — behind the arriving player, with the fight the
+        /// other way, so leaving is a decision to disengage rather than a hazard beside the
+        /// duel. It targets the overworld's <see cref="SceneDirector.ReturnSpawnId"/>: you
+        /// stand back up exactly where you left the map, Zelda II's encounter rule.
+        /// </summary>
+        private static void CreateExitPortal(Transform parent)
+        {
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = "Portal_Overworld";
+            cube.transform.SetParent(parent, false);
+            cube.transform.localScale = new Vector3(1.6f, 1.6f, 1.6f);
+            cube.transform.position = new Vector3(-FloorWidth * 0.5f + 2f, 0.8f, 0f);
+
+            Object.DestroyImmediate(cube.GetComponent<Collider>());
+            cube.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
+
+            var portal = cube.AddComponent<Portal>();
+            SetPrivate(portal, "_targetScene", GrayBoxOverworldBuilder.SceneName);
+            SetPrivate(portal, "_targetSpawnId", SceneDirector.ReturnSpawnId);
+            SetPrivate(portal, "_halfExtents", new Vector3(1.3f, 1.5f, 1.3f));
         }
 
         private static void CreateLighting()
@@ -165,6 +238,8 @@ namespace Rokkan.Prophecy.Editor.Build
                 case float f: property.floatValue = f; break;
                 case int i: property.intValue = i; break;
                 case bool b: property.boolValue = b; break;
+                case Vector2 v2: property.vector2Value = v2; break;
+                case Vector3 v: property.vector3Value = v; break;
                 case MovementSpace space: property.enumValueIndex = (int)space; break;
                 default:
                     Debug.LogError($"[Prophecy] Unhandled type for '{field}'.");
