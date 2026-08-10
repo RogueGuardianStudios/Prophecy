@@ -484,6 +484,20 @@ namespace Rokkan.Prophecy.Sim
             if (delta.y != 0f)
             {
                 float allowedY = World.SweepVertical(State.Body, delta.y, out bool hitY, State.DropThrough);
+
+                // The float floor stops a downward crossing from above, exactly as a one-way
+                // platform would — a body already beneath it is not touched, which is what
+                // lets a submerged body rise up through its own waterline.
+                if (State.HasFloatFloor && delta.y < 0f && State.Position.y >= State.FloatFloorY)
+                {
+                    float toFloor = State.FloatFloorY - State.Position.y;
+                    if (allowedY < toFloor)
+                    {
+                        allowedY = toFloor;
+                        hitY = true;
+                    }
+                }
+
                 State.Position += new Vector2(0f, allowedY);
                 if (hitY)
                 {
@@ -504,8 +518,17 @@ namespace Rokkan.Prophecy.Sim
         private void RefreshGrounded()
         {
             State.Grounded = State.Space == MovementSpace.TopDown ||
-                             World.IsGrounded(State.Body, dropThrough: State.DropThrough);
+                             World.IsGrounded(State.Body, dropThrough: State.DropThrough) ||
+                             OnFloatFloor();
         }
+
+        /// <summary>Standing on the temporary surface an ability maintains (Buoyancy's
+        /// water-walk): feet at the floor, or within the same probe distance the solid
+        /// grounding uses. Never true from beneath — the float floor is one-way.</summary>
+        private bool OnFloatFloor() =>
+            State.HasFloatFloor &&
+            State.Position.y >= State.FloatFloorY - 0.001f &&
+            State.Position.y <= State.FloatFloorY + 0.02f;
 
         /// <summary>
         /// Airborne always wins, because the down-thrust is gated on it. Crouch is otherwise a
@@ -574,6 +597,7 @@ namespace Rokkan.Prophecy.Sim
             State.AirRefreshTick = long.MinValue;
             State.JumpConsumedTick = long.MinValue;
             State.DropThrough = false;
+            State.HasFloatFloor = false;
             State.Attachment = AttachmentKind.None;
             State.AttachmentAnchor = Vector2.zero;
             if (facing != 0) State.Facing = facing < 0 ? -1 : 1;

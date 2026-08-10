@@ -245,6 +245,51 @@ namespace Rokkan.Prophecy.Sim
                  "apex is what ends it.")]
         public int UpThrustMinTicks = 4;
 
+        // ------------------------------------------------------------------ water
+
+        [Header("Water")]
+        [Tooltip("Fraction of movement speed the water takes while submerged (Matt: 20% read " +
+                 "as nothing, 40% is the current call). Applied as a Speed debuff through the " +
+                 "stat system, so it composes with every other slow the same way the Censer's " +
+                 "will. Jumps and ledge grabs are deliberately untouched — they behave " +
+                 "exactly as on land.")]
+        [Range(0f, 0.9f)]
+        public float WaterSpeedPenalty = 0.4f;
+
+        [Tooltip("Fastest the body sinks, in m/s. The whole vertical story of being in water: " +
+                 "gravity pulls as it always does, the water refuses to let it add up.")]
+        public float WaterSinkSpeed = 2.5f;
+
+        [Tooltip("Ticks of breath while the head is under. Surfacing refills it; when it runs " +
+                 "out, the water starts taking health instead.")]
+        public int BreathTicks = 480;
+
+        [Tooltip("Damage per drown interval once breath is gone. Applied straight to vitals — " +
+                 "no gate parries drowning. Rapid by design (Matt): at 5 every 6 ticks, full " +
+                 "health is gone in two seconds — the breath is the warning, this is the end.")]
+        public int DrownDamage = 5;
+
+        [Tooltip("Ticks between bites of drown damage.")]
+        public int DrownIntervalTicks = 6;
+
+        // ------------------------------------------------------------------ buoyancy (the art)
+
+        [Header("Buoyancy — the art")]
+        [Tooltip("Feet deeper than this when the cast lands: the press is a LAUNCH, scaled " +
+                 "by that depth (Matt: no full-submersion requirement — the feet decide). " +
+                 "Effectively the surface skin: casting ON the water or on land is the " +
+                 "toggle, casting with the feet in the water is always the surge.")]
+        public float BuoyancyLaunchMinDepth = 0.05f;
+
+        [Tooltip("The surge: the body leaves the water still carrying enough speed to rise " +
+                 "depth × this above the surface. Deeper casts launch higher — the sluice " +
+                 "rooms' two-variable vocabulary (water level × buoyancy). 1.5 is Matt's " +
+                 "feel call: the launch should feel like power, not parity.")]
+        public float BuoyancyLaunchBonus = 1.5f;
+
+        [Tooltip("How fast a submerged body rises to its water-walk platform, in m/s.")]
+        public float FloatSnapSpeed = 4f;
+
         // ------------------------------------------------------------------ landing
 
         [Header("Landing")]

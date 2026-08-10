@@ -38,7 +38,7 @@ namespace Rokkan.Prophecy.World
         private LaneCameraRig _camera;
 
         [SerializeField, Tooltip("Loaded on start-up, unless a world scene is already open.")]
-        private string _firstWorldScene = "GrayBox_Overworld";
+        private string _firstWorldScene = "GrayBox_Traversal";
 
         /// <summary>
         /// Spawn id meaning "back where the player left this scene". Zelda II's encounter rule:

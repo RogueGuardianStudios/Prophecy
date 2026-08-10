@@ -82,6 +82,7 @@ namespace Rokkan.Prophecy.Sim.Collision
 
         private readonly List<Solid> _solids = new List<Solid>();
         private readonly List<Climbable> _climbables = new List<Climbable>();
+        private readonly List<Aabb> _water = new List<Aabb>();
 
         public int Count => _solids.Count;
         public IReadOnlyList<Solid> Solids => _solids;
@@ -97,10 +98,41 @@ namespace Rokkan.Prophecy.Sim.Collision
         public void AddClimbable(in Aabb box, ClimbableKind kind = ClimbableKind.Ladder) =>
             _climbables.Add(new Climbable(box, kind));
 
+        /// <summary>Water pools. Like climbables, the opposite of solid — regions the body
+        /// passes through, read only by the abilities that care what being inside one means.</summary>
+        public int WaterCount => _water.Count;
+        public IReadOnlyList<Aabb> Water => _water;
+
+        public void AddWater(in Aabb box) => _water.Add(box);
+
+        /// <summary>
+        /// The pool containing <paramref name="point"/>, if any. Where stacked or overlapping
+        /// pools share the point, the HIGHEST surface answers — a body inside both is under the
+        /// taller one, and submersion is measured from the surface it would break.
+        /// </summary>
+        public bool TryGetWater(Vector2 point, out Aabb water)
+        {
+            bool found = false;
+            water = default;
+
+            for (int i = 0; i < _water.Count; i++)
+            {
+                var pool = _water[i];
+                if (!pool.Contains(point)) continue;
+                if (found && pool.Max.y <= water.Max.y) continue;
+
+                water = pool;
+                found = true;
+            }
+
+            return found;
+        }
+
         public void Clear()
         {
             _solids.Clear();
             _climbables.Clear();
+            _water.Clear();
         }
 
         /// <summary>True if <paramref name="box"/> strictly overlaps any Solid. One-way platforms

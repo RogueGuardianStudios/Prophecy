@@ -87,6 +87,15 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <summary>After the jumps, so a launch this tick is not immediately clamped by the slide.</summary>
         public const int WallSlide = 36;
 
+        /// <summary>After the jumps for the same reason as the slide: water leans on launches —
+        /// buoys and drags them — so they must exist first. Before the thrusts, whose
+        /// re-asserted velocities deliberately pierce water at full speed.</summary>
+        public const int Swim = 40;
+
+        /// <summary>After <see cref="Swim"/>: the art answers the water, so the water goes
+        /// first — and the launch's re-assert must be the tick's last word on the surge.</summary>
+        public const int Buoyancy = 42;
+
         public const int DownThrust = 50;
 
         /// <summary>Beside the dive; their input conditions are disjoint (down vs up held), so

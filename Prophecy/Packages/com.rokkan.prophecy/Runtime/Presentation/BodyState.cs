@@ -41,6 +41,12 @@ namespace Rokkan.Prophecy.Presentation
         LadderIdle,
         LadderClimb,
 
+        // ---- water. Sink is the global rule wearing its struggle; Float is Mirefen's art
+        // making peace with it. Walking the pool floor stays Walk/Run — the water shows in
+        // the speed, not in a separate gait.
+        Sink,
+        Float,
+
         // ---- defence
         Block,
         Parry,

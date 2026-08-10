@@ -50,6 +50,10 @@ namespace Rokkan.Prophecy.Editor.Build
         /// the moment the course's proportions retune.</summary>
         private static readonly List<Vector2> FloorSpans = new List<Vector2>();
 
+        /// <summary>The lowest walkable floor any section built — the pool basin, today. The
+        /// camera floor derives from it, or descending below ground level outruns the frame.</summary>
+        private static float _lowestFloorY;
+
         [MenuItem("Prophecy/Build/Generate GrayBox_Traversal", priority = 40)]
         public static void Generate()
         {
@@ -152,6 +156,7 @@ namespace Rokkan.Prophecy.Editor.Build
         private static void BuildContents(MovementTuning tuning, Metrics m)
         {
             FloorSpans.Clear();
+            _lowestFloorY = 0f;
 
             var geometry = new GameObject("Geometry").transform;
             var markers = new GameObject("Markers").transform;
@@ -176,6 +181,9 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // --- one-way platform: jump up through it, land on top
             cursor = OneWay(geometry, m, cursor);
+
+            // --- the pool: chest-deep shelf, head-under basin, a step back out
+            cursor = WaterBasin(geometry, tuning, cursor);
 
             // --- a chimney that can only be climbed by wall jumping
             cursor = WallJumpChimney(geometry, m, cursor);
@@ -311,11 +319,13 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(descriptor, "_killPlaneEnabled", true);
             SetPrivate(descriptor, "_killPlaneY", -25f);
 
-            // One lane below the ground floor. The camera wants the player in the centre lane, but
-            // it will not show past this — so standing on the ground floor leaves exactly one lane
-            // of space underfoot instead of a lane of void.
+            // One lane below the LOWEST floor any section built — the pool basin dug below
+            // ground level, and a camera floor pinned to ground level stranded the sinking
+            // player at the frame's bottom edge (the camera "not following" a descent). The
+            // clamp only matters when descending, so ground-level play frames exactly as
+            // before.
             SetPrivate(descriptor, "_useCameraBounds", true);
-            SetPrivate(descriptor, "_cameraFloorY", -tuning.Data.LaneHeight);
+            SetPrivate(descriptor, "_cameraFloorY", _lowestFloorY - tuning.Data.LaneHeight);
             SetPrivate(descriptor, "_cameraCeilingY", 40f);
         }
 
@@ -476,6 +486,93 @@ namespace Rokkan.Prophecy.Editor.Build
         /// Making it a gate rather than a shortcut is the point: if wall jumping is broken, this
         /// section is impassable and you find out immediately.</para>
         /// </summary>
+        /// <summary>
+        /// The water dictionary entry: one pool, two depths, both derived from the body.
+        ///
+        /// <para>The shallow shelf is chest-deep — head out, breath safe, a slow trudge that
+        /// teaches the drag. The basin is head-under at twice the stand height, which is where
+        /// the breath timer becomes the hazard; the way out is a mid-depth step whose rises fit
+        /// the water-boosted jump, or Mirefen's Buoyancy fired from the floor. The waterline is
+        /// FLUSH with the deck, so the water-walk steps onto land without a seam.</para>
+        ///
+        /// <para>The visible water is a backdrop slab BEHIND the play plane plus a thin surface
+        /// strip — an opaque box on the plane would hide the swimmer inside it. The sim's water
+        /// is the invisible trigger, exactly as ladders are.</para>
+        /// </summary>
+        private static float WaterBasin(Transform parent, MovementTuning tuning, float startX)
+        {
+            float stand = tuning.Data.StandHeight;
+
+            float shallowDepth = stand * 0.66f;       // 1.19 at 1.8: chest-deep
+            float deepDepth = stand * 2.1f;           // 3.78 at 1.8: head well under
+            float stepDepth = stand;                  // the way out, one boosted jump at a time
+
+            const float shallowLength = 5f;
+            const float deepLength = 7f;
+            const float stepLength = 2f;
+
+            // FLUSH with the deck, deliberately (Matt): the water-walk must step straight
+            // onto land where they meet. A waterline even 0.1 below the bank is a lip the
+            // sweep treats as a wall, and the art ends at an invisible kerb.
+            const float surfaceY = 0f;
+
+            float x = startX;
+            float length = shallowLength + deepLength + stepLength;
+
+            // The shelf. Its box reaches down to the basin floor so its far face is the
+            // basin's near wall — a thinner shelf would leave a slit into the void below.
+            Box(parent, "Water_ShallowShelf",
+                new Vector2(x, -deepDepth - GroundThickness),
+                new Vector2(x + shallowLength, -shallowDepth));
+
+            Box(parent, "Water_BasinFloor",
+                new Vector2(x + shallowLength, -deepDepth - GroundThickness),
+                new Vector2(x + shallowLength + deepLength, -deepDepth));
+
+            _lowestFloorY = Mathf.Min(_lowestFloorY, -deepDepth);
+
+            Box(parent, "Water_ExitStep",
+                new Vector2(x + shallowLength + deepLength, -deepDepth - GroundThickness),
+                new Vector2(x + length, -stepDepth));
+
+            // The water itself: a trigger spanning the whole basin up to the waterline. No
+            // renderer — the sim's water, like the sim's ladders, is a region, not a thing.
+            var trigger = new GameObject("Water_Volume");
+            trigger.transform.SetParent(parent, false);
+            trigger.transform.position = new Vector3(x + length * 0.5f,
+                                                     (surfaceY - deepDepth) * 0.5f, 0f);
+            var box = trigger.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(length, deepDepth + surfaceY, Depth);   // floor to waterline
+            trigger.AddComponent<WaterVolume>();
+
+            // What the water looks like: a slab behind the lane and a strip at the surface.
+            var backdrop = Box(parent, "Water_Backdrop",
+                               new Vector2(x, -deepDepth),
+                               new Vector2(x + length, surfaceY));
+            backdrop.localScale = new Vector3(backdrop.localScale.x, backdrop.localScale.y, 0.6f);
+            backdrop.position = new Vector3(backdrop.position.x, backdrop.position.y,
+                                            Depth * 0.5f + 0.35f);
+            StripCollider(backdrop);
+            backdrop.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Water();
+
+            var strip = Box(parent, "Water_Surface",
+                            new Vector2(x, surfaceY - 0.04f),
+                            new Vector2(x + length, surfaceY));
+            StripCollider(strip);
+            strip.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Water();
+
+            return x + length;
+        }
+
+        /// <summary>Visual-only boxes must not bake: a collider on the backdrop is a wall
+        /// behind the lane, and one on the surface strip is a lid over the pool.</summary>
+        private static void StripCollider(Transform visual)
+        {
+            var collider = visual.GetComponent<Collider>();
+            if (collider != null) Object.DestroyImmediate(collider);
+        }
+
         private static float WallJumpChimney(Transform parent, Metrics m, float startX)
         {
             const float shaftHeight = 10f;

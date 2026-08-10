@@ -96,6 +96,20 @@ namespace Rokkan.Prophecy.Sim
         public bool DropThrough;
 
         /// <summary>
+        /// A temporary supporting surface at a height, owned by whichever ability maintains it —
+        /// Buoyancy's water-walk today. One-way from above: it stops downward crossings and
+        /// grounds feet standing on it, while a body beneath rises through it freely. The sim's
+        /// own grounding and vertical sweep consult it, which is what makes the waterline act
+        /// like any other platform — landing there lands, jumps off it are ground jumps, and
+        /// the air refreshes the ordinary way.
+        ///
+        /// <para>Same shape as <see cref="AirRefreshTick"/>, and the same reason: the modules
+        /// stay ignorant of each other and the fact travels through state.</para>
+        /// </summary>
+        public bool HasFloatFloor;
+        public float FloatFloorY;
+
+        /// <summary>
         /// What the character is currently holding onto, if anything.
         ///
         /// <para>Shared state rather than a flag owned by one module, for the same reason

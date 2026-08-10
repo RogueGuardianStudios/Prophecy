@@ -52,6 +52,12 @@ namespace Rokkan.Prophecy.Sim.Collision
             Min.x < other.Max.x && Max.x > other.Min.x &&
             Min.y < other.Max.y && Max.y > other.Min.y;
 
+        /// <summary>Whether <paramref name="point"/> is inside. Inclusive of the faces, so feet
+        /// standing exactly on a pool's floor are still IN the pool.</summary>
+        public bool Contains(Vector2 point) =>
+            point.x >= Min.x && point.x <= Max.x &&
+            point.y >= Min.y && point.y <= Max.y;
+
         /// <summary>Overlap on the X axis only — used by the vertical sweep to decide which
         /// solids are even candidates.</summary>
         public bool OverlapsX(in Aabb other) => Min.x < other.Max.x && Max.x > other.Min.x;

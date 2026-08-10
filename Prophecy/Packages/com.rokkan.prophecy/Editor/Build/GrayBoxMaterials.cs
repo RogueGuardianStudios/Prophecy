@@ -28,6 +28,11 @@ namespace Rokkan.Prophecy.Editor.Build
         public static Material Ground() =>
             Ensure("GrayBox_Ground.mat", new Color(0.52f, 0.58f, 0.5f));
 
+        /// <summary>Water, everywhere water appears — a deeper blue than the portal's cyan, so
+        /// "this colour moves you" and "this colour sinks you" stay two different lessons.</summary>
+        public static Material Water() =>
+            Ensure("GrayBox_Water.mat", new Color(0.15f, 0.35f, 0.65f));
+
         /// <summary>Mock prop wood — trunks, posts, signs.</summary>
         public static Material PropWood() =>
             Ensure("GrayBox_PropWood.mat", new Color(0.45f, 0.32f, 0.2f));

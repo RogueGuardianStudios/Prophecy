@@ -43,6 +43,117 @@ generator (the tell: "N painted road cells refused" plus every ramp climbing not
 Verified: compile at the derived centre reproduces the pre-conversion grid exactly
 (4,417 placements, zero audit notes), scene regenerated, suite 849 green.
 
+**WATER AND BUOYANCY (2026-08-10, design settled with Matt, then built the same day):**
+the last missing system from the move list. DECISIONS: sinking = WALK THE BOTTOM (slow
+sink, damped movement on the pool floor — what keeps 'water level × buoyancy = two-variable
+sluice rooms' composable); walking slow but jumps INCREASED underwater (Matt); a BREATH
+TIMER whose expiry drains health until death or air (Matt — this makes drowning the hazard
+rather than unreachable ledges); the art = TOGGLE float at the surface, depth-scaled ROCKET
+from below, float again on the splash-back, cleared by walking out on dry ground. THE
+ELEGANT CORE: one buoyant force — water gives back `WaterBuoyancy` (0.7) of gravity — makes
+the sink gentle AND the jumps higher from a single knob; horizontal drag is the trudge.
+BUILT: `CollisionWorld` grew a water list (third category beside solids/climbables;
+`TryGetWater` answers the containing pool and its surface), `WaterVolume` trigger marker
+(LadderVolume's pattern) baked by `CollisionBaker`, `Swim` (order 40, after the jumps like
+WallSlide, before the thrusts — A COMMITTED DIVE PIERCES WATER at full speed by module
+order, and a test pins it) and `Buoyancy` (order 42; the launch velocity is RE-ASSERTED
+every tick while submerged — the dive's pattern upside down — so drag cannot eat the surge
+and deeper genuinely launches higher). Drown damage goes STRAIGHT TO VITALS past the gate
+chain ("the shield is not a snorkel" — pinned). BodyStates Sink/Float added (animation set
+regenerated), F1 overlay shows depth/breath/DROWNING/FLOAT, and the traversal course grew
+the water dictionary entry: chest-deep shelf, head-under basin at 2.1× stand height, a
+mid-depth exit step, waterline a hair below deck; the visible water is a BACKDROP SLAB
+behind the lane plus a surface strip, because an opaque box on the plane hides the swimmer.
+**TWO TRAPS PAID FOR, both caught by tests plus a reflection-driven per-tick trace:**
+(1) `GravityModule` applies APEX-SCALED gravity near zero velocity, and a buoyant push
+computed from the unscaled number OVERPOWERS it there — water turned net-upward around
+rest and a floating body porpoised out of the pool forever; the push must mirror gravity's
+whole formula, apex scale included. (2) The float's correction velocity must be recomputed
+every tick while at/below the line — a coasting pull overshot the surface and the
+apex-hang syrup took a hundred ticks to bring the body back. Cast = FlameArt button in
+water, no Flame cost yet (the meter arrives with the real art system).
+**REWORKED AFTER MATT'S FIRST DRIVE (same day): the water's top is a PLATFORM.** Four
+notes, four changes: (1) Buoyancy = WALKING ON WATER, not wading — `CharacterState` grew
+`HasFloatFloor`/`FloatFloorY` (shared-vocabulary style, like AirRefreshTick) and the sim's
+OWN grounding and vertical sweep consult it: landing on the waterline LANDS (resets the
+air, fires FallLand), standing stands, jumps off it are ground jumps, walking runs at full
+stride (Swim's drag gates on a 5 cm surface skin). One-way from above — a submerged body
+rises through its own platform. (2) Normal jump rules everywhere: water grants no air
+jumps, surfaces do — pinned. (3) The LAUNCH refreshes the air at the cast
+(`AirRefreshTick`, the dive's bounce precedent) so an unused double jump is still in hand
+at the top of the surge. (4) Drowning is RAPID: 5 damage every 6 ticks — full health gone
+in two seconds; the breath is the warning, the drain is the end. `FloatSubmersion` deleted.
+**THREE MORE TRAPS, all caught by the per-tick trace or the suite:** the pull must OWN the
+ascent (set, not raised — a coasting pull overshoots the line), must stop DEAD at the line
+(leftover pull speed rode the apex-hang out of the pool, the cast read "walked out on dry
+ground" ON TOP OF ITS OWN WATER and cancelled itself), and the above-the-line tolerance
+must probe that the body is still OVER its water at its own x — without that, walking off
+the pool's edge strolled on a phantom waterline forever. Real jumps (faster than the snap)
+sail through the pull untouched. 14 water tests, suite 876 green.
+**SECOND DRIVE NOTES (Matt, same day): the cast is a PURE TOGGLE** — once on, ONLY
+recasting turns it off; a section change clears it through Reset (more design talk on
+sections coming); dry land does NOT end it — out of water the art is inert, armed for the
+next pool, and shore→water→shore just works (pinned: float on, walk out dry with the cast
+still armed, walk back in and stand straight back up on the surface, recast to sink).
+**And water must meet land FLUSH:** the traversal pool's waterline was authored 0.1 below
+the deck, and that lip is a wall to the sweep — the water-walk ended at an invisible kerb.
+`surfaceY = 0`, flush with the bank — an authoring rule for every future pool: waterline
+AT bank height wherever water and land are meant to connect. Boot scene flipped to
+GrayBox_Traversal while the water is the thing being driven (SceneDirector default +
+Bootstrap's serialized copy).
+**THIRD DRIVE NOTES (Matt, same day), three fixes:** (1) "didn't start in traversal" was
+the ADOPT rule, not the boot setting — pressing Play adopts whatever world scene is OPEN
+in the editor (`_firstWorldScene` only applies when none is), and the combat tester was
+still open from its own regeneration; the traversal course is the open scene now. Worth
+remembering: the generators restore whatever scene setup existed before they ran, so the
+open scene is sticky across regenerations. (2) **The cast works ANYWHERE now** — on dry
+land it arms/disarms the toggle, in deep water it is the launch; armed on the shore, the
+next pool honours it (pinned). (3) **The camera floor derives from the LOWEST floor any
+section built** (`_lowestFloorY − LaneHeight` = −7.38) — it was pinned one lane below
+GROUND level, and the pool descends 3.78 below that, so the camera refused to follow the
+sink and stranded the player at the frame's bottom edge. 15 water tests, suite 877 green.
+**FOURTH DRIVE NOTES (Matt): the water's feel simplified to TWO RULES.** The buoyant
+jump boost is DEAD — jumps and ledge grabs behave EXACTLY as on land (the boost overshot
+every grab; pinned: wet apex == dry apex within 5 cm), and with it went `WaterBuoyancy`,
+`WaterDrag`, and the exponential-drag approach entirely — an exponential drag loses the
+argument with the mover's acceleration and reads as nothing. What remains: (1) the SINK
+CAP — gravity pulls as always, the water refuses to let a fall add up; (2) the TRUDGE —
+**a −20% Speed debuff through the STAT SYSTEM** (`WaterSpeedPenalty`, Matt's number),
+refreshed each submerged tick with a stack key so it lapses on its own — the same lane
+the Censer will slow enemies through, and the honest way to say "20% slower" (pinned:
+wet distance == 80% of dry within 6%). The water-walk stays full stride (surface-skin
+gate). Suite 877 green.
+**FIFTH DRIVE (Matt): penalty 20% → 40%** (20% read as nothing; the asset carries no
+serialized value yet so the code default flows straight through), **and casting while
+HANGING lets go** — ledge, rope, ladder alike: activating the float (or launching) clears
+`CharacterState.Attachment`, which is the SANCTIONED external detach — both hang modules
+watch that field and release their own locks when it changes under them ("someone else
+ended the attachment" was already in their comments; Buoyancy just joined the list of
+someones). Their locks are Move|Jump, not Attack, which is why the cast was reachable
+while hanging in the first place. Pinned on a submerged ladder: cast → attachment None →
+body rides up → standing on the water, hands free. 16 water tests, suite 878 green.
+**THE DOUBLE BOUNCE (Matt's report, and his fall-transition instinct was right):** the
+float floor was armed only once the feet were INSIDE the water box, so every landing on
+the water spent one tick in a hole — the body plunged under the line (uncapped; Swim had
+not seen the water that tick either) and the pull yanked it back up. Worst on fast
+arrivals into shallow water, which is why the double-jump timing changed it. FIX: **the
+platform exists BEFORE the crossing** — with the float armed, Buoyancy probes a metre
+below the feet (more than one tick of terminal fall) and holds the floor wherever the
+body is OVER its water, so a landing clamps exactly at the line like any platform. This
+one rule replaced the old jitter-tolerance band entirely and also cleaned the jump-arc
+splash and the geyser's landing. Pinned: a waist-deep landing never dips under the line
+and never re-airs. 17 water tests, suite 879 green.
+**THE FEET DECIDE THE LAUNCH (Matt): `BuoyancyLaunchMinDepth` 1.2 → 0.05** — no
+full-submersion requirement; any real feet submersion makes the cast a LAUNCH scaled by
+that depth (ankle water = a small pop that lands you floating; the basin floor = the
+geyser), and the toggle is only for where launching means nothing — standing ON the water,
+or dry land. Pinned: a wading-depth cast breaches; the feet's depth is the whole scale.
+**FEEL PASS (Matt): `BuoyancyLaunchBonus` 1.0 → 1.5** — the surge now clears the surface
+by depth × 1.5; the launch should feel like power, not parity. Everything else verified
+working. The water knobs still live only as code defaults (the asset has not serialized
+the section yet), so tuning-by-inspector will start writing them the first time someone
+touches the Water header in play mode.
+
 **THE UP-THRUST EXISTS (2026-08-10) — the full move list landed, and its biggest gap is
 closed.** Matt delivered the phase's governing doc (`outside docs/Proxy-and-Gray-Box-Phase.md`
 — the design-bible section; the audit against it: 15 of 19 moves built, Crawl + FlameArt
@@ -653,8 +764,8 @@ there is something to hang it on, and guessing now would be guessing.
 | `StatScale` | no `AttackDefinition` scales off a stat |
 | `AttackModifiers` window scales | gear, which does not exist |
 
-**Seven animation states have no clip** and silently fall back to Idle: `WallSlide`, `LedgeHang`,
-`LedgeClimb`, `LadderIdle`, `LadderClimb`, `DownThrust`, `UpThrust`. Synty ships nothing for any of them — they
+**Nine animation states have no clip** and silently fall back to Idle: `WallSlide`, `LedgeHang`,
+`LedgeClimb`, `LadderIdle`, `LadderClimb`, `DownThrust`, `UpThrust`, `Sink`, `Float`. Synty ships nothing for any of them — they
 are 3D action packs and these are 2.5D platformer moves, so a wall-slide currently looks like
 standing still. Jump variants are also unmapped, so a sprinting jump plays a standing leap.
 

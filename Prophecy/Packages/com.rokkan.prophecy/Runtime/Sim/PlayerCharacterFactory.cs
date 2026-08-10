@@ -59,6 +59,10 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new WallJump(tuning));
             sim.Add(new WallSlide(tuning));
 
+            // Water: the sink that is the global rule, and the art that makes peace with it.
+            sim.Add(new Swim(tuning));
+            sim.Add(new Buoyancy(tuning));
+
             // Climbing.
             sim.Add(new LedgeHang(tuning));
             sim.Add(new LedgePullUp(tuning));

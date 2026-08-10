@@ -41,5 +41,7 @@ namespace Rokkan.Prophecy.Sim
         Parry = 21,
         HitReact = 22,
         UpThrust = 23,
+        Swim = 24,
+        Buoyancy = 25,
     }
 }

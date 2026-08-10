@@ -26,6 +26,8 @@ namespace Rokkan.Prophecy.Presentation
         public bool ClimbingLedge;
         public bool DownThrusting;
         public bool UpThrusting;
+        public bool InWater;
+        public bool Floating;
 
         /// <summary>Null when not attacking; otherwise the running attack's authored id.</summary>
         public string AttackId;
@@ -100,7 +102,13 @@ namespace Rokkan.Prophecy.Presentation
             // character into a fall pose halfway up the wall.
             if (input.ClimbingLedge) return BodyState.LedgeClimb;
 
-            // 6. Airborne.
+            // 6. Water, before the airborne split: a sinking body is not falling and a floating
+            //    one is not standing — rise/fall poses in a pool read as a glitch, not a swim.
+            //    Walking the pool floor deliberately falls through to the grounded states.
+            if (input.Floating) return BodyState.Float;
+            if (input.InWater && !input.Grounded) return BodyState.Sink;
+
+            // 7. Airborne.
             if (!input.Grounded)
             {
                 if (input.WallSliding) return BodyState.WallSlide;
@@ -108,7 +116,7 @@ namespace Rokkan.Prophecy.Presentation
                 return input.Velocity.y > 0f ? BodyState.JumpRise : BodyState.Fall;
             }
 
-            // 7. Grounded.
+            // 8. Grounded.
             float speed = Mathf.Abs(input.Velocity.x);
             bool moving = speed > input.MoveThreshold;
 

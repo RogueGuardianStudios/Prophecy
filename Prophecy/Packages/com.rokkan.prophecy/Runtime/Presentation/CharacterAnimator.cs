@@ -247,6 +247,8 @@ namespace Rokkan.Prophecy.Presentation
             var pullUp = sim.Get<LedgePullUp>();
             var downThrust = sim.Get<DownThrust>();
             var upThrust = sim.Get<UpThrust>();
+            var swim = sim.Get<Swim>();
+            var buoyancy = sim.Get<Buoyancy>();
 
             return new BodyStateInputs
             {
@@ -267,6 +269,12 @@ namespace Rokkan.Prophecy.Presentation
                 // falls through to JumpRise, so a pogo chain reads as dive, up, dive.
                 DownThrusting = downThrust != null && downThrust.IsActive && !downThrust.IsRising,
                 UpThrusting = upThrust != null && upThrust.IsActive,
+                InWater = swim != null && swim.InWater,
+                // Floating is the TRANSITION — rising to the water-walk platform. Standing on
+                // it is grounded, and grounded on water shows the ordinary walk states: the
+                // art's whole point is that the surface behaves like any other floor.
+                Floating = buoyancy != null && buoyancy.FloatOn &&
+                           swim != null && swim.InWater && !state.Grounded,
 
                 AttackId = attack != null && attack.IsAttacking && attack.Current != null
                     ? attack.Current.Id

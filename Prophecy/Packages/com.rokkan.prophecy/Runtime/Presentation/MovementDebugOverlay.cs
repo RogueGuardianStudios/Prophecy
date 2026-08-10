@@ -50,6 +50,8 @@ namespace Rokkan.Prophecy.Presentation
         private GroundMove _groundMove;
         private FallLand _fallLand;
         private DownThrust _downThrust;
+        private Swim _swim;
+        private Buoyancy _buoyancy;
 
         private readonly StringBuilder _text = new StringBuilder(512);
 
@@ -69,6 +71,8 @@ namespace Rokkan.Prophecy.Presentation
             _groundMove = _host.Sim.Get<GroundMove>();
             _fallLand = _host.Sim.Get<FallLand>();
             _downThrust = _host.Sim.Get<DownThrust>();
+            _swim = _host.Sim.Get<Swim>();
+            _buoyancy = _host.Sim.Get<Buoyancy>();
         }
 
         private void OnDestroy()
@@ -128,6 +132,15 @@ namespace Rokkan.Prophecy.Presentation
 
             if (_downThrust != null && _downThrust.IsActive)
                 _text.AppendLine("DOWN-THRUST");
+
+            if (_swim != null && _swim.InWater)
+            {
+                string breath = _swim.Drowning
+                    ? "DROWNING"
+                    : _swim.HeadUnder ? $"breath {_swim.BreathFraction:P0}" : "breathing";
+                string floating = _buoyancy != null && _buoyancy.FloatOn ? "  FLOAT" : "";
+                _text.AppendLine($"water    depth {_swim.Depth:F2}   {breath}{floating}");
+            }
 
             _text.AppendLine();
 

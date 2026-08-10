@@ -61,6 +61,17 @@ namespace Rokkan.Prophecy.Presentation
                 // test would never fire on it. Skip rather than add something that silently is not there.
                 if (max.x - min.x <= 0f || max.y - min.y <= 0f) continue;
 
+                // Water is read from triggers, same as ladders: water that blocks is a wall.
+                var waterVolume = collider.GetComponentInParent<WaterVolume>();
+                if (waterVolume != null)
+                {
+                    if (!waterVolume.IsProperlyAuthored(out string waterProblem))
+                        Debug.LogWarning($"{waterVolume.name}: {waterProblem}.", waterVolume);
+
+                    world.AddWater(new Aabb(min, max));
+                    continue;
+                }
+
                 // Climbables are read from triggers, because a ladder must not block walking past.
                 var climbable = collider.GetComponentInParent<LadderVolume>();
                 if (climbable != null)
