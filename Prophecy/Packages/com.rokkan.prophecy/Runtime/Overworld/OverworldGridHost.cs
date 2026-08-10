@@ -86,7 +86,8 @@ namespace Rokkan.Prophecy.Overworld
             sceneryRoot.SetParent(transform, false);
 
             _built = OverworldWorldBuilder.Build(_map, _tiles, _walkableRoot, sceneryRoot,
-                                                 transform.position, _stairsForRamps, _biomes);
+                                                 OverworldWorldBuilder.MapCentre(_map, transform.position),
+                                                 _stairsForRamps, _biomes);
 
             BakeNavMesh();
 
@@ -132,7 +133,8 @@ namespace Rokkan.Prophecy.Overworld
                                     new Vector3(_map.BoundsSize.x + 8f, 24f, _map.BoundsSize.y + 8f));
 
             var data = UnityEngine.AI.NavMeshBuilder.BuildNavMeshData(
-                settings, sources, bounds, transform.position, Quaternion.identity);
+                settings, sources, bounds,
+                OverworldWorldBuilder.MapCentre(_map, transform.position), Quaternion.identity);
 
             _navMeshInstance = UnityEngine.AI.NavMesh.AddNavMeshData(data);
         }

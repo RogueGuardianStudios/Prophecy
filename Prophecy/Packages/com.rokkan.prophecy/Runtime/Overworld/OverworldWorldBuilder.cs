@@ -70,6 +70,19 @@ namespace Rokkan.Prophecy.Overworld
         /// <summary>Chunk edge, in cells.</summary>
         public const int ChunkSize = 16;
 
+        /// <summary>
+        /// The compile centre for a map anchored at <paramref name="corner"/> — its BOTTOM-LEFT
+        /// (min X, min Z). The live world's convention (Matt, 2026-08-09): the host's transform
+        /// is the map's bottom-left corner, so with the host at the scene origin, cell (x,z)
+        /// stands at world (x,z) and chunk (0,0) starts at (0,0) — resizing the bounds grows the
+        /// map north-east and never moves authored content. The compiler itself stays
+        /// centre-anchored (<see cref="OverworldTileGridCompiler.Compile"/>'s worldOffset is the
+        /// centre); this is the one place the corner convention is translated for it.
+        /// </summary>
+        public static Vector3 MapCentre(OverworldMap map, Vector3 corner) =>
+            map == null ? corner
+                        : corner + new Vector3(map.BoundsSize.x * 0.5f, 0f, map.BoundsSize.y * 0.5f);
+
         /// <summary>How far road paint rides above the walk surface. Enough that the strip and
         /// the cap are never the same depth, far less than any rim.</summary>
         private const float RoadLift = 0.02f;

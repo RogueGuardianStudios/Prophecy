@@ -167,7 +167,11 @@ namespace Rokkan.Prophecy.Editor.MapTool
             if (biomes != null && biomes.objectReferenceValue != null)
                 _biomePalette = biomes.objectReferenceValue as OverworldBiomePalette;
             _stairsForRamps = so.FindProperty("_stairsForRamps").boolValue;
-            _worldOrigin = host.transform.position;
+
+            // The host's transform is the map's bottom-left CORNER; the tool works in compile
+            // centres, same as the build path — one derivation, or the preview and the play
+            // world drift apart.
+            _worldOrigin = OverworldWorldBuilder.MapCentre(_map, host.transform.position);
         }
 
         private void OnGUI()
@@ -179,6 +183,11 @@ namespace Rokkan.Prophecy.Editor.MapTool
             bool assetsChanged = EditorGUI.EndChangeCheck();
             if (assetsChanged)
             {
+                // A hand-assigned map with no host in the scene anchors its corner at the
+                // scene origin — the same place a generated host would put it.
+                if (FindAnyObjectByType<OverworldGridHost>(FindObjectsInactive.Include) == null)
+                    _worldOrigin = OverworldWorldBuilder.MapCentre(_map, Vector3.zero);
+
                 _canvas.SyncFromMap(_map);
                 if (_previewEnabled && _map != null && _tiles != null)
                     _preview.Attach(_map, _tiles, _worldOrigin, _stairsForRamps, _biomePalette);
