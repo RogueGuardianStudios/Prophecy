@@ -33,6 +33,19 @@ namespace Rokkan.Prophecy.Editor
         private const string ModelPath =
             "Assets/MeshyImports/Iron Roc Warrior_20260803_162724/Meshy_AI_Iron_Roc_Warrior_biped_Character_output.fbx";
 
+        /// <summary>
+        /// The generators' entry point: install if the model exists, say nothing if it does not.
+        /// <see cref="EnemyBuilder.Generate"/> rebuilds the grunt prefab from scratch, which is
+        /// how the Roc silently fell off it once (the attack-director session regenerated
+        /// enemies and committed the capsule back). MeshyImports is untracked, so on a machine
+        /// without the model this must be a quiet no-op, not an error.
+        /// </summary>
+        public static void InstallIfModelPresent()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath) == null) return;
+            Install();
+        }
+
         [MenuItem("Prophecy/Build/Install Roc Model On Grunt", priority = 32)]
         public static void Install()
         {

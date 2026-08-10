@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 71836941195209178}
   - component: {fileID: 7420226415763647379}
   - component: {fileID: 9197407758364004755}
+  - component: {fileID: 7829726449312560658}
   m_Layer: 0
   m_Name: Enemy_Capsule
   m_TagString: Untagged
@@ -39,6 +40,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7376805773751550447}
+  - {fileID: 895758937791673246}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4812605695359067000
@@ -78,9 +80,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterView
   _host: {fileID: 4812605695359067000}
-  _body: {fileID: 7376805773751550447}
+  _body: {fileID: 895758937791673246}
   _turnSpeed: 900
-  _resizeProxyOnCrouch: 1
+  _resizeProxyOnCrouch: 0
   _resizeSmoothing: 0.06
 --- !u!114 &7245913787062139448
 MonoBehaviour:
@@ -280,6 +282,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy.Goap::Rokkan.Prophecy.Goap.GoapTraceProbe
   _interval: 0.5
+--- !u!114 &7829726449312560658
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 535464676332010218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b39a0677d2d41d419bc2252e470fd3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterAnimator
+  _host: {fileID: 4812605695359067000}
+  _set: {fileID: 11400000, guid: fa44520663e54dd4797f0705b9b08200, type: 2}
+  _animation: {fileID: 4496177147327156730}
+  _moveThreshold: 0.15
+  _runThreshold: 4.5
+  _landHoldSeconds: 0.18
+  _logStateChanges: 1
+  _flickerSeconds: 0.034
 --- !u!1 &698936919371536825
 GameObject:
   m_ObjectHideFlags: 0
@@ -328,7 +350,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 698936919371536825}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -370,3 +392,107 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1001 &857048970567439477
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8868313516696692682}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.8770677
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.8770677
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.8770677
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_Name
+      value: RocModel
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8111781155169087978, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: f58d99515647d0d4191d1efd31950f3a, type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4496177147327156730}
+  m_SourcePrefab: {fileID: 100100000, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+--- !u!1 &515011996220156196 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+  m_PrefabInstance: {fileID: 857048970567439477}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4496177147327156730
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 515011996220156196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 541f5a00690421a4d939c8b5ad41ca28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Animation::Rokkan.Animation.AnimationSystem
+  _animator: {fileID: 0}
+  _blendSeconds: 0.08
+--- !u!4 &895758937791673246 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+  m_PrefabInstance: {fileID: 857048970567439477}
+  m_PrefabAsset: {fileID: 0}

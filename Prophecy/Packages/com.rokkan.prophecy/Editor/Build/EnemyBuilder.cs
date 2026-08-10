@@ -103,6 +103,10 @@ namespace Rokkan.Prophecy.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            // BuildPrefab makes a fresh capsule every run, so the grunt's model must be
+            // re-installed after it — regeneration once shipped the capsule back silently.
+            EnemyModelInstaller.InstallIfModelPresent();
+
             WarnIfTheBeatCannotOutlastTheSwing();
 
             Debug.Log(built.ToString());
