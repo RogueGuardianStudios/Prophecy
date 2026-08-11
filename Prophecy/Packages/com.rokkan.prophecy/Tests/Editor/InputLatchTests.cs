@@ -124,5 +124,43 @@ namespace Rokkan.Prophecy.Tests
             Assert.IsFalse(state.Pressed);
             Assert.IsFalse(state.Released);
         }
+
+        [Test]
+        public void RebaselineDropsTheEdgesButNotTheLevel()
+        {
+            // The menu-close bug: B closes the menu while still under the finger. A Clear()
+            // there forgets the level, so the next Sample(true) invents a rising edge and the
+            // close becomes a dodge on the first live tick. Rebaseline adopts the level.
+            var latch = new ButtonLatch();
+
+            latch.Sample(true);              // pressed inside the menu — buffered, unconsumed
+            latch.Rebaseline(true);          // menu closes; the finger has not moved
+            latch.Sample(true);              // next frame, still down
+
+            var state = latch.Consume();
+
+            Assert.IsTrue(state.Held, "a button still down is still down");
+            Assert.IsFalse(state.Pressed, "but being down is not a new press");
+
+            latch.Sample(false);
+            Assert.IsTrue(latch.Consume().Released, "the eventual release is still an edge");
+        }
+
+        [Test]
+        public void RebaselineToUpIsAFullReset()
+        {
+            var latch = new ButtonLatch();
+
+            latch.Sample(true);
+            latch.Rebaseline(false);         // released while the menu was open
+            var state = latch.Consume();
+
+            Assert.IsFalse(state.Held);
+            Assert.IsFalse(state.Pressed);
+            Assert.IsFalse(state.Released, "a release nobody consumed died with the menu");
+
+            latch.Sample(true);
+            Assert.IsTrue(latch.Consume().Pressed, "a genuinely new press still registers");
+        }
     }
 }

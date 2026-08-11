@@ -1463,11 +1463,16 @@ New this session:
     authority and per-character health flows through it. When adding any owner-synced value,
     give the previous owner's writers to the new owner in the same commit — and the reserve got
     the same treatment (`SyncReserveToFlame`) before it could learn the same lesson.
-28. **A paused clock buffers edges; drop them on the way out of a menu.** `ButtonLatch` holds a
-    press until the sim consumes it, and a paused `SimClockDriver` consumes nothing — so every
-    A pressed inside a menu would land as a sword swing on the first live tick after closing.
-    `MenuRoot` calls `PlayerInputCapture.ClearPending()` as it closes. Anything else that pauses
-    the clock while accepting input owes the same call.
+28. **A paused clock buffers edges; drop them on the way out of a menu — but REBASELINE, do not
+    Clear.** `ButtonLatch` holds a press until the sim consumes it, and a paused `SimClockDriver`
+    consumes nothing — so every A pressed inside a menu would land as a sword swing on the first
+    live tick after closing. `MenuRoot` calls `PlayerInputCapture.ClearPending()` as it closes.
+    The first version used `Clear()`, which also forgets the held LEVEL — and the B still under
+    the finger from closing the menu read as a fresh rising edge on the next sample, so closing
+    a menu triggered a dodge (Matt caught it on the first drive). `ClearPending` now rebaselines
+    each latch to the button's current physical level with the edges dropped: held stays a
+    level, and only an actual new press is ever an event. Anything else that pauses the clock
+    while accepting input owes the same call, with the same semantics.
 
 24. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
     `Parry.TryStart` armed and advanced so the action's tick zero is the tick the button was pressed

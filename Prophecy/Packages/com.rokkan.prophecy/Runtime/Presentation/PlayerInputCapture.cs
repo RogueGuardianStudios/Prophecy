@@ -140,8 +140,31 @@ namespace Rokkan.Prophecy.Presentation
         /// this as it closes. A paused clock stops ConsumeFrame, so every tap made while a
         /// menu was open would otherwise land on the first tick after it shuts: close the
         /// arts volume with A and the character swings.
+        ///
+        /// <para>Buttons still physically down REBASELINE rather than clear. A cleared level
+        /// under a held button reads as a fresh rising edge on the next sample — which made
+        /// the B that closed a menu also the B that dodged on the first live tick. Held is a
+        /// level and survives; only the buffered edges die here.</para>
         /// </summary>
-        public void ClearPending() => ClearLatches();
+        public void ClearPending()
+        {
+            if (!_resolved)
+            {
+                ClearLatches();
+                return;
+            }
+
+            _moveValue = _move.ReadValue<Vector2>();
+            _jumpLatch.Rebaseline(_jump.IsPressed());
+            _attackLatch.Rebaseline(_attack.IsPressed());
+            _blockLatch.Rebaseline(_block.IsPressed());
+            _parryLatch.Rebaseline(_parry.IsPressed());
+            _dodgeLatch.Rebaseline(_dodge.IsPressed());
+            _flameArtLatch.Rebaseline(_flameArt.IsPressed());
+            _interactLatch.Rebaseline(_interact.IsPressed());
+            _runToggleLatch.Rebaseline(_runToggle.IsPressed());
+            _drinkFlaskLatch.Rebaseline(_drinkFlask != null && _drinkFlask.IsPressed());
+        }
 
         private void Resolve()
         {

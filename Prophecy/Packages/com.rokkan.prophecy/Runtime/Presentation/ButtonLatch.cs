@@ -55,5 +55,19 @@ namespace Rokkan.Prophecy.Presentation
             _pressed = false;
             _released = false;
         }
+
+        /// <summary>
+        /// Adopt the current physical level without inventing an edge. The menu-close path:
+        /// a <see cref="Clear"/> there sets the level false while the finger is still on B,
+        /// so the very next <see cref="Sample"/> reads a rising edge and the close becomes a
+        /// dodge on the first live tick. Rebaselining says "this is where the button already
+        /// was" — a held button stays a level, and only an actual new press is ever an event.
+        /// </summary>
+        public void Rebaseline(bool isDown)
+        {
+            _held = isDown;
+            _pressed = false;
+            _released = false;
+        }
     }
 }
