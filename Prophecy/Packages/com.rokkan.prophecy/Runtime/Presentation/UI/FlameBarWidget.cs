@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Rokkan.Prophecy.Presentation.UI
 {
@@ -17,39 +17,37 @@ namespace Rokkan.Prophecy.Presentation.UI
     /// </summary>
     public sealed class FlameBarWidget
     {
-        private readonly RectTransform _fill;
-        private readonly RectTransform _segment;
-        private readonly RectTransform _segmentRule;
+        private readonly VisualElement _fill;
+        private readonly VisualElement _segment;
+        private readonly VisualElement _segmentRule;
         private readonly float _width;
 
-        /// <summary>Build into <paramref name="parent"/> at <paramref name="offset"/> from the
-        /// top-left, with a thin dark umber border per spec §4.1.</summary>
-        public FlameBarWidget(Transform parent, Vector2 offset, Vector2 size)
+        /// <summary>Build into <paramref name="parent"/> at (<paramref name="left"/>,
+        /// <paramref name="top"/>), with a thin dark umber border per spec §4.1.</summary>
+        public FlameBarWidget(VisualElement parent, float left, float top, Vector2 size)
         {
             _width = size.x - 2f;
             float height = size.y - 2f;
 
-            var ground = UiBuild.Bordered(parent, "FlameBar", new Vector2(0f, 1f), offset, size,
+            var ground = UiBuild.Bordered(parent, "FlameBar",
                                           UiPalette.Umber, UiPalette.ParchmentEmpty, 1f);
+            UiBuild.Place(ground, left: left, top: top, width: size.x, height: size.y);
 
-            _fill = UiBuild.Solid(ground.transform, "Fill", new Vector2(0f, 0.5f),
-                                  Vector2.zero, new Vector2(0f, height),
-                                  UiPalette.HearthGold).rectTransform;
+            _fill = UiBuild.Solid(ground, "Fill", UiPalette.HearthGold);
+            UiBuild.Place(_fill, left: 0f, top: 0f, width: 0f, height: height);
 
-            _segment = UiBuild.Solid(ground.transform, "CostSegment", new Vector2(0f, 0.5f),
-                                     Vector2.zero, new Vector2(0f, height),
-                                     UiPalette.CostSegment).rectTransform;
+            _segment = UiBuild.Solid(ground, "CostSegment", UiPalette.CostSegment);
+            UiBuild.Place(_segment, left: 0f, top: 0f, width: 0f, height: height);
 
             // The 1px umber rule separating spend-preview from keep (spec §4.2).
-            _segmentRule = UiBuild.Solid(ground.transform, "CostRule", new Vector2(0f, 0.5f),
-                                         Vector2.zero, new Vector2(1f, height),
-                                         UiPalette.Umber).rectTransform;
+            _segmentRule = UiBuild.Solid(ground, "CostRule", UiPalette.Umber);
+            UiBuild.Place(_segmentRule, left: 0f, top: 0f, width: 1f, height: height);
         }
 
         public void Set(float current, float max, float cost)
         {
             float fraction = max <= 0f ? 0f : Mathf.Clamp01(current / max);
-            _fill.sizeDelta = new Vector2(_width * fraction, _fill.sizeDelta.y);
+            _fill.style.width = _width * fraction;
 
             // The segment sits at the leading edge of the FILLED portion: what this cast would
             // take. An unaffordable cost shades the whole fill — everything you have, still
@@ -57,15 +55,15 @@ namespace Rokkan.Prophecy.Presentation.UI
             float segment = max <= 0f ? 0f : Mathf.Clamp01(Mathf.Min(cost, current) / max);
             bool visible = segment > 0.0001f;
 
-            _segment.gameObject.SetActive(visible);
-            _segmentRule.gameObject.SetActive(visible);
+            _segment.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            _segmentRule.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
 
             if (!visible) return;
 
             float left = _width * (fraction - segment);
-            _segment.anchoredPosition = new Vector2(left, 0f);
-            _segment.sizeDelta = new Vector2(_width * segment, _segment.sizeDelta.y);
-            _segmentRule.anchoredPosition = new Vector2(left, 0f);
+            _segment.style.left = left;
+            _segment.style.width = _width * segment;
+            _segmentRule.style.left = left;
         }
     }
 }

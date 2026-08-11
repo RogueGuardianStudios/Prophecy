@@ -4,7 +4,7 @@ using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.World;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Rokkan.Prophecy.Presentation.UI
 {
@@ -20,16 +20,20 @@ namespace Rokkan.Prophecy.Presentation.UI
     /// panel. Preserve that mapping in any future change (spec §4).</para>
     ///
     /// <para><b>Pure read.</b> This class draws what the sim says and decides nothing — the
-    /// sim/presentation split, applied to interface. It builds its own widget tree in Awake
-    /// (see <see cref="UiBuild"/> for why) and finds the player through
-    /// <see cref="SceneDirector"/> whenever one exists; with no player it simply shows a full
-    /// bar of nothing, which makes the UI scene loadable in isolation.</para>
+    /// sim/presentation split, applied to interface. It builds its element tree into the
+    /// shared <see cref="UIDocument"/> in OnEnable (see <see cref="UiBuild"/> for why the
+    /// tree is code) and finds the player through <see cref="SceneDirector"/> whenever one
+    /// exists; with no player it simply shows a full bar of nothing, which keeps the UI scene
+    /// loadable in isolation.</para>
     ///
     /// <para>The corrupting parchment (spec §5) is deliberately absent: panels are flat
-    /// parchment color, <c>_Corruption</c> is 0 until the binding economy exists. The palette
-    /// and layout already obey the rules the shader will inherit — no red anywhere but the
-    /// hearts, no green at all, damage in Shadow Mid.</para>
+    /// parchment color, <c>_Corruption</c> is 0 until the binding economy exists. Note for
+    /// that day: UI Toolkit has no per-element custom material, so the corruption pass will
+    /// write into the parchment texture (or the panel's render target) rather than ride a
+    /// material property — the palette and layout already obey the rules the effect will
+    /// inherit.</para>
     /// </summary>
+    [RequireComponent(typeof(UIDocument))]
     public sealed class HudController : MonoBehaviour
     {
         private const float HeartSize = 26f;
@@ -40,111 +44,118 @@ namespace Rokkan.Prophecy.Presentation.UI
         private CharacterSim _sim;
 
         private FlameBarWidget _flameBar;
-        private RectTransform _seamFill;
+        private VisualElement _seamFill;
         private float _seamWidth;
 
-        private RectTransform _heartRow;
-        private readonly List<RectTransform> _heartFills = new List<RectTransform>();
+        private VisualElement _heartRow;
+        private readonly List<VisualElement> _heartFills = new List<VisualElement>();
         private int _builtHearts = -1;
 
-        private RectTransform _flaskRow;
-        private readonly List<Image> _flaskFills = new List<Image>();
+        private VisualElement _flaskRow;
+        private readonly List<VisualElement> _flaskFills = new List<VisualElement>();
         private int _builtFlasks = -1;
 
-        private Image _emblemBorder;
-        private Image _emblemGround;
-        private Image _emblemShape;
-        private Text _emblemLetter;
-        private Text _costPips;
+        private VisualElement _emblemPlate;
+        private VisualElement _emblemShape;
+        private Label _emblemLetter;
+        private Label _costPips;
 
-        private Image _dangerBleed;
+        private VisualElement _dangerBleed;
 
-        private void Awake()
+        private void OnEnable()
         {
-            var canvas = UiBuild.Canvas(transform, "HudCanvas", sortingOrder: 10);
-            var root = canvas.transform;
+            // The document's root is shared with MenuRoot; each controller owns one named
+            // layer inside it, replaced wholesale on re-enable.
+            var root = GetComponent<UIDocument>().rootVisualElement;
+            var layer = UiBuild.Layer(root, "HudLayer");
+            layer.SendToBack();   // menus, whenever they exist, draw over the HUD
 
-            BuildDangerBleed(root);
-            BuildTopLeft(root);
-            BuildBottomLeft(root);
-            BuildBottomRight(root);
+            BuildDangerBleed(layer);
+            BuildTopLeft(layer);
+            BuildBottomLeft(layer);
+            BuildBottomRight(layer);
+
+            _builtHearts = -1;
+            _builtFlasks = -1;
+            _sim = null;
         }
 
         // ------------------------------------------------------------------ build
 
-        private void BuildTopLeft(Transform root)
+        private void BuildTopLeft(VisualElement layer)
         {
-            var anchor = new Vector2(0f, 1f);
-            var panel = UiBuild.Solid(root, "TopLeft", anchor, new Vector2(16f, -16f),
-                                      new Vector2(252f, 96f), UiPalette.Parchment);
+            var panel = UiBuild.Solid(layer, "TopLeft", UiPalette.Parchment);
+            UiBuild.Place(panel, left: 16f, top: 16f, width: 252f, height: 96f);
 
             // 1. The Resolve seam — the panel's header border, the one element grounded on
             //    shadow. Structural at rest: no pulse, no numerals; it sits full until spent.
-            var seam = UiBuild.Solid(panel.transform, "ResolveSeam", anchor, Vector2.zero,
-                                     new Vector2(252f, 5f), UiPalette.ShadowBase);
+            var seam = UiBuild.Solid(panel, "ResolveSeam", UiPalette.ShadowBase);
+            UiBuild.Place(seam, left: 0f, top: 0f, width: 252f, height: 5f);
             _seamWidth = 252f;
-            _seamFill = UiBuild.Solid(seam.transform, "Fill", new Vector2(0f, 0.5f),
-                                      Vector2.zero, new Vector2(0f, 5f),
-                                      UiPalette.PaleGold).rectTransform;
+
+            _seamFill = UiBuild.Solid(seam, "Fill", UiPalette.PaleGold);
+            UiBuild.Place(_seamFill, left: 0f, top: 0f, width: 0f, height: 5f);
 
             // 2. The heart row — cells are (re)built against the sim's heart count.
-            _heartRow = UiBuild.Rect(panel.transform, "Hearts", anchor,
-                                     new Vector2(10f, -13f), new Vector2(232f, HeartSize));
+            _heartRow = UiBuild.Solid(panel, "Hearts", Color.clear);
+            UiBuild.Place(_heartRow, left: 10f, top: 13f, width: 232f, height: HeartSize);
 
             // 3. The reserve bar.
-            _flameBar = new FlameBarWidget(panel.transform, new Vector2(10f, -47f),
-                                           new Vector2(232f, 13f));
+            _flameBar = new FlameBarWidget(panel, 10f, 47f, new Vector2(232f, 13f));
         }
 
-        private void BuildBottomLeft(Transform root)
+        private void BuildBottomLeft(VisualElement layer)
         {
-            var anchor = new Vector2(0f, 0f);
-            var panel = UiBuild.Solid(root, "BottomLeft", anchor, new Vector2(16f, 16f),
-                                      new Vector2(160f, 44f), UiPalette.Parchment);
+            var panel = UiBuild.Solid(layer, "BottomLeft", UiPalette.Parchment);
+            UiBuild.Place(panel, left: 16f, bottom: 16f, width: 160f, height: 44f);
 
-            _flaskRow = UiBuild.Rect(panel.transform, "Flasks", new Vector2(0f, 0.5f),
-                                     new Vector2(10f, 0f), new Vector2(140f, 30f));
+            _flaskRow = UiBuild.Solid(panel, "Flasks", Color.clear);
+            UiBuild.Place(_flaskRow, left: 10f, top: 8f, width: 140f, height: 28f);
         }
 
-        private void BuildBottomRight(Transform root)
+        private void BuildBottomRight(VisualElement layer)
         {
-            var anchor = new Vector2(1f, 0f);
-            var panel = UiBuild.Solid(root, "BottomRight", anchor, new Vector2(-16f, 16f),
-                                      new Vector2(84f, 104f), UiPalette.Parchment);
+            var panel = UiBuild.Solid(layer, "BottomRight", UiPalette.Parchment);
+            UiBuild.Place(panel, right: 16f, bottom: 16f, width: 84f, height: 104f);
 
-            // Emblem plate: border drawn by the outer image, ground by the inner, both
-            // recolored per state. The shape is a diamond — identical in all four states;
-            // only ground, border and tint may change (spec §6).
-            _emblemBorder = UiBuild.Solid(panel.transform, "EmblemPlate", new Vector2(0.5f, 1f),
-                                          new Vector2(0f, -8f), new Vector2(64f, 64f),
-                                          UiPalette.Umber);
-            _emblemGround = UiBuild.Fill(_emblemBorder.transform, "Ground", UiPalette.Parchment, 1f);
+            // Emblem plate: a native border and a ground, recolored per state. The shape is
+            // a diamond — identical in all four states; only ground, border and tint may
+            // change (spec §6).
+            _emblemPlate = UiBuild.Bordered(panel, "EmblemPlate",
+                                            UiPalette.Umber, UiPalette.Parchment, 1f);
+            UiBuild.Place(_emblemPlate, left: 10f, top: 8f, width: 64f, height: 64f);
 
-            _emblemShape = UiBuild.Solid(_emblemGround.transform, "Shape", new Vector2(0.5f, 0.5f),
-                                         Vector2.zero, new Vector2(30f, 30f),
-                                         UiPalette.HearthGold);
-            _emblemShape.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            _emblemShape = UiBuild.Solid(_emblemPlate, "Shape", UiPalette.HearthGold);
+            UiBuild.Place(_emblemShape, left: 16f, top: 16f, width: 30f, height: 30f);
+            _emblemShape.style.rotate = new Rotate(Angle.Degrees(45f));
 
-            _emblemLetter = UiBuild.Label(_emblemGround.transform, "Letter",
-                                          new Vector2(0.5f, 0.5f), Vector2.zero,
-                                          new Vector2(40f, 30f), "", 20, UiPalette.Parchment,
-                                          TextAnchor.MiddleCenter);
+            _emblemLetter = UiBuild.Text(_emblemPlate, "Letter", "", 20, UiPalette.Parchment,
+                                         TextAnchor.MiddleCenter);
+            UiBuild.Place(_emblemLetter, left: 0f, top: 0f, right: 0f, bottom: 0f);
 
-            _costPips = UiBuild.Label(panel.transform, "CostPips", new Vector2(0.5f, 0f),
-                                      new Vector2(0f, 6f), new Vector2(80f, 20f), "", 14,
-                                      UiPalette.HearthGold, TextAnchor.MiddleCenter);
+            _costPips = UiBuild.Text(panel, "CostPips", "", 14, UiPalette.HearthGold,
+                                     TextAnchor.MiddleCenter);
+            UiBuild.Place(_costPips, left: 0f, right: 0f, bottom: 6f, height: 20f);
         }
 
-        private void BuildDangerBleed(Transform root)
+        private void BuildDangerBleed(VisualElement layer)
         {
-            _dangerBleed = UiBuild.Fill(root, "DangerBleed", Color.clear);
-            _dangerBleed.sprite = EdgeBleedSprite();
-            _dangerBleed.type = Image.Type.Sliced;
+            _dangerBleed = UiBuild.Solid(layer, "DangerBleed", Color.clear);
+            UiBuild.Place(_dangerBleed, left: 0f, top: 0f, right: 0f, bottom: 0f);
+
+            var texture = EdgeBleedTexture();
+            _dangerBleed.style.backgroundImage = new StyleBackground(texture);
+            _dangerBleed.style.unitySliceLeft = 40;
+            _dangerBleed.style.unitySliceRight = 40;
+            _dangerBleed.style.unitySliceTop = 40;
+            _dangerBleed.style.unitySliceBottom = 40;
+            _dangerBleed.style.display = DisplayStyle.None;
         }
 
         /// <summary>A frame that is opaque at the screen edge and clear in the middle — the
-        /// danger bleed's shape, generated so the gray box ships no texture assets.</summary>
-        private static Sprite EdgeBleedSprite()
+        /// danger bleed's shape, generated so the gray box ships no texture assets. White,
+        /// tinted at draw time so the alpha ramp is authored once.</summary>
+        private static Texture2D EdgeBleedTexture()
         {
             const int size = 96;
             const float border = 40f;
@@ -164,11 +175,7 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             texture.SetPixels(pixels);
             texture.Apply(false, true);
-
-            return Sprite.Create(texture, new Rect(0, 0, size, size),
-                                 new Vector2(0.5f, 0.5f), 100f, 0,
-                                 SpriteMeshType.FullRect,
-                                 new Vector4(border, border, border, border));
+            return texture;
         }
 
         // ------------------------------------------------------------------ read
@@ -202,7 +209,7 @@ namespace Rokkan.Prophecy.Presentation.UI
                 ? 1f
                 : Mathf.Clamp01(stats.Resolve / (float)Mathf.Max(1, cost));
 
-            _seamFill.sizeDelta = new Vector2(_seamWidth * fraction, _seamFill.sizeDelta.y);
+            _seamFill.style.width = _seamWidth * fraction;
         }
 
         private void DrawHearts()
@@ -220,28 +227,24 @@ namespace Rokkan.Prophecy.Presentation.UI
                 // Drain is top-down — a vessel emptying, not a bar depleting (spec §4.1) —
                 // so what remains sits at the BOTTOM of the cell and the top empties first.
                 float height = (HeartSize - 4f) * quarters / Sim.Combat.Vitals.QuartersPerHeart;
-                _heartFills[i].sizeDelta = new Vector2(_heartFills[i].sizeDelta.x, height);
+                _heartFills[i].style.height = height;
             }
         }
 
         private void RebuildHearts(int count)
         {
-            for (int i = _heartRow.childCount - 1; i >= 0; i--)
-                Destroy(_heartRow.GetChild(i).gameObject);
+            _heartRow.Clear();
             _heartFills.Clear();
 
             for (int i = 0; i < count; i++)
             {
-                var cell = UiBuild.Solid(_heartRow, $"Heart{i}", new Vector2(0f, 0.5f),
-                                         new Vector2(i * (HeartSize + HeartGap), 0f),
-                                         new Vector2(HeartSize, HeartSize),
-                                         UiPalette.ParchmentEmpty);
+                var cell = UiBuild.Solid(_heartRow, $"Heart{i}", UiPalette.ParchmentEmpty);
+                UiBuild.Place(cell, left: i * (HeartSize + HeartGap), top: 0f,
+                              width: HeartSize, height: HeartSize);
 
-                var fill = UiBuild.Solid(cell.transform, "Fill", new Vector2(0.5f, 0f),
-                                         new Vector2(0f, 2f),
-                                         new Vector2(HeartSize - 4f, 0f),
-                                         UiPalette.FestivalRed);
-                _heartFills.Add(fill.rectTransform);
+                var fill = UiBuild.Solid(cell, "Fill", UiPalette.FestivalRed);
+                UiBuild.Place(fill, left: 2f, right: 2f, bottom: 2f, height: 0f);
+                _heartFills.Add(fill);
             }
 
             _builtHearts = count;
@@ -263,15 +266,14 @@ namespace Rokkan.Prophecy.Presentation.UI
             if (flasks.Capacity != _builtFlasks) RebuildFlasks(flasks.Capacity);
 
             for (int i = 0; i < _flaskFills.Count; i++)
-                _flaskFills[i].color = i < flasks.Filled
+                _flaskFills[i].style.backgroundColor = i < flasks.Filled
                     ? UiPalette.FestivalRed
                     : UiPalette.Parchment;
         }
 
         private void RebuildFlasks(int capacity)
         {
-            for (int i = _flaskRow.childCount - 1; i >= 0; i--)
-                Destroy(_flaskRow.GetChild(i).gameObject);
+            _flaskRow.Clear();
             _flaskFills.Clear();
 
             // The row always shows every slot — capacity never shrinks; what the darkening
@@ -279,10 +281,10 @@ namespace Rokkan.Prophecy.Presentation.UI
             // of explanation (spec §4.3).
             for (int i = 0; i < capacity; i++)
             {
-                var fill = UiBuild.Bordered(_flaskRow, $"Flask{i}", new Vector2(0f, 0.5f),
-                                            new Vector2(i * 26f, 0f), new Vector2(20f, 28f),
-                                            UiPalette.Umber, UiPalette.Parchment, 1f);
-                _flaskFills.Add(fill);
+                var pip = UiBuild.Bordered(_flaskRow, $"Flask{i}",
+                                           UiPalette.Umber, UiPalette.Parchment, 1f);
+                UiBuild.Place(pip, left: i * 26f, top: 0f, width: 20f, height: 28f);
+                _flaskFills.Add(pip);
             }
 
             _builtFlasks = capacity;
@@ -294,7 +296,7 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             if (art == ArtId.None)
             {
-                _emblemShape.enabled = false;
+                _emblemShape.style.display = DisplayStyle.None;
                 _emblemLetter.text = "";
                 _costPips.text = "";
                 return;
@@ -314,41 +316,41 @@ namespace Rokkan.Prophecy.Presentation.UI
             bool locked = _sim.ActiveArts.Contains(ArtId.GluttonForPunishment);
             bool affordable = _sim.Reserve.CanAfford(entry.Cost);
 
-            _emblemShape.enabled = true;
+            _emblemShape.style.display = DisplayStyle.Flex;
 
             if (locked)
             {
                 // The one dark panel in the whole HUD: every other art lights the page, GfP
                 // puts it out. No countdown, no progress ring — locked means "you cannot
                 // stop it", not "it is running out" (spec §6).
-                Style(UiPalette.Gilt, UiPalette.Umber, UiPalette.PaleGold, UiPalette.PaleGold);
+                Style(UiPalette.Gilt, 2f, UiPalette.Umber, UiPalette.PaleGold, UiPalette.PaleGold);
             }
             else if (running)
             {
                 // Running inverts the panel brighter; it does not glow (spec §6).
-                Style(UiPalette.Gilt, UiPalette.Bright, UiPalette.HearthGold, UiPalette.HearthGold);
+                Style(UiPalette.Gilt, 2f, UiPalette.Bright, UiPalette.HearthGold, UiPalette.HearthGold);
             }
             else if (!affordable)
             {
                 // Muted, never red — an unaffordable spell is not an error (spec §6).
-                Style(UiPalette.Umber, UiPalette.Parchment, UiPalette.Muted, UiPalette.MutedPip);
+                Style(UiPalette.Umber, 1f, UiPalette.Parchment, UiPalette.Muted, UiPalette.MutedPip);
             }
             else
             {
-                Style(UiPalette.Umber, UiPalette.Parchment, UiPalette.HearthGold, UiPalette.HearthGold);
+                Style(UiPalette.Umber, 1f, UiPalette.Parchment, UiPalette.HearthGold, UiPalette.HearthGold);
             }
 
             _emblemLetter.text = entry.DisplayName.Substring(0, 1);
             _costPips.text = Pips(entry.Cost);
         }
 
-        private void Style(Color border, Color ground, Color emblem, Color pips)
+        private void Style(Color border, float borderWidth, Color ground, Color emblem, Color pips)
         {
-            _emblemBorder.color = border;
-            _emblemGround.color = ground;
-            _emblemShape.color = emblem;
-            _emblemLetter.color = ground;
-            _costPips.color = pips;
+            UiBuild.SetBorder(_emblemPlate, border, borderWidth);
+            _emblemPlate.style.backgroundColor = ground;
+            _emblemShape.style.backgroundColor = emblem;
+            _emblemLetter.style.color = ground;
+            _costPips.style.color = pips;
         }
 
         /// <summary>Cost as pips — redundant with the bar's segment on purpose: the bar
@@ -382,11 +384,11 @@ namespace Rokkan.Prophecy.Presentation.UI
             float lowHold = vitals.IsAlive && vitals.Fraction <= LowHealthFraction ? 0.45f : 0f;
 
             float alpha = Mathf.Max(flash, lowHold);
-            var color = UiPalette.ShadowMid;
-            color.a = alpha;
+            var tint = UiPalette.ShadowMid;
+            tint.a = alpha;
 
-            _dangerBleed.color = color;
-            _dangerBleed.enabled = alpha > 0.001f;
+            _dangerBleed.style.unityBackgroundImageTintColor = tint;
+            _dangerBleed.style.display = alpha > 0.001f ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

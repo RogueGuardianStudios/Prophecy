@@ -3,7 +3,7 @@ using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Arts;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Rokkan.Prophecy.Presentation.UI
 {
@@ -22,62 +22,57 @@ namespace Rokkan.Prophecy.Presentation.UI
     {
         private sealed class Row
         {
-            public Image Highlight;
-            public Text Name;
-            public Text Pips;
-            public Text Running;
+            public VisualElement Highlight;
+            public Label Name;
+            public Label Pips;
+            public Label Running;
         }
 
         private readonly FlameBarWidget _bar;
         private readonly List<Row> _rows = new List<Row>();
         private int _selected;
 
-        public ArtsVolumeMenu(Transform canvas)
+        public ArtsVolumeMenu(VisualElement layer)
         {
-            var panel = UiBuild.Bordered(canvas, "ArtsVolume", new Vector2(0.5f, 0.5f),
-                                         Vector2.zero, new Vector2(420f, 470f),
+            var panel = UiBuild.Bordered(layer, "ArtsVolume",
                                          UiPalette.Umber, UiPalette.Parchment, 2f);
-            Root = panel.transform.parent.gameObject;
+            UiBuild.Centre(panel, 420f, 470f);
+            Root = panel;
 
-            UiBuild.Label(panel.transform, "Title", new Vector2(0f, 1f), new Vector2(18f, -12f),
-                          new Vector2(300f, 24f), "THE ORDER'S VOLUME", 16, UiPalette.Umber);
+            var title = UiBuild.Text(panel, "Title", "THE ORDER'S VOLUME", 16, UiPalette.Umber);
+            UiBuild.Place(title, left: 18f, top: 12f, width: 300f, height: 24f);
 
-            _bar = new FlameBarWidget(panel.transform, new Vector2(18f, -44f),
-                                      new Vector2(380f, 13f));
+            _bar = new FlameBarWidget(panel, 18f, 44f, new Vector2(380f, 13f));
 
             var arts = ArtCatalog.All;
             for (int i = 0; i < arts.Length; i++)
             {
                 var row = new Row();
-                float y = -76f - i * 44f;
+                float y = 76f + i * 44f;
 
-                row.Highlight = UiBuild.Solid(panel.transform, $"Row{i}", new Vector2(0f, 1f),
-                                              new Vector2(10f, y), new Vector2(396f, 40f),
-                                              UiPalette.Bright);
+                row.Highlight = UiBuild.Solid(panel, $"Row{i}", UiPalette.Bright);
+                UiBuild.Place(row.Highlight, left: 10f, top: y, width: 396f, height: 40f);
 
-                row.Name = UiBuild.Label(row.Highlight.transform, "Name", new Vector2(0f, 0.5f),
-                                         new Vector2(10f, 0f), new Vector2(250f, 30f),
-                                         arts[i].DisplayName, 15, UiPalette.Ink,
-                                         TextAnchor.MiddleLeft);
+                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 15,
+                                        UiPalette.Ink, TextAnchor.MiddleLeft);
+                UiBuild.Place(row.Name, left: 10f, top: 0f, width: 250f, height: 40f);
 
-                row.Pips = UiBuild.Label(row.Highlight.transform, "Pips", new Vector2(1f, 0.5f),
-                                         new Vector2(-12f, 0f), new Vector2(90f, 30f),
-                                         HudController.Pips(arts[i].Cost), 12,
-                                         UiPalette.HearthGold, TextAnchor.MiddleRight);
+                row.Running = UiBuild.Text(row.Highlight, "Running", "running", 12,
+                                           UiPalette.Gilt, TextAnchor.MiddleRight);
+                UiBuild.Place(row.Running, right: 108f, top: 0f, width: 80f, height: 40f);
 
-                row.Running = UiBuild.Label(row.Highlight.transform, "Running",
-                                            new Vector2(1f, 0.5f), new Vector2(-108f, 0f),
-                                            new Vector2(80f, 30f), "running", 12,
-                                            UiPalette.Gilt, TextAnchor.MiddleRight);
+                row.Pips = UiBuild.Text(row.Highlight, "Pips", HudController.Pips(arts[i].Cost),
+                                        12, UiPalette.HearthGold, TextAnchor.MiddleRight);
+                UiBuild.Place(row.Pips, right: 12f, top: 0f, width: 90f, height: 40f);
 
                 _rows.Add(row);
             }
 
-            UiBuild.Label(panel.transform, "Hints", new Vector2(0.5f, 0f), new Vector2(0f, 10f),
-                          new Vector2(380f, 20f), "A  cast        B  close", 12,
-                          UiPalette.Muted, TextAnchor.MiddleCenter);
+            var hints = UiBuild.Text(panel, "Hints", "A  cast        B  close", 12,
+                                     UiPalette.Muted, TextAnchor.MiddleCenter);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 10f, height: 20f);
 
-            Root.SetActive(false);
+            IsOpen = false;
         }
 
         public override void Opened(CharacterSim sim)
@@ -139,12 +134,12 @@ namespace Rokkan.Prophecy.Presentation.UI
                     ? buoyancy != null && buoyancy.FloatOn
                     : sim.ActiveArts.Contains(entry.Id);
 
-                var highlight = _rows[i].Highlight;
-                highlight.color = selected ? UiPalette.Bright : UiPalette.Parchment;
+                _rows[i].Highlight.style.backgroundColor =
+                    selected ? UiPalette.Bright : UiPalette.Parchment;
 
-                _rows[i].Name.color = affordable ? UiPalette.Ink : UiPalette.Muted;
-                _rows[i].Pips.color = affordable ? UiPalette.HearthGold : UiPalette.MutedPip;
-                _rows[i].Running.gameObject.SetActive(running);
+                _rows[i].Name.style.color = affordable ? UiPalette.Ink : UiPalette.Muted;
+                _rows[i].Pips.style.color = affordable ? UiPalette.HearthGold : UiPalette.MutedPip;
+                _rows[i].Running.style.display = running ? DisplayStyle.Flex : DisplayStyle.None;
             }
         }
     }

@@ -1,6 +1,6 @@
 using Rokkan.Prophecy.Sim;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Rokkan.Prophecy.Presentation.UI
 {
@@ -38,30 +38,28 @@ namespace Rokkan.Prophecy.Presentation.UI
             "(The gray box keeps this page honest but empty.)",
         };
 
-        private Text _title;
-        private Text _body;
+        private Label _title;
+        private Label _body;
         private int _page;
 
-        public BookMenu(Transform canvas)
+        public BookMenu(VisualElement layer)
         {
-            var panel = UiBuild.Bordered(canvas, "Book", new Vector2(0.5f, 0.5f),
-                                         Vector2.zero, new Vector2(460f, 380f),
+            var panel = UiBuild.Bordered(layer, "Book",
                                          UiPalette.Umber, UiPalette.Parchment, 2f);
-            Root = panel.transform.parent.gameObject;
+            UiBuild.Centre(panel, 460f, 380f);
+            Root = panel;
 
-            _title = UiBuild.Label(panel.transform, "Title", new Vector2(0f, 1f),
-                                   new Vector2(18f, -12f), new Vector2(300f, 24f), "", 16,
-                                   UiPalette.Umber);
+            _title = UiBuild.Text(panel, "Title", "", 16, UiPalette.Umber);
+            UiBuild.Place(_title, left: 18f, top: 12f, width: 300f, height: 24f);
 
-            _body = UiBuild.Label(panel.transform, "Body", new Vector2(0f, 1f),
-                                  new Vector2(24f, -52f), new Vector2(412f, 280f), "", 14,
-                                  UiPalette.Ink);
+            _body = UiBuild.Text(panel, "Body", "", 14, UiPalette.Ink);
+            UiBuild.Place(_body, left: 24f, top: 52f, width: 412f, height: 280f);
 
-            UiBuild.Label(panel.transform, "Hints", new Vector2(0.5f, 0f), new Vector2(0f, 10f),
-                          new Vector2(420f, 20f), "LB / RB  turn the page        B  close",
-                          12, UiPalette.Muted, TextAnchor.MiddleCenter);
+            var hints = UiBuild.Text(panel, "Hints", "LB / RB  turn the page        B  close",
+                                     12, UiPalette.Muted, TextAnchor.MiddleCenter);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 10f, height: 20f);
 
-            Root.SetActive(false);
+            IsOpen = false;
         }
 
         public override void Opened(CharacterSim sim)

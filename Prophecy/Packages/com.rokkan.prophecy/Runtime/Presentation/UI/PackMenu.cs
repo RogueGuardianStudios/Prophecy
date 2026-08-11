@@ -1,7 +1,7 @@
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Stats;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Rokkan.Prophecy.Presentation.UI
 {
@@ -17,59 +17,45 @@ namespace Rokkan.Prophecy.Presentation.UI
     /// </summary>
     internal sealed class PackMenu : MenuRoot.MenuPanel
     {
-        private Text _might;
-        private Text _flame;
-        private Text _heart;
-        private Text _resolve;
-        private Text _goods;
+        private Label _might;
+        private Label _flame;
+        private Label _heart;
+        private Label _resolve;
+        private Label _goods;
 
-        public PackMenu(Transform canvas)
+        public PackMenu(VisualElement layer)
         {
-            var panel = UiBuild.Bordered(canvas, "Pack", new Vector2(0.5f, 0.5f),
-                                         Vector2.zero, new Vector2(420f, 360f),
+            var panel = UiBuild.Bordered(layer, "Pack",
                                          UiPalette.Umber, UiPalette.Parchment, 2f);
-            Root = panel.transform.parent.gameObject;
+            UiBuild.Centre(panel, 420f, 360f);
+            Root = panel;
 
-            UiBuild.Label(panel.transform, "Title", new Vector2(0f, 1f), new Vector2(18f, -12f),
-                          new Vector2(300f, 24f), "THE PACK", 16, UiPalette.Umber);
+            var title = UiBuild.Text(panel, "Title", "THE PACK", 16, UiPalette.Umber);
+            UiBuild.Place(title, left: 18f, top: 12f, width: 300f, height: 24f);
 
-            UiBuild.Label(panel.transform, "MightName", new Vector2(0f, 1f),
-                          new Vector2(24f, -52f), new Vector2(120f, 22f), "Might", 15,
-                          UiPalette.Ink);
-            _might = UiBuild.Label(panel.transform, "MightValue", new Vector2(0f, 1f),
-                                   new Vector2(170f, -52f), new Vector2(120f, 22f), "", 17,
-                                   UiPalette.Steel);
+            StatRow(panel, "Might", 52f, UiPalette.Steel, out _might);
+            StatRow(panel, "Flame", 82f, UiPalette.HearthGold, out _flame);
+            StatRow(panel, "Heart", 112f, UiPalette.FestivalRed, out _heart);
+            StatRow(panel, "Resolve", 142f, UiPalette.Ink, out _resolve);
 
-            UiBuild.Label(panel.transform, "FlameName", new Vector2(0f, 1f),
-                          new Vector2(24f, -82f), new Vector2(120f, 22f), "Flame", 15,
-                          UiPalette.Ink);
-            _flame = UiBuild.Label(panel.transform, "FlameValue", new Vector2(0f, 1f),
-                                   new Vector2(170f, -82f), new Vector2(120f, 22f), "", 17,
-                                   UiPalette.HearthGold);
+            _goods = UiBuild.Text(panel, "Goods", "", 14, UiPalette.Ink);
+            UiBuild.Place(_goods, left: 24f, top: 190f, width: 372f, height: 130f);
 
-            UiBuild.Label(panel.transform, "HeartName", new Vector2(0f, 1f),
-                          new Vector2(24f, -112f), new Vector2(120f, 22f), "Heart", 15,
-                          UiPalette.Ink);
-            _heart = UiBuild.Label(panel.transform, "HeartValue", new Vector2(0f, 1f),
-                                   new Vector2(170f, -112f), new Vector2(120f, 22f), "", 17,
-                                   UiPalette.FestivalRed);
+            var hints = UiBuild.Text(panel, "Hints", "B  close", 12, UiPalette.Muted,
+                                     TextAnchor.MiddleCenter);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 10f, height: 20f);
 
-            UiBuild.Label(panel.transform, "ResolveName", new Vector2(0f, 1f),
-                          new Vector2(24f, -142f), new Vector2(120f, 22f), "Resolve", 15,
-                          UiPalette.Ink);
-            _resolve = UiBuild.Label(panel.transform, "ResolveValue", new Vector2(0f, 1f),
-                                     new Vector2(170f, -142f), new Vector2(160f, 22f), "", 15,
-                                     UiPalette.Ink);
+            IsOpen = false;
+        }
 
-            _goods = UiBuild.Label(panel.transform, "Goods", new Vector2(0f, 1f),
-                                   new Vector2(24f, -190f), new Vector2(372f, 130f), "", 14,
-                                   UiPalette.Ink);
+        private static void StatRow(VisualElement panel, string statName, float top,
+                                    Color valueColor, out Label value)
+        {
+            var name = UiBuild.Text(panel, statName + "Name", statName, 15, UiPalette.Ink);
+            UiBuild.Place(name, left: 24f, top: top, width: 120f, height: 22f);
 
-            UiBuild.Label(panel.transform, "Hints", new Vector2(0.5f, 0f), new Vector2(0f, 10f),
-                          new Vector2(380f, 20f), "B  close", 12, UiPalette.Muted,
-                          TextAnchor.MiddleCenter);
-
-            Root.SetActive(false);
+            value = UiBuild.Text(panel, statName + "Value", "", 17, valueColor);
+            UiBuild.Place(value, left: 170f, top: top, width: 200f, height: 22f);
         }
 
         public override void Opened(CharacterSim sim) => Draw(sim);
