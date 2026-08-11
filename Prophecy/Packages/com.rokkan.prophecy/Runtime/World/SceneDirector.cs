@@ -359,14 +359,15 @@ namespace Rokkan.Prophecy.World
             if (_descriptor.KillPlaneEnabled && _player.transform.position.y <= _descriptor.KillPlaneY)
             {
                 FallResetCount++;
-                Respawn();
+                StartCoroutine(RespawnSequence());
                 return;
             }
 
             if (_descriptor.RespawnOnDeath && _player.Sim != null && !_player.Sim.Vitals.IsAlive)
             {
                 DeathResetCount++;
-                Respawn();
+                StartCoroutine(RespawnSequence());
+                return;
             }
 
             CullFallenEnemies();
@@ -403,8 +404,23 @@ namespace Rokkan.Prophecy.World
         /// <para>Shared by both resets so they cannot drift: whatever "start again" means, falling
         /// off the world and being killed have to agree about it.</para>
         /// </summary>
-        private void Respawn()
+        /// <summary>
+        /// The respawn is a transition, and it wears the transition's clothes (Matt): the
+        /// world freezes and fades to black, the body and the camera are placed behind the
+        /// curtain, and the reveal opens on the finished shot — the player standing in
+        /// frame, the camera already settled. An instant teleport was mechanically identical
+        /// and felt broken, because the eye watched the camera whip and the body pop; the
+        /// same beat the doors and the portals spend is what makes this read as "you are
+        /// being carried back" instead of "the game glitched".
+        /// </summary>
+        private IEnumerator RespawnSequence()
         {
+            IsTransitioning = true;
+            FreezeWorld(true);
+
+            _veil?.BeginCover();
+            while (_veil != null && !_veil.IsOpaque) yield return null;
+
             if (_activeSpawn != null)
             {
                 _player.RespawnAt(_activeSpawn.Position, _activeSpawn.Facing);
@@ -424,6 +440,13 @@ namespace Rokkan.Prophecy.World
             }
 
             if (_camera != null) _camera.SnapToTarget();
+
+            // One frame under the black, so the Cinemachine brain processes the snapped
+            // camera before the reveal begins — the first visible frame is the final shot
+            // (Enter's rule, for the same reason).
+            yield return null;
+
+            yield return Reveal();
         }
 
         /// <summary>Any loaded scene other than this one carrying a <see cref="SceneDescriptor"/>.</summary>

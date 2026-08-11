@@ -1474,6 +1474,12 @@ New this session:
     "frozen" play session, check `EditorApplication.isPaused` FIRST: a paused editor mimics
     every wedge (stale state, motionless camera) while RunCommand pokes still land, and it cost
     half the investigation here — the session was paused deliberately to preserve the scene.
+    The sequel (Matt, same day): the mechanically-correct instant respawn "felt wrong" — the
+    eye watched the camera whip and the body pop. The respawn now wears the transition's
+    clothes: `RespawnSequence` freezes the world, covers with the veil, places body + room +
+    camera behind the black, and reveals onto the finished shot. `SnapToTarget` learned to
+    snap the room CLAMPS along with the position for the same reason — a snap that resolved
+    its shot under the old room's still-sliding limits revealed a camera still settling.
 28. **A paused clock buffers edges; drop them on the way out of a menu — but REBASELINE, do not
     Clear.** `ButtonLatch` holds a press until the sim consumes it, and a paused `SimClockDriver`
     consumes nothing — so every A pressed inside a menu would land as a sword swing on the first

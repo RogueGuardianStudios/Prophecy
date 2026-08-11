@@ -270,18 +270,20 @@ namespace Rokkan.Prophecy.Presentation
                     _targetMaxX = _roomBounds[i].MaxX;
                     break;
                 }
-
-                if (snap)
-                {
-                    _boundsFloorY = _targetFloorY;
-                    _boundsCeilingY = _targetCeilingY;
-                    _boundsMinX = _targetMinX;
-                    _boundsMaxX = _targetMaxX;
-                    _floorVelocity = _ceilingVelocity = _minXVelocity = _maxXVelocity = 0f;
-                }
             }
 
-            if (snap) return;
+            // A snap lands the clamps outright even when the ROOM did not change — a body can
+            // be re-placed while the previous room slide is still in flight, and a snap that
+            // only finished on room changes would reveal a camera still settling.
+            if (snap)
+            {
+                _boundsFloorY = _targetFloorY;
+                _boundsCeilingY = _targetCeilingY;
+                _boundsMinX = _targetMinX;
+                _boundsMaxX = _targetMaxX;
+                _floorVelocity = _ceilingVelocity = _minXVelocity = _maxXVelocity = 0f;
+                return;
+            }
 
             _boundsFloorY = Mathf.SmoothDamp(_boundsFloorY, _targetFloorY,
                                              ref _floorVelocity, _roomSlideSeconds);
@@ -596,10 +598,14 @@ namespace Rokkan.Prophecy.Presentation
         }
 
         /// <summary>Put the camera on its mark immediately — spawns and scene transitions, where
-        /// damping would show a long slide in from wherever the shot used to be.</summary>
+        /// damping would show a long slide in from wherever the shot used to be. The mark
+        /// includes the CLAMPS: the room's bounds snap with the position, or a respawn into
+        /// another room would resolve its shot under the old room's still-sliding limits.</summary>
         public void SnapToTarget()
         {
             if (_followTarget == null) return;
+
+            UpdateRoomBounds(snap: true);
 
             _lookAheadValue = 0f;
             _lookAheadVelocity = 0f;
