@@ -92,6 +92,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
+            // The cast button belongs to the EQUIPPED art (spec §3.1). Buoyancy owns it only
+            // while it is the one in the slot — but a float already RUNNING keeps running:
+            // swapping the equipped art in the volume is not a recast.
+            bool equipped = sim.EquippedArt == Arts.ArtId.Buoyancy;
+
             var state = sim.State;
 
             bool inWater = sim.World.TryGetWater(state.Position, out var water);
@@ -101,7 +106,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // land, and the next pool honours it. Only a press in deep water means something
             // different — the launch. Gated on the attack lock the way everything voluntary
             // is: no casting out of a hit-react, no casting mid-dive.
-            if (input.FlameArt.Pressed && sim.Can(LockFlags.Attack))
+            if (equipped && input.FlameArt.Pressed && sim.Can(LockFlags.Attack))
             {
                 if (inWater && depth >= _tuning.BuoyancyLaunchMinDepth)
                 {

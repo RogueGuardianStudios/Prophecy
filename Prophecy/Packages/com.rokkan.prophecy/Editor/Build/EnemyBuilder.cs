@@ -339,9 +339,15 @@ namespace Rokkan.Prophecy.Editor
             // ---- goals. Attacking outranks idling, and is only considered when there is something
             //      to attack — so an enemy with nothing in sight plans its idle instead of failing
             //      to plan at all.
+            // SIGHT is part of validity, not just Pursue's precondition (the ambusher's
+            // lesson, re-learned at a door): a player behind a door-wall still EXISTS
+            // (HasTarget), so without the sight gate the goal stayed valid-but-unreachable
+            // and the planner's failure spiral left the Roc standing frozen at the frame —
+            // camping the landing pad. Blind enemies must offer no hunt at all: they plan
+            // their idle cleanly and go back to their patrol.
             var killGoal = Goal("StrikeTarget", priority: 10f,
                 desired: new[] { On(wasStruck) },
-                validity: new[] { On(hasAnyTarget), On(holdsToken) });
+                validity: new[] { On(hasAnyTarget), On(seesTarget), On(holdsToken) });
 
             // The ambusher's version also requires the target to be CLOSE, not merely to exist.
             //
@@ -353,7 +359,7 @@ namespace Rokkan.Prophecy.Editor
             // not be offered.
             var springGoal = Goal("StrikeTarget", priority: 10f,
                 desired: new[] { On(wasStruck) },
-                validity: new[] { On(hasAnyTarget), On(withinSpring) });
+                validity: new[] { On(hasAnyTarget), On(seesTarget), On(withinSpring) });
 
             var patrolGoal = Goal("Wander", priority: 1f,
                 desired: new[] { On(isPatrolling) });
@@ -371,7 +377,7 @@ namespace Rokkan.Prophecy.Editor
             // grunt's, from the other side: a goal must be reachable but not already reached.
             var closeGoal = Goal("CloseIn", priority: 10f,
                 desired: new[] { On(hasRammed) },
-                validity: new[] { On(hasAnyTarget) });
+                validity: new[] { On(hasAnyTarget), On(seesTarget) });
 
             // Closes and then holds, rather than completing. HoldPosition is what stops it walking
             // straight through the target and back again — characters do not collide in the sim, so
@@ -627,7 +633,7 @@ namespace Rokkan.Prophecy.Editor
                 // blobs likewise hurt nobody on the map. Chip damage here was the earlier
                 // placeholder, and it had the wrong grammar: damage punishes the touch, where an
                 // encounter answers it.
-                Wire(combatant, "_contactDamage", archetype == Archetype.Chaser ? 8 : 0);
+                Wire(combatant, "_contactDamage", archetype == Archetype.Chaser ? 2 : 0);   // quarters
 
                 // Without this the grunt is a DUMMY: BuildHurtbox falls back to a box on its rest
                 // position, so the capsule walks off and leaves its hittable volume at the spawn

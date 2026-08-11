@@ -642,13 +642,15 @@ namespace Rokkan.Prophecy.Tests
         public void InvulnerabilityOutranksTheGuard()
         {
             // If a block could claim a hit first, i-frames would silently become chip damage.
+            // The set-up blow is one heart, NOT the whole bar: at the quarter scale a 20 would
+            // kill, and a corpse answers Ignored no matter what the gate order is.
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            sim.ReceiveHit(Blow(sim, 20));
+            sim.ReceiveHit(Blow(sim, 4));
             SettleGuard(sim, combat);
 
-            Assert.AreEqual(HitOutcome.Invulnerable, sim.ReceiveHit(Blow(sim, 20)).Outcome);
+            Assert.AreEqual(HitOutcome.Invulnerable, sim.ReceiveHit(Blow(sim, 4)).Outcome);
         }
 
         // ---------------------------------------------------------------- frame rate

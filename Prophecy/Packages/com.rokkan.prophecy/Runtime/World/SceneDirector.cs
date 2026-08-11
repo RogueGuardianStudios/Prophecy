@@ -40,6 +40,11 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("Loaded on start-up, unless a world scene is already open.")]
         private string _firstWorldScene = "GrayBox_Traversal";
 
+        [SerializeField, Tooltip("The HUD and menu scene, loaded additively at start-up and " +
+                                 "never unloaded — it lives in the persistent layer with " +
+                                 "Bootstrap, not among the swapped world scenes. Empty skips it.")]
+        private string _uiScene = "GrayBox_UI";
+
         /// <summary>
         /// Spawn id meaning "back where the player left this scene". Zelda II's encounter rule:
         /// the fight interrupts the journey, it does not restart it. The director remembers the
@@ -108,6 +113,25 @@ namespace Rokkan.Prophecy.World
         {
             _veil = TransitionVeil.Create(transform);
             _worldClock = FindAnyObjectByType<SimClockDriver>();
+
+            // The UI layer, before any world exists — the HUD binds to the player lazily, so
+            // order is forgiving, but loading it first means the first revealed frame already
+            // has its hearts. A UI scene not yet generated (or not in the build list) is a
+            // warning and a HUD-less session, not a failure.
+            if (!string.IsNullOrEmpty(_uiScene) &&
+                !SceneManager.GetSceneByName(_uiScene).isLoaded)
+            {
+                if (Application.CanStreamedLevelBeLoaded(_uiScene))
+                {
+                    var uiLoad = SceneManager.LoadSceneAsync(_uiScene, LoadSceneMode.Additive);
+                    while (uiLoad != null && !uiLoad.isDone) yield return null;
+                }
+                else
+                {
+                    Debug.LogWarning($"{name}: UI scene '{_uiScene}' is not in the build " +
+                                     "settings — run Prophecy > Build > Generate GrayBox_UI.", this);
+                }
+            }
 
             // Pressing Play from a world scene loads Bootstrap on top (see BootstrapLoader), so
             // the world is already open and loading _firstWorldScene would be wrong — adopt what

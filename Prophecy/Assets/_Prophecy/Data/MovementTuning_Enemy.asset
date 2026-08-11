@@ -61,6 +61,17 @@ MonoBehaviour:
     DownThrustSpeed: 22
     DownThrustBounceHeight: 2.4
     DownThrustMinTicks: 4
+    UpThrustMinTicks: 4
+    WaterSpeedPenalty: 0.4
+    WaterSinkSpeed: 2.5
+    BreathTicks: 480
+    DrownDamage: 1
+    DrownIntervalTicks: 6
+    BuoyancyLaunchMinDepth: 0.05
+    BuoyancyLaunchBonus: 1.5
+    FloatSnapSpeed: 4
+    DoorWalkSpeed: 2.2
+    DoorExitDistance: 1.6
     HardLandingSpeed: 18
     HardLandingTicks: 0
     TopDownSpeed: 6

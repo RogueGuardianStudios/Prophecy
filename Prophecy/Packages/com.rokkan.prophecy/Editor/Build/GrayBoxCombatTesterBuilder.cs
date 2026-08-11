@@ -138,7 +138,7 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(combatant, "_team", 2);
             SetPrivate(combatant, "_size", size);
             SetPrivate(combatant, "_offset", new Vector2(0f, centreY));
-            SetPrivate(combatant, "_maxHealth", 200);
+            SetPrivate(combatant, "_maxHealth", 40);   // quarters: ten hearts of practice
         }
 
         /// <summary>

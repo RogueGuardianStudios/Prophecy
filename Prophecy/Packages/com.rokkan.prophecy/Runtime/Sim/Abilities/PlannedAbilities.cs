@@ -44,11 +44,5 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public override int Order => ModuleOrder.Crawl;
     }
 
-    /// <summary>Casting a Flame-Art (design bible §6.4). Movement-side only: the commitment lock
-    /// and the rooted cast; the spell itself belongs to the combat layer.</summary>
-    public sealed class FlameArt : PlannedAbility
-    {
-        public override AbilityId Id => AbilityId.FlameArt;
-        public override int Order => ModuleOrder.FlameArt;
-    }
+    // FlameArt graduated 2026-08-11 into CastArt (its own file), the way every stub does.
 }

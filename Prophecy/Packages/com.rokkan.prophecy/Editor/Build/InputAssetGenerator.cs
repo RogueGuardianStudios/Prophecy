@@ -90,19 +90,38 @@ namespace Rokkan.Prophecy.Editor.Build
                 .With("Down", "<Keyboard>/downArrow")
                 .With("Left", "<Keyboard>/leftArrow")
                 .With("Right", "<Keyboard>/rightArrow");
+            // Left stick ONLY (UI/Input spec §1.2): the D-pad belongs to consumables and the
+            // menu doors now, and the right stick is deliberately unbound — do not assign it.
             move.AddBinding("<Gamepad>/leftStick");
-            move.AddBinding("<Gamepad>/dpad");
 
             Button(map, "Jump", "<Keyboard>/space", "<Gamepad>/buttonSouth");
             Button(map, "Attack", "<Keyboard>/j", "<Gamepad>/buttonWest", "<Mouse>/leftButton");
             Button(map, "Block", "<Keyboard>/k", "<Gamepad>/leftShoulder");
-            Button(map, "Parry", "<Keyboard>/l", "<Gamepad>/rightShoulder");
+
+            // Parry is one button with Block (the module decides by press timing); this action
+            // is vestigial, kept keyboard-only until the field leaves InputFrame.
+            Button(map, "Parry", "<Keyboard>/l");
+
             Button(map, "Dodge", "<Keyboard>/leftCtrl", "<Gamepad>/buttonEast");
-            Button(map, "FlameArt", "<Keyboard>/f", "<Gamepad>/rightTrigger");
+
+            // RB, NEVER a trigger. The no-LT/RT rule (spec §1.1) is a design constraint:
+            // the whole scheme must fit an SNES-style pad.
+            Button(map, "FlameArt", "<Keyboard>/f", "<Gamepad>/rightShoulder");
+
             Button(map, "Interact", "<Keyboard>/e", "<Gamepad>/buttonNorth");
 
             // Run ships as a toggle (open knob #1), so this is a discrete press, not a held axis.
             Button(map, "RunToggle", "<Keyboard>/leftShift", "<Gamepad>/leftStickPress");
+
+            // The consumable row (spec §1.2). Drinking is immediate, no confirm.
+            Button(map, "DrinkFlask", "<Keyboard>/r", "<Gamepad>/dpad/up");
+            Button(map, "CycleConsumable", "<Keyboard>/z",
+                   "<Gamepad>/dpad/left", "<Gamepad>/dpad/right");
+
+            // The three doors (spec §8): three objects, one press each, nothing nested.
+            Button(map, "OpenArts", "<Keyboard>/q", "<Gamepad>/dpad/down");
+            Button(map, "OpenBook", "<Keyboard>/escape", "<Gamepad>/start");
+            Button(map, "OpenPack", "<Keyboard>/tab", "<Gamepad>/select");
         }
 
         private static void BuildDebugMap(InputActionAsset asset)

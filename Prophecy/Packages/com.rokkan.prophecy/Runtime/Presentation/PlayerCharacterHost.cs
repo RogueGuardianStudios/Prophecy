@@ -146,7 +146,8 @@ namespace Rokkan.Prophecy.Presentation
             // honest thing it could report is a warning about a situation that is entirely normal.
             if (_bakeOnStart)
             {
-                BakedSolidCount = CollisionBaker.Bake(World, _space, _collisionMask, transform);
+                BakedSolidCount = CollisionBaker.Bake(World, _space, _collisionMask, transform,
+                                                      DoorsAreWalls());
 
                 // Zero solids is a broken scene in side-scroll and the CORRECT state in top-down,
                 // where nothing collides yet and a baked floor would do active harm — the whole
@@ -257,8 +258,18 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Re-bake the collision world. For scene loads, not for per-tick use.</summary>
         public int RebakeCollision()
         {
-            BakedSolidCount = CollisionBaker.Bake(World, _space, _collisionMask, transform);
+            BakedSolidCount = CollisionBaker.Bake(World, _space, _collisionMask, transform,
+                                                  DoorsAreWalls());
             return BakedSolidCount;
+        }
+
+        /// <summary>Whether doorways bake as WALLS for this body. Derived from its own
+        /// loadout — a body whose DoorTransit is off cannot use doors, so for it a doorway
+        /// IS a wall (Zelda II's law: enemies do not follow you through).</summary>
+        private bool DoorsAreWalls()
+        {
+            var transit = Sim?.Get<Rokkan.Prophecy.Sim.Abilities.DoorTransit>();
+            return transit == null || !transit.Enabled;
         }
 
         /// <summary>

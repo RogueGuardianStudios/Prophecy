@@ -33,7 +33,7 @@ MonoBehaviour:
           Gravity: 0
           HalfExtents: {x: 0.25, y: 0.25}
           GrowthPerSecond: {x: 0, y: 0}
-          Damage: 10
+          Damage: 2
           Height: 0
           Defeats: 0
           LifetimeTicks: 120
@@ -71,7 +71,7 @@ MonoBehaviour:
           Gravity: 0
           HalfExtents: {x: 0.25, y: 0.25}
           GrowthPerSecond: {x: 0, y: 0}
-          Damage: 14
+          Damage: 3
           Height: 0
           Defeats: 0
           LifetimeTicks: 120
@@ -109,7 +109,7 @@ MonoBehaviour:
           Gravity: 0
           HalfExtents: {x: 0.25, y: 0.25}
           GrowthPerSecond: {x: 0, y: 0}
-          Damage: 9
+          Damage: 2
           Height: 0
           Defeats: 0
           LifetimeTicks: 120
@@ -138,12 +138,25 @@ MonoBehaviour:
       Offset: {x: 0, y: -0.2}
       HalfExtents: {x: 0.45, y: 0.35}
       RotationDegrees: 0
-      Damage: 16
+      Damage: 3
       Height: 2
       Defeats: 0
       StoppedByGeometry: 0
     DownThrustAttackId: down_thrust
-    MaxHealth: 100
+    UpThrustBox:
+      OpenTick: 0
+      CloseTick: 1
+      Offset: {x: 0, y: 2}
+      HalfExtents: {x: 0.45, y: 0.35}
+      RotationDegrees: 0
+      Damage: 3
+      Height: 2
+      Defeats: 0
+      StoppedByGeometry: 0
+    UpThrustAttackId: up_thrust
+    MaxHealth: 20
+    DrinkBreaksGuard: 1
+    DrinkTicks: 20
     BlockedDamageFraction: 0.25
     BlockPushbackSpeed: 2.5
     ParryWindow:

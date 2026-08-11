@@ -41,6 +41,23 @@ namespace Rokkan.Prophecy.Sim
         /// follows.</summary>
         public Vitals Vitals { get; } = new Vitals();
 
+        /// <summary>The pool arts cast from — kindling, never labelled Flame (spec §2.2).</summary>
+        public FlameReserve Reserve { get; } = new FlameReserve();
+
+        /// <summary>The flask row. Capacity never shrinks; the world's refills do.</summary>
+        public Flasks Flasks { get; } = new Flasks();
+
+        /// <summary>The ONE equipped art (spec §3.1 — no in-combat selection exists). Changed
+        /// only from the arts volume. Buoyancy by default, so the cast button keeps doing
+        /// exactly what Matt tuned it to do until the volume says otherwise.</summary>
+        public Arts.ArtId EquippedArt = Arts.ArtId.Buoyancy;
+
+        /// <summary>Arts running in this room — the "running" marks for the HUD and the arts
+        /// volume. Room-scoped: cleared when a crossing completes, alongside the room-scoped
+        /// stat modifiers those arts applied. GfP will except itself when it becomes real.</summary>
+        public readonly System.Collections.Generic.List<Arts.ArtId> ActiveArts =
+            new System.Collections.Generic.List<Arts.ArtId>();
+
         /// <summary>
         /// Might, Flame and Heart, and everything modifying them. Design bible §6.2.
         ///
@@ -61,6 +78,7 @@ namespace Rokkan.Prophecy.Sim
         // changed rather than every tick — recomputing constantly would fight anything that
         // deliberately sets MaxHealth, and would hide that this is a derived number.
         private int _healthFromHeart = -1;
+        private int _flameFromRank = -1;
 
         /// <summary>
         /// Ticks of stun an <i>unanswered</i> hit costs. Stamped from tuning when the character is
@@ -318,6 +336,27 @@ namespace Rokkan.Prophecy.Sim
             Vitals.MaxHealth = wanted;
         }
 
+        /// <summary>
+        /// The same law for the reserve: Flame RANK sets the pool's capacity (UI spec §2.2)
+        /// and the stat sheet is the only author of it. The reserve briefly had its own flat
+        /// max, which is exactly the two-sources-of-truth split that let the Heart sync stomp
+        /// a renumbered <see cref="Vitals.MaxHealth"/> — one authority, or the quiet fight.
+        /// Raising the cap does not refill, for the same reason levelling Heart does not heal.
+        /// </summary>
+        private void SyncReserveToFlame()
+        {
+            int wanted = Stats.MaxFlame;
+            if (wanted == _flameFromRank) return;
+
+            bool wasFull = Reserve.Current >= Reserve.Max;
+            _flameFromRank = wanted;
+            Reserve.SetMax(wanted);
+
+            // A pool that has never been spent tracks its cap — the factory fills it before
+            // the first tick, and the first sync must not strand it below a raised max.
+            if (wasFull) Reserve.Refill();
+        }
+
         public void Tick(in SimTickInfo info)
         {
             CurrentTick = info.Tick;
@@ -326,6 +365,7 @@ namespace Rokkan.Prophecy.Sim
             Stats.PruneExpired(info.Tick);
             Restrictions.PruneExpired(info.Tick);
             SyncMaxHealthToHeart();
+            SyncReserveToFlame();
 
             State.HitWallThisTick = false;
             State.HitCeilingThisTick = false;
@@ -371,6 +411,7 @@ namespace Rokkan.Prophecy.Sim
 
             State.Room = room;
             Stats.ClearRoomScoped();
+            ActiveArts.Clear();   // the room is the timer (spec §3.2); GfP will except itself
             for (int i = 0; i < _modules.Count; i++) _modules[i].OnRoomChanged(this);
         }
 

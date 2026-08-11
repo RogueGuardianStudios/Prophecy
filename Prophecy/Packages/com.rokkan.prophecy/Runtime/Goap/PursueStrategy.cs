@@ -41,7 +41,14 @@ namespace Rokkan.Prophecy.Goap
             if (host == null) return GoapActionStatus.Failure;
 
             var percept = host.Percept;
-            if (!percept.HasTarget)
+
+            // A target that exists but cannot be SEEN is a memory, and the philosophy below
+            // already says what happens to memories: fail, and let the planner decide with
+            // its eyes open. This is the running half of the door rule — the wall blinds the
+            // chase, but a RUNNING pursuit is never re-planned, so without this the Roc stood
+            // frozen at the frame grinding this action forever while the sight-gated goal it
+            // should have fallen back from never got asked again.
+            if (!percept.HasTarget || !percept.HasLineOfSight)
             {
                 host.Intent.MoveX = 0f;
                 return GoapActionStatus.Failure;

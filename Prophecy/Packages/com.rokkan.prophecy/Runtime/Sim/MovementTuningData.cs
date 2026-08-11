@@ -264,10 +264,11 @@ namespace Rokkan.Prophecy.Sim
                  "out, the water starts taking health instead.")]
         public int BreathTicks = 480;
 
-        [Tooltip("Damage per drown interval once breath is gone. Applied straight to vitals — " +
-                 "no gate parries drowning. Rapid by design (Matt): at 5 every 6 ticks, full " +
-                 "health is gone in two seconds — the breath is the warning, this is the end.")]
-        public int DrownDamage = 5;
+        [Tooltip("Damage per drown interval once breath is gone, in QUARTERS. Applied straight " +
+                 "to vitals — no gate parries drowning. Rapid by design (Matt): one quarter " +
+                 "every 6 ticks empties five hearts in two seconds — the breath is the " +
+                 "warning, this is the end.")]
+        public int DrownDamage = 1;
 
         [Tooltip("Ticks between bites of drown damage.")]
         public int DrownIntervalTicks = 6;

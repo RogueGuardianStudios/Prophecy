@@ -32,8 +32,14 @@ namespace Rokkan.Prophecy.Presentation
         /// </summary>
         /// <param name="ignoreRoot">Skips colliders under this object — the player's own body,
         /// which must not be baked as a wall it then stands inside.</param>
+        /// <param name="doorsAreWalls">For a body that cannot use doors (an enemy — the
+        /// host derives it from its own DoorTransit): every doorway bakes as a plain SOLID,
+        /// a wall outright. For a door-capable body the doorway bakes as its trigger PLUS a
+        /// <see cref="SolidKind.DoorBarrier"/> — free to walk through, opaque to attacks and
+        /// fatal to projectiles. Zelda II's law, enforced in the bake: the fight does not
+        /// cross a door, and neither does the Roc.</param>
         public static int Bake(CollisionWorld world, MovementSpace space, LayerMask mask,
-                               Transform ignoreRoot = null)
+                               Transform ignoreRoot = null, bool doorsAreWalls = false)
         {
             if (world == null) return 0;
 
@@ -62,14 +68,25 @@ namespace Rokkan.Prophecy.Presentation
                 if (max.x - min.x <= 0f || max.y - min.y <= 0f) continue;
 
                 // Doorways are read from triggers, same as ladders: a door you collide with
-                // is a wall wearing a costume.
+                // is a wall wearing a costume — unless this bake is FOR a body that cannot
+                // use doors, in which case a wall is exactly what it is.
                 var door = collider.GetComponentInParent<RoomDoor>();
                 if (door != null)
                 {
                     if (!door.IsProperlyAuthored(out string doorProblem))
                         Debug.LogWarning($"{door.name}: {doorProblem}.", door);
 
-                    world.AddDoor(new Aabb(min, max), door.RoomMinSide, door.RoomMaxSide);
+                    if (doorsAreWalls)
+                    {
+                        world.Add(new Aabb(min, max), SolidKind.Solid);
+                        added++;
+                    }
+                    else
+                    {
+                        world.AddDoor(new Aabb(min, max), door.RoomMinSide, door.RoomMaxSide);
+                        world.Add(new Aabb(min, max), SolidKind.DoorBarrier);
+                    }
+
                     continue;
                 }
 

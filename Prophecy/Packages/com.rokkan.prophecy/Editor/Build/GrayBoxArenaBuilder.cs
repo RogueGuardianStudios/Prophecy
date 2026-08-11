@@ -188,13 +188,13 @@ namespace Rokkan.Prophecy.Editor.Build
             // Station 1 — the basic hit. A full-body dummy both attacks reach, so the first swing
             // in the arena always connects and "is combat on at all" is never the question.
             Station(targets, "1_Basic", -2f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 60);
+                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 12);
 
             // Station 2 — stance. Squat enough that the standing slash passes over it, so the low
             // thrust is the only answer. Sized from the attack, not eyeballed.
             Station(targets, "2_Squat", 6f, reach,
                     size: new Vector2(0.9f, reach.StandLow - 0.1f),
-                    centreY: (reach.StandLow - 0.1f) * 0.5f, health: 40);
+                    centreY: (reach.StandLow - 0.1f) * 0.5f, health: 8);
 
             // Station 3 — the mirror. Raised above the crouching thrust's ceiling, so only the
             // standing slash reaches. Two stations that each refuse one answer are what make stance
@@ -202,7 +202,7 @@ namespace Rokkan.Prophecy.Editor.Build
             float raisedHeight = 0.7f;
             float raisedCentre = reach.CrouchHigh + 0.15f + raisedHeight * 0.5f;
             Station(targets, "3_Raised", 13f, reach,
-                    size: new Vector2(0.9f, raisedHeight), centreY: raisedCentre, health: 40,
+                    size: new Vector2(0.9f, raisedHeight), centreY: raisedCentre, health: 8,
                     post: raisedCentre - raisedHeight * 0.5f);
 
             // Station 4 — cover. The pillar sits inside the hit box's span but across the line from
@@ -213,7 +213,7 @@ namespace Rokkan.Prophecy.Editor.Build
             // Station 5 — the chain. Enough health to survive the opener, so the follow-up has
             // something to land on and the cancel window can actually be felt.
             Station(targets, "5_Chain", 32f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 240);
+                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 48);
 
             // Station 6 — height. A dummy on a ledge one lane up: reachable from the platform,
             // not from the floor, so vertical spacing gets checked against real reach too.
@@ -222,16 +222,16 @@ namespace Rokkan.Prophecy.Editor.Build
             // Stations 7-9 — the things that swing back. Each demands exactly one answer, because a
             // telegraph you can survive two ways teaches nothing about either.
             Telegraph(targets, "7_High", 52f, AttackHeight.High, DefensiveAnswer.None, delay: 0,
-                      damage: 12, tuning: tuning);
+                      damage: 2, tuning: tuning);
 
             Telegraph(targets, "8_Low", 60f, AttackHeight.Low, DefensiveAnswer.None, delay: 30,
-                      damage: 10, tuning: tuning);
+                      damage: 2, tuning: tuning);
 
             // No guard answers this one, but a parry and a dodge both do — which is the shape that
             // makes a telegraph worth reading rather than just worth holding a button through.
             Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any,
                       DefensiveAnswer.Block, delay: 60,
-                      damage: 18, tuning: tuning);
+                      damage: 4, tuning: tuning);
 
             // Stations 11-12 — things that are not a sword. A bolt that travels, and a
             // shockwave that stays where it lands and grows. Each authors a different set of
@@ -413,7 +413,7 @@ namespace Rokkan.Prophecy.Editor.Build
             for (int i = 0; i < 3; i++)
             {
                 Station(targets, $"10_Pogo_{i + 1}", x + 8f + i * 3.2f, reach,
-                        size: new Vector2(0.9f, 1.2f), centreY: 0.6f, health: 400);
+                        size: new Vector2(0.9f, 1.2f), centreY: 0.6f, health: 80);
             }
         }
 
@@ -606,7 +606,7 @@ namespace Rokkan.Prophecy.Editor.Build
             Box(geometry, "Cover_Grate", new Vector2(x, 0f), new Vector2(x + 0.15f, 2.2f));
 
             Station(targets, "4_Cover", x + 0.65f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 60);
+                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 12);
         }
 
         private static void LedgeStation(Transform geometry, Transform targets, MovementTuning tuning,
@@ -617,7 +617,7 @@ namespace Rokkan.Prophecy.Editor.Build
             Box(geometry, "Ledge", new Vector2(x, 0f), new Vector2(x + 8f, top));
 
             Station(targets, "6_Ledge", x + 4f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: top + 0.9f, health: 60);
+                    size: new Vector2(0.9f, 1.8f), centreY: top + 0.9f, health: 12);
         }
 
         // ------------------------------------------------------------------ scene furniture

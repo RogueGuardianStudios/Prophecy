@@ -15,18 +15,20 @@ namespace Rokkan.Prophecy.Sim.Stats
     public class StatTuningData
     {
         [Header("Heart — life")]
-        [Tooltip("Health at Heart 1.")]
-        public int BaseHealth = 100;
+        [Tooltip("Health at Heart 1, in QUARTERS — four to a heart (Matt), so 20 is five " +
+                 "hearts on the HUD.")]
+        public int BaseHealth = 20;
 
-        [Tooltip("Health added per Heart level above 1.")]
-        public int HealthPerHeart = 40;
+        [Tooltip("Health added per Heart level above 1. The rite adds one full heart " +
+                 "(UI spec §2.1), so this is one heart's worth of quarters.")]
+        public int HealthPerHeart = 4;
 
         [Header("Flame — magic")]
-        [Tooltip("Flame meter at Flame 1.")]
-        public int BaseFlame = 40;
+        [Tooltip("Flame reserve at Flame 1 — the pool CastArt spends.")]
+        public int BaseFlame = 10;
 
-        [Tooltip("Flame added per level above 1.")]
-        public int FlamePerLevel = 20;
+        [Tooltip("Reserve added per Flame level above 1. Placeholder curve (UI spec §3.4).")]
+        public int FlamePerLevel = 5;
 
         [Header("Might — attack")]
         [Tooltip("Damage multiplier at Might 1. One means authored damage is what lands.")]

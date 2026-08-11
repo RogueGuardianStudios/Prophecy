@@ -59,6 +59,7 @@ namespace Rokkan.Prophecy.Sim
         public readonly ButtonState FlameArt;
         public readonly ButtonState Interact;
         public readonly ButtonState RunToggle;
+        public readonly ButtonState DrinkFlask;
 
         public InputFrame(
             Vector2 move,
@@ -69,7 +70,8 @@ namespace Rokkan.Prophecy.Sim
             ButtonState dodge = default,
             ButtonState flameArt = default,
             ButtonState interact = default,
-            ButtonState runToggle = default)
+            ButtonState runToggle = default,
+            ButtonState drinkFlask = default)
         {
             Move = move;
             Jump = jump;
@@ -80,6 +82,7 @@ namespace Rokkan.Prophecy.Sim
             FlameArt = flameArt;
             Interact = interact;
             RunToggle = runToggle;
+            DrinkFlask = drinkFlask;
         }
 
         /// <summary>No input at all — the neutral frame.</summary>

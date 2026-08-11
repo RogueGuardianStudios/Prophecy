@@ -111,6 +111,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
         public const int LadderClimb = 70;
 
         public const int FlameArt = 80;
+
+        /// <summary>Beside the cast: both are D-pad/RB consumable acts, ordered after every
+        /// movement decision so a drink's force lock is the tick's last word on the guard.</summary>
+        public const int DrinkFlask = 85;
+
         public const int Interact = 90;
 
         public const int FallLand = 100;

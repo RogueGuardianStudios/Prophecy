@@ -47,7 +47,7 @@ namespace Rokkan.Prophecy.Presentation
         private Vector2 _offset = new Vector2(0f, 0.9f);
 
         [Header("Health (dummies only)")]
-        [SerializeField] private int _maxHealth = 60;
+        [SerializeField] private int _maxHealth = 12;   // quarters
 
         [SerializeField, Tooltip("Seconds before a dead dummy comes back. Zero leaves it down — " +
                                  "which is what a real enemy will want.")]

@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 71836941195209178}
   - component: {fileID: 7420226415763647379}
   - component: {fileID: 9197407758364004755}
-  - component: {fileID: 7829726449312560658}
+  - component: {fileID: 3764142908842194249}
   m_Layer: 0
   m_Name: Enemy_Capsule
   m_TagString: Untagged
@@ -40,7 +40,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7376805773751550447}
-  - {fileID: 895758937791673246}
+  - {fileID: 1276340488002351665}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4812605695359067000
@@ -80,7 +80,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterView
   _host: {fileID: 4812605695359067000}
-  _body: {fileID: 895758937791673246}
+  _body: {fileID: 1276340488002351665}
   _turnSpeed: 900
   _resizeProxyOnCrouch: 0
   _resizeSmoothing: 0.06
@@ -101,7 +101,7 @@ MonoBehaviour:
   _simHost: {fileID: 4812605695359067000}
   _size: {x: 0.9, y: 1.8}
   _offset: {x: 0, y: 0.9}
-  _maxHealth: 60
+  _maxHealth: 12
   _reviveSeconds: 2
   _contactDamage: 0
   _contactIntervalTicks: 45
@@ -190,13 +190,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720640186679717
-  - rid: 2975720640186679718
-  - rid: 2975720640186679719
+  - rid: 2975720683592483286
+  - rid: 2975720683592483287
+  - rid: 2975720683592483288
   references:
     version: 2
     RefIds:
-    - rid: 2975720640186679717
+    - rid: 2975720683592483286
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -214,7 +214,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720640186679718
+    - rid: 2975720683592483287
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -223,7 +223,7 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
-    - rid: 2975720640186679719
+    - rid: 2975720683592483288
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
@@ -248,10 +248,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 1308604149
-      Part2: 1309957127
-      Part3: 3318736529
-      Part4: 4278756325
+      Part1: 3320099391
+      Part2: 1221736829
+      Part3: 77726865
+      Part4: 2790060430
     Actions: []
     Goals: []
     Beliefs: []
@@ -282,7 +282,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Rokkan.Prophecy.Goap::Rokkan.Prophecy.Goap.GoapTraceProbe
   _interval: 0.5
---- !u!114 &7829726449312560658
+--- !u!114 &3764142908842194249
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -296,7 +296,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterAnimator
   _host: {fileID: 4812605695359067000}
   _set: {fileID: 11400000, guid: fa44520663e54dd4797f0705b9b08200, type: 2}
-  _animation: {fileID: 4496177147327156730}
+  _animation: {fileID: 6379773404598281196}
   _moveThreshold: 0.15
   _runThreshold: 4.5
   _landHoldSeconds: 0.18
@@ -392,7 +392,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1001 &857048970567439477
+--- !u!1001 &1602368409531143642
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -470,20 +470,25 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4496177147327156730}
+      addedObject: {fileID: 6379773404598281196}
   m_SourcePrefab: {fileID: 100100000, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
---- !u!1 &515011996220156196 stripped
+--- !u!4 &1276340488002351665 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
+  m_PrefabInstance: {fileID: 1602368409531143642}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1944895631846041739 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
-  m_PrefabInstance: {fileID: 857048970567439477}
+  m_PrefabInstance: {fileID: 1602368409531143642}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4496177147327156730
+--- !u!114 &6379773404598281196
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 515011996220156196}
+  m_GameObject: {fileID: 1944895631846041739}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 541f5a00690421a4d939c8b5ad41ca28, type: 3}
@@ -491,8 +496,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Animation::Rokkan.Animation.AnimationSystem
   _animator: {fileID: 0}
   _blendSeconds: 0.08
---- !u!4 &895758937791673246 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 89a6a4d850dde6d4884336eb3513168b, type: 3}
-  m_PrefabInstance: {fileID: 857048970567439477}
-  m_PrefabAsset: {fileID: 0}

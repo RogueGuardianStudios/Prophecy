@@ -78,6 +78,13 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new DodgeStep(combat));
             sim.Add(new HitReact(combat));
 
+            // The stat sheet is the ONLY authority on the health cap — the sim re-syncs
+            // Vitals.MaxHealth from Stats.MaxHealth every tick. Seeding the curve's base from
+            // the authored tuning is what makes a 12-quarter grunt STAY 12 quarters; without
+            // it the first tick quietly stomps every character to the default curve's Heart 1,
+            // which is exactly how the old 100 survived the quarters renumber for a day.
+            sim.Stats.Tuning.BaseHealth = combat.MaxHealth;
+
             sim.Vitals.MaxHealth = combat.MaxHealth;
             sim.Vitals.Reset();
             sim.HitStunTicks = combat.HitStunTicks;
@@ -88,9 +95,12 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new UpThrust(tuning, combat));
             sim.Add(new Interact(tuning));
 
+            // The cast button and the flask row — the HUD's verbs.
+            sim.Add(new CastArt(combat));
+            sim.Add(new DrinkFlask(combat));
+
             // Declared, not yet built. See PlannedAbilities.
             sim.Add(new Crawl());
-            sim.Add(new FlameArt());
 
             loadout?.Apply(sim);
 

@@ -6,7 +6,8 @@
         "Rokkan.Core",
         "Rokkan.Animation",
         "Unity.InputSystem",
-        "Unity.Cinemachine"
+        "Unity.Cinemachine",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -44,5 +44,6 @@ namespace Rokkan.Prophecy.Sim
         Swim = 24,
         Buoyancy = 25,
         DoorTransit = 26,
+        DrinkFlask = 27,
     }
 }

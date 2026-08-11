@@ -42,6 +42,7 @@ namespace Rokkan.Prophecy.Presentation
         private InputAction _flameArt;
         private InputAction _interact;
         private InputAction _runToggle;
+        private InputAction _drinkFlask;
 
         private Vector2 _moveValue;
         private ButtonLatch _jumpLatch;
@@ -52,6 +53,7 @@ namespace Rokkan.Prophecy.Presentation
         private ButtonLatch _flameArtLatch;
         private ButtonLatch _interactLatch;
         private ButtonLatch _runToggleLatch;
+        private ButtonLatch _drinkFlaskLatch;
 
         private bool _resolved;
 
@@ -85,6 +87,7 @@ namespace Rokkan.Prophecy.Presentation
             _flameArtLatch.Sample(_flameArt.IsPressed());
             _interactLatch.Sample(_interact.IsPressed());
             _runToggleLatch.Sample(_runToggle.IsPressed());
+            _drinkFlaskLatch.Sample(_drinkFlask != null && _drinkFlask.IsPressed());
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -110,7 +113,8 @@ namespace Rokkan.Prophecy.Presentation
                 dodge: _dodgeLatch.Consume(),
                 flameArt: _flameArtLatch.Consume(),
                 interact: _interactLatch.Consume(),
-                runToggle: _runToggleLatch.Consume());
+                runToggle: _runToggleLatch.Consume(),
+                drinkFlask: _drinkFlaskLatch.Consume());
         }
 
         private void ClearLatches()
@@ -124,7 +128,20 @@ namespace Rokkan.Prophecy.Presentation
             _flameArtLatch.Clear();
             _interactLatch.Clear();
             _runToggleLatch.Clear();
+            _drinkFlaskLatch.Clear();
         }
+
+        /// <summary>The generated asset, lent to the menu layer — menus read the same map
+        /// (the doors, navigation, confirm) rather than owning a second copy of it.</summary>
+        public InputActionAsset Actions => _actions;
+
+        /// <summary>
+        /// Drop every press buffered while the sim was not consuming — the menu layer calls
+        /// this as it closes. A paused clock stops ConsumeFrame, so every tap made while a
+        /// menu was open would otherwise land on the first tick after it shuts: close the
+        /// arts volume with A and the character swings.
+        /// </summary>
+        public void ClearPending() => ClearLatches();
 
         private void Resolve()
         {
@@ -151,6 +168,10 @@ namespace Rokkan.Prophecy.Presentation
             _flameArt = Find("FlameArt");
             _interact = Find("Interact");
             _runToggle = Find("RunToggle");
+
+            // Optional on purpose: an input asset generated before the flask row existed
+            // still resolves — the drink just never fires until the asset regenerates.
+            _drinkFlask = Find("DrinkFlask");
 
             _resolved = _move != null && _jump != null && _attack != null && _block != null &&
                         _parry != null && _dodge != null && _flameArt != null && _interact != null &&

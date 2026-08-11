@@ -135,6 +135,50 @@ namespace Rokkan.Prophecy.Tests
         }
 
         [Test]
+        public void DoorsAreWallsToThoseWhoCannotUseThem()
+        {
+            // The Roc's bake: for a body whose DoorTransit is off, the baker fills the
+            // doorway with plain solid — the chase ends at the frame (Matt's report: it
+            // followed him through). This world is built the way that bake builds it.
+            var world = DoorWorld();
+            world.Add(new Aabb(new Vector2(9.8f, 0f), new Vector2(10.2f, 2.6f)));
+
+            var sim = Player(world, new Vector2(5f, 0f), room: 1);
+            sim.Get<DoorTransit>().Enabled = false;
+            Step(sim, Hold(), 3);
+
+            Step(sim, Hold(x: 1f), 400);
+
+            Assert.Less(sim.State.Position.x, 9.85f, "the doorway is a wall to it");
+            Assert.AreEqual(1, sim.State.Room, "and no crossing ever happened");
+        }
+
+        [Test]
+        public void TheBarrierStopsFightsNotFeet()
+        {
+            // The player's bake: the doorway carries a DoorBarrier — free passage for the
+            // body, a wall to every attack, death to every shot. Projectiles opt into it;
+            // movement and the headroom probes never see it.
+            var world = new CollisionWorld();
+            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
+            world.Add(new Aabb(new Vector2(9.8f, 0f), new Vector2(10.2f, 2.6f)),
+                      SolidKind.DoorBarrier);
+
+            var body = new Aabb(new Vector2(9f, 0f), new Vector2(9.9f, 1.8f));
+            world.SweepHorizontal(body, 2f, out bool blocked);
+            Assert.IsFalse(blocked, "movement never meets the barrier");
+
+            Assert.IsTrue(world.IsOccluded(new Vector2(8f, 1f), new Vector2(12f, 1f)),
+                          "a swing cannot cross the door");
+
+            var shot = Aabb.FromCenterSize(new Vector2(10f, 1f), new Vector2(0.4f, 0.4f));
+            Assert.IsTrue(world.OverlapsAnySolid(shot, includeDoorBarriers: true),
+                          "a bolt dies at the doorway");
+            Assert.IsFalse(world.OverlapsAnySolid(shot),
+                           "but a body standing in it is not inside a wall");
+        }
+
+        [Test]
         public void CrossingADoorDropsTheFloat()
         {
             // Matt's rule, rooms being its final name: the cast is a toggle ended by recasting

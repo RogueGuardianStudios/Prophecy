@@ -194,6 +194,42 @@ and glides between the two on SmoothStep(Progress), overriding the crossing axis
 `ResolveTargetPosition` while the other axis follows normally. Rect-blending still runs
 underneath for the clamps' continuity at handoff. Frame arrives when the feet do, from a
 fixed start to a fixed end: a Metroid pan, paced by the walk.
+**THE BLIND ROC GOES BACK TO ITS PATROL (Matt: it camped the door, blocking the landing
+pad into a forced contact hit):** the wall worked — the AI froze. Sight was already
+occlusion-true (`EnemyPerception.HasLineOfSight` via the enemy's OWN world, where the
+doorway is solid), and even the fallback pursues only with LOS — but `StrikeTarget`'s
+validity was HasTarget + token, so a player behind a door left the goal
+VALID-BUT-UNREACHABLE and the planner's failure spiral parked the Roc frozen at the frame.
+The ambusher's lesson, re-learned at a door: SIGHT IS PART OF VALIDITY. All three hunt
+goals gained `On(seesTarget)` (grunt/caster StrikeTarget, chaser CloseIn, ambusher Spring)
+— a blind enemy offers no hunt, plans its idle cleanly, and walks its patrol until the
+player comes back through. Enemies regenerated. Suite 888 green.
+**STILL FROZEN on the next drive — the gating was a layer too late:** goal validity is
+consulted only when SELECTING a goal, and the Roc never selected one — the RUNNING
+`PursueStrategy` fails only on `!HasTarget`, and a door-blocked player still EXISTS, so
+the pursuit ground against the wall forever and the replan the gate would have answered
+never happened. THE RULE, both halves now: **a target that exists but cannot be seen is a
+memory** — Pursue FAILS on lost sight (the plan ends, the planner decides with its eyes
+open, the gated goal declines, Patrol wins), and KeepDistance treats lost sight as
+success-by-absence (the vigil ends; a caster holding range from a memory was the same
+freeze wearing different clothes). Strategy comments carry the lesson: a running action
+must END when the world invalidates it — goal gates cannot reach into a plan already
+walking. Suite 888 green.
+**DOORS ARE HARD BARRIERS (Matt's drive: the Roc chased him THROUGH the duel door — the
+flagged "enemies can still walk through the opening" caveat, promoted to a bug):** the fix
+rides the fact that EVERY BODY BAKES ITS OWN CollisionWorld. `CollisionBaker.Bake` gained
+`doorsAreWalls`, derived by the host from its OWN loadout (`DoorTransit` off = cannot use
+doors): an enemy's bake fills each doorway with PLAIN SOLID — the chase ends at the frame,
+its own GOAP terrain sensor reads the wall — while a door-capable body's bake lays a new
+**`SolidKind.DoorBarrier`** there instead: movement sweeps skip it entirely (and the
+headroom/attachment probes never see it — `OverlapsAnySolid` ignores it by default), but
+`IsOccluded` COUNTS it (attacks cannot cross a door, in either direction — the player's
+swings too, since cover uses the attacker's own world) and projectiles OPT IN
+(`includeDoorBarriers: true` in `Projectile.Advance` — a bolt dies at the frame its caster
+cannot follow through; AOE with StoppedByGeometry dies the same way). Zelda II's law,
+enforced in the bake. Pinned both ways: a transit-less sim walks into the wall and never
+crosses; the barrier blocks a swing and a shot while a sweep passes clean through.
+9 room tests, suite 888 green.
 **THE TESTER SPLIT INTO THREE ROOMS (Matt), and the door recipe UNIFIED:** the sparring
 floor widened to 46 and split — ANTECHAMBER (west: exit portal at −21, up-thrust dummy at
 −17; the quiet room), ARRIVAL (middle: spawn at −2, room 2), DUEL (east: the Roc's post at
@@ -980,6 +1016,83 @@ Verified live: 3,453 vertices / 3,381 quads built on entry, twice, zero errors.
 
 ---
 
+## 2b. UI — quarters, the arts substrate, HUD and menus, 2026-08-11
+
+Built to `outside docs/Rokkan-UI-Input-Implementation-Spec.md` under Matt's rule: *ours wins where
+there is no conflict; conflicts go to him.* Verified in play mode: HUD live over the traversal
+scene, hearts draining in quarters (screenshot at 14/20 showed 3 full + a half + an empty),
+suite green at 888 after.
+
+**Health is integer quarters, four to a heart (Matt: "4 health = 1 heart").** `MaxHealth` 20
+= five hearts. Every damage number in the project was renumbered ÷5 (min 1): player slashes
+2/3/2, thrusts 3, Roc contact 2, arena dummies 12/8/48/80, drowning 1 per 6 ticks. The player's
+serialized `CombatTuning.asset` was renumbered via SerializedObject, enemy tunings and all
+gray-box scenes regenerated from it.
+
+**The sim substrate under the HUD** (all plain C#, all headless):
+
+```
+Runtime/Sim/Combat/FlameReserve.cs   the castable pool; all-or-nothing TrySpend, silent fail
+Runtime/Sim/Combat/Flasks.cs         4 slots, heal 4 quarters; capacity never shrinks
+Runtime/Sim/Arts/ArtCatalog.cs       ArtId enum + the 8-art table (spec §3.4 placeholder costs)
+Runtime/Sim/Abilities/CastArt.cs     RB casts THE equipped art; FlameArt stub graduated here
+Runtime/Sim/Abilities/DrinkFlask.cs  D-pad Up drinks; DrinkBreaksGuard ForceLock while it goes down
+```
+
+`CharacterSim` carries `Reserve`, `Flasks`, `EquippedArt` (defaults **Buoyancy** — continuity
+with the tuned water loop), and `ActiveArts` (the room-scoped running marks, cleared by
+`CommitRoomChange` alongside the stat modifiers — the room is the timer, spec §3.2).
+
+**The stat sheet is the single authority on caps.** `SyncMaxHealthToHeart` re-syncs
+`Vitals.MaxHealth` from `Stats.MaxHealth` every tick, so `StatTuningData` was renumbered too
+(BaseHealth 20, +4/level — the rite adds one heart) and the factory now seeds
+`Stats.Tuning.BaseHealth = combat.MaxHealth` so authored per-character health survives the sync
+(see the trap in §4). The reserve got the same law: `SyncReserveToFlame` derives `Reserve.Max`
+from the Flame rank curve (Base 10, +5/level placeholder) — no second source of truth.
+
+**Input** (`InputAssetGenerator` regenerated; the asset audits clean — zero LT/RT/right-stick
+references, per the spec's hard rule §1.1):
+
+- `FlameArt` moved **rightTrigger → rightShoulder** (was a spec violation).
+- `Parry` lost its RB binding — guard is ONE button (LB); the action survives keyboard-only
+  until the field leaves `InputFrame`.
+- **D-pad no longer moves the character** — it belongs to consumables and the menu doors now:
+  `DrinkFlask` (Up), `CycleConsumable` (Left/Right, nothing to cycle yet), `OpenArts` (Down),
+  `OpenBook` (Start/Esc), `OpenPack` (Select/Tab).
+- `PlayerInputCapture` gained the drink latch, lends its asset to the menu layer
+  (`Actions`), and can drop buffered presses (`ClearPending`).
+
+**The HUD and menus are an additive scene** — `GrayBox_UI.unity`, generated by
+`UiSceneBuilder`, loaded by `SceneDirector` at start-up beside Bootstrap and never unloaded
+(no `SceneDescriptor`, so world-scene discovery and transitions ignore it). The scene holds two
+components; the whole widget tree is **built at runtime in code** (`UiBuild` — the
+TransitionVeil precedent scaled up), so there is no serialized uGUI hierarchy to drift and
+nothing for regeneration to clobber.
+
+```
+Runtime/Presentation/UI/UiPalette.cs      every spec hex, once (§2.4 stat colors included)
+Runtime/Presentation/UI/UiBuild.cs        rects, borders, text; built-in font, zero UI assets
+Runtime/Presentation/UI/FlameBarWidget.cs the reserve bar + cost segment (HUD and volume share it)
+Runtime/Presentation/UI/HudController.cs  3 corner panels; hearts drain top-down in quarters
+Runtime/Presentation/UI/MenuRoot.cs       3 doors; pauses SimClockDriver; clears input on close
+Runtime/Presentation/UI/ArtsVolumeMenu.cs equip-on-select, A casts via CastArt.Cast, B closes
+Runtime/Presentation/UI/PackMenu.cs       Might steel / Flame rank gold ROMAN / Heart red / Resolve
+Runtime/Presentation/UI/BookMenu.cs       map, log (transcript, frozen), options (reveals nothing)
+Editor/Build/UiSceneBuilder.cs            the 2-component scene + build-settings registration
+```
+
+Spec rules already load-bearing in the gray box: reserve never labelled "Flame"; top-right
+corner empty; no minimap; hearts Festival Red, never Smolder; unaffordable = muted, never red;
+damage bleed Shadow Mid, never red; Running inverts bright, Locked (GfP) is the HUD's only dark
+panel; the seam sits full without prompting; menus never nest and never remember a page.
+`_Corruption` is stubbed at 0 — flat parchment until the binding economy exists.
+
+**Still thin, deliberately:** Ward/Ascent/DivineFlame/Censer/GfP cast and mark as running but
+only Sharpen has a real effect (+25% Might, room-scoped); GfP's uncancellable/lock behavior is
+not built (the Locked emblem state is); Chalice works (reserve → flask); nothing awards Resolve
+yet, so the rite has nothing to spend. Menus are code-verified (compile, suite, clean boot,
+actions resolve) but not yet driven by hand — Matt's controller is the test.
+
 ## 3. Decisions already made — do not re-litigate
 
 Carried forward and still true: **feel first**; **sim owns its own `CollisionWorld`**; **combat
@@ -1340,6 +1453,21 @@ New this session:
     faces/posts step 0.01 m toward the low side per tier (an upper piece's skirt shares the
     plane of the front below it); post rims ride 0.02 proud of face rims; and mirrored pieces
     are baked twins, never negative scale (which reverses winding and renders inside-out).
+27. **A per-tick sync makes every second source of truth lose silently.** The quarters renumber
+    set `CombatTuningData.MaxHealth = 20` and the factory wrote it into `Vitals` — and the first
+    sim tick put it back to 100, because `SyncMaxHealthToHeart` re-derives the cap from
+    `StatTuningData`'s curve every tick and that curve was still authored on the old scale. No
+    error anywhere; the only symptom was a water test whose "full health" was five times its
+    starting health. The fix was not to renumber the second source but to DEMOTE it: the factory
+    seeds `Stats.Tuning.BaseHealth` from the authored tuning, so the stat sheet stays the one
+    authority and per-character health flows through it. When adding any owner-synced value,
+    give the previous owner's writers to the new owner in the same commit — and the reserve got
+    the same treatment (`SyncReserveToFlame`) before it could learn the same lesson.
+28. **A paused clock buffers edges; drop them on the way out of a menu.** `ButtonLatch` holds a
+    press until the sim consumes it, and a paused `SimClockDriver` consumes nothing — so every
+    A pressed inside a menu would land as a sword swing on the first live tick after closing.
+    `MenuRoot` calls `PlayerInputCapture.ClearPending()` as it closes. Anything else that pauses
+    the clock while accepting input owes the same call.
 
 24. **Arming and advancing a timeline in the same tick, twice, moves every window one tick early.**
     `Parry.TryStart` armed and advanced so the action's tick zero is the tick the button was pressed

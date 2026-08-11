@@ -189,7 +189,7 @@ MonoBehaviour:
   _simHost: {fileID: 1317083328677129789}
   _size: {x: 0.9, y: 1.8}
   _offset: {x: 0, y: 0.9}
-  _maxHealth: 60
+  _maxHealth: 12
   _reviveSeconds: 2
   _contactDamage: 0
   _contactIntervalTicks: 45
@@ -278,13 +278,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720640186679783
-  - rid: 2975720640186679784
-  - rid: 2975720640186679785
+  - rid: 2975720683592483352
+  - rid: 2975720683592483353
+  - rid: 2975720683592483354
   references:
     version: 2
     RefIds:
-    - rid: 2975720640186679783
+    - rid: 2975720683592483352
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -302,7 +302,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720640186679784
+    - rid: 2975720683592483353
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -311,7 +311,7 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
-    - rid: 2975720640186679785
+    - rid: 2975720683592483354
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
@@ -336,10 +336,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 3643881005
-      Part2: 1319511399
-      Part3: 2298241669
-      Part4: 2259536169
+      Part1: 1781954804
+      Part2: 1205278810
+      Part3: 2959209360
+      Part4: 2818852534
     Actions: []
     Goals: []
     Beliefs: []

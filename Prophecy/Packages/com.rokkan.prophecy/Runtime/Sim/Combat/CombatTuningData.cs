@@ -70,7 +70,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                         OpenTick = 6, CloseTick = 10,
                         Offset = new Vector2(0.70f, 1.10f),
                         HalfExtents = new Vector2(0.55f, 0.35f),
-                        Damage = 10,
+                        Damage = 2,   // QUARTERS: 4 = one heart (Matt)
                         StoppedByGeometry = true,
                     },
                 },
@@ -93,7 +93,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                         Offset = new Vector2(0.85f, 1.00f),
                         HalfExtents = new Vector2(0.65f, 0.45f),
                         RotationDegrees = -15f,
-                        Damage = 14,
+                        Damage = 3,
                         StoppedByGeometry = true,
                     },
                 },
@@ -116,7 +116,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                         OpenTick = 5, CloseTick = 9,
                         Offset = new Vector2(0.75f, 0.35f),
                         HalfExtents = new Vector2(0.60f, 0.25f),
-                        Damage = 9,
+                        Damage = 2,
                         StoppedByGeometry = true,
                     },
                 },
@@ -136,7 +136,7 @@ namespace Rokkan.Prophecy.Sim.Combat
             CloseTick = 1,
             Offset = new Vector2(0f, -0.20f),
             HalfExtents = new Vector2(0.45f, 0.35f),
-            Damage = 16,
+            Damage = 3,
             Height = AttackHeight.Any,
         };
 
@@ -157,7 +157,7 @@ namespace Rokkan.Prophecy.Sim.Combat
             CloseTick = 1,
             Offset = new Vector2(0f, 2.0f),
             HalfExtents = new Vector2(0.45f, 0.35f),
-            Damage = 16,
+            Damage = 3,
             Height = AttackHeight.Any,
         };
 
@@ -167,7 +167,19 @@ namespace Rokkan.Prophecy.Sim.Combat
         // ------------------------------------------------------------------ health
 
         [Header("Health")]
-        public int MaxHealth = 100;
+        [Tooltip("QUARTERS: 4 = one heart (Matt), so 20 is five hearts. Every damage number " +
+                 "in the game is authored in quarters; there is no sub-quarter damage.")]
+        public int MaxHealth = 20;
+
+        // ------------------------------------------------------------------ drinking
+
+        [Header("Flasks")]
+        [Tooltip("Drinking knocks the guard down for DrinkTicks (spec lean: yes). Off makes " +
+                 "the drink a free action a turtle never pays for.")]
+        public bool DrinkBreaksGuard = true;
+
+        [Tooltip("Ticks of exposure a drink costs when it breaks the guard.")]
+        public int DrinkTicks = 20;
 
         // ------------------------------------------------------------------ blocking
 

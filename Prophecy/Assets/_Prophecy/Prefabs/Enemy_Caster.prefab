@@ -99,7 +99,7 @@ MonoBehaviour:
   _simHost: {fileID: 4661686183067807320}
   _size: {x: 0.9, y: 1.8}
   _offset: {x: 0, y: 0.9}
-  _maxHealth: 60
+  _maxHealth: 12
   _reviveSeconds: 2
   _contactDamage: 0
   _contactIntervalTicks: 45
@@ -188,13 +188,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720640186679771
-  - rid: 2975720640186679772
-  - rid: 2975720640186679773
+  - rid: 2975720683592483340
+  - rid: 2975720683592483341
+  - rid: 2975720683592483342
   references:
     version: 2
     RefIds:
-    - rid: 2975720640186679771
+    - rid: 2975720683592483340
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -212,7 +212,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720640186679772
+    - rid: 2975720683592483341
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -221,7 +221,7 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
-    - rid: 2975720640186679773
+    - rid: 2975720683592483342
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
@@ -246,10 +246,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 4282232833
-      Part2: 1167410984
-      Part3: 3496988046
-      Part4: 3570495967
+      Part1: 366092660
+      Part2: 1216026553
+      Part3: 300791469
+      Part4: 767311441
     Actions: []
     Goals: []
     Beliefs: []

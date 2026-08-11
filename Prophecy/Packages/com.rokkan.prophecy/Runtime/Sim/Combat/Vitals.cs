@@ -17,9 +17,9 @@ namespace Rokkan.Prophecy.Sim.Combat
     /// </summary>
     public sealed class Vitals
     {
-        private int _maxHealth = 100;
+        private int _maxHealth = 20;
 
-        public Vitals(int maxHealth = 100)
+        public Vitals(int maxHealth = 20)
         {
             _maxHealth = Mathf.Max(1, maxHealth);
             Health = _maxHealth;
@@ -38,6 +38,12 @@ namespace Rokkan.Prophecy.Sim.Combat
         }
 
         public bool IsAlive => Health > 0;
+
+        /// <summary>Health is authored in QUARTERS: four to a heart (Matt). These are the
+        /// HUD's read — the vessel count and how full the current vessel is.</summary>
+        public const int QuartersPerHeart = 4;
+
+        public int HeartCount => (MaxHealth + QuartersPerHeart - 1) / QuartersPerHeart;
 
         /// <summary>Fraction remaining, 0..1. For UI and for anything gated on being hurt.</summary>
         public float Fraction => Health / (float)_maxHealth;

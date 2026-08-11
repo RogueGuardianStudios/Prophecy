@@ -193,9 +193,13 @@ namespace Rokkan.Prophecy.Sim.Combat
             projectile.HalfExtents += definition.GrowthPerSecond * deltaSeconds;
 
             // A wall stops a shot. Checked against the volume rather than a point, so a wide
-            // shockwave is stopped by the same geometry that stops the character who cast it.
+            // shockwave is stopped by the same geometry that stops the character who cast it —
+            // and door barriers count: a bolt dies at the frame its caster cannot follow
+            // through (Matt's rule; the barrier never blocks the walking body, only the shot).
             if (definition.StoppedByGeometry && level != null &&
-                level.OverlapsAnySolid(Aabb.FromCenterSize(projectile.Position, projectile.HalfExtents * 2f)))
+                level.OverlapsAnySolid(
+                    Aabb.FromCenterSize(projectile.Position, projectile.HalfExtents * 2f),
+                    includeDoorBarriers: true))
             {
                 projectile.Expired = true;
             }

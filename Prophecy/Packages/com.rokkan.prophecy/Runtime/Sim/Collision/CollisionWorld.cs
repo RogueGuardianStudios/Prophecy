@@ -12,6 +12,15 @@ namespace Rokkan.Prophecy.Sim.Collision
         /// <summary>Blocks only downward motion, and only for a mover whose feet started at or
         /// above the platform's top surface — so you jump up through it and land on it.</summary>
         OneWay,
+
+        /// <summary>
+        /// A doorway's threshold: never blocks MOVEMENT (the body walking this world may use
+        /// doors — the transit commits it through), but occludes ATTACKS and stops
+        /// PROJECTILES, because a fight does not cross a door (Matt: the Roc's bolts must
+        /// die at the frame the Roc cannot follow through). Worlds baked for bodies that
+        /// CANNOT use doors get plain <see cref="Solid"/> there instead — a wall outright.
+        /// </summary>
+        DoorBarrier,
     }
 
     public readonly struct Solid
@@ -185,13 +194,17 @@ namespace Rokkan.Prophecy.Sim.Collision
         }
 
         /// <summary>True if <paramref name="box"/> strictly overlaps any Solid. One-way platforms
-        /// are ignored — you are never "inside" one.</summary>
-        public bool OverlapsAnySolid(in Aabb box)
+        /// are ignored — you are never "inside" one. Door barriers are ignored by default (a
+        /// body standing IN a doorway is not inside a wall — headroom and attachment probes
+        /// must not think so); projectiles opt IN, because a shot dies at a door.</summary>
+        public bool OverlapsAnySolid(in Aabb box, bool includeDoorBarriers = false)
         {
             for (int i = 0; i < _solids.Count; i++)
             {
                 var s = _solids[i];
-                if (s.Kind != SolidKind.Solid) continue;
+                bool counts = s.Kind == SolidKind.Solid ||
+                              (includeDoorBarriers && s.Kind == SolidKind.DoorBarrier);
+                if (!counts) continue;
                 if (box.Overlaps(s.Box)) return true;
             }
             return false;
@@ -255,6 +268,7 @@ namespace Rokkan.Prophecy.Sim.Collision
             {
                 var s = _solids[i];
 
+                if (s.Kind == SolidKind.DoorBarrier) continue;   // never blocks movement
                 if (!box.OverlapsX(s.Box)) continue;
 
                 if (s.Kind == SolidKind.OneWay)
@@ -395,7 +409,9 @@ namespace Rokkan.Prophecy.Sim.Collision
             for (int i = 0; i < _solids.Count; i++)
             {
                 var s = _solids[i];
-                if (s.Kind != SolidKind.Solid) continue;
+
+                // Door barriers occlude: a fight does not cross a door, in either direction.
+                if (s.Kind != SolidKind.Solid && s.Kind != SolidKind.DoorBarrier) continue;
 
                 if (SegmentHitsBox(from, delta, s.Box)) return true;
             }

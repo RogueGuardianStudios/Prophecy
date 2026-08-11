@@ -189,9 +189,9 @@ MonoBehaviour:
   _simHost: {fileID: 2525887693954031853}
   _size: {x: 0.9, y: 1.8}
   _offset: {x: 0, y: 0.9}
-  _maxHealth: 60
+  _maxHealth: 12
   _reviveSeconds: 2
-  _contactDamage: 8
+  _contactDamage: 2
   _contactIntervalTicks: 45
   _contactDefeats: 3
   _flashColour: {r: 1, g: 0.35, b: 0.25, a: 1}
@@ -278,13 +278,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
   Sensors:
-  - rid: 2975720640186679733
-  - rid: 2975720640186679734
-  - rid: 2975720640186679735
+  - rid: 2975720683592483302
+  - rid: 2975720683592483303
+  - rid: 2975720683592483304
   references:
     version: 2
     RefIds:
-    - rid: 2975720640186679733
+    - rid: 2975720683592483302
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
@@ -302,7 +302,7 @@ MonoBehaviour:
         - OutputName: TargetDirection
           ExpectedType: 3
           TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
-    - rid: 2975720640186679734
+    - rid: 2975720683592483303
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
@@ -311,7 +311,7 @@ MonoBehaviour:
         - OutputName: BlockedAhead
           ExpectedType: 0
           TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
-    - rid: 2975720640186679735
+    - rid: 2975720683592483304
       type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
@@ -336,10 +336,10 @@ MonoBehaviour:
   _overrideStartState:
     Name: 
     StateId:
-      Part1: 3845942220
-      Part2: 1103200541
-      Part3: 1313846940
-      Part4: 2704285339
+      Part1: 2798885806
+      Part2: 1098995728
+      Part3: 1031403142
+      Part4: 619030342
     Actions: []
     Goals: []
     Beliefs: []

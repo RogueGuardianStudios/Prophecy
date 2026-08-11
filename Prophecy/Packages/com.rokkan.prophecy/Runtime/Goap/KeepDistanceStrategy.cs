@@ -44,10 +44,13 @@ namespace Rokkan.Prophecy.Goap
             if (host == null) return GoapActionStatus.Failure;
 
             var percept = host.Percept;
-            if (!percept.HasTarget)
+            if (!percept.HasTarget || !percept.HasLineOfSight)
             {
+                // Nothing chasing it — or nothing it can SEE, which is the same thing to a
+                // creature holding distance from a threat: the room it wanted, it has. Sight
+                // ends the vigil the way it ends a pursuit (the door rule's running half).
                 host.Intent.MoveX = 0f;
-                return GoapActionStatus.Success;   // nothing chasing it; the room it wanted, it has
+                return GoapActionStatus.Success;
             }
 
             var config = settings as KeepDistanceSettings;
