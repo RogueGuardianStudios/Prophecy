@@ -219,6 +219,10 @@ namespace Rokkan.Prophecy.Presentation
             PreviousPosition = CurrentPosition = plane;
         }
 
+        /// <summary>Seed which room the body stands in — arrivals only. Rooms are graph state,
+        /// so an arrival must be TOLD; there is nothing spatial to ask.</summary>
+        public void SetRoom(int room) => Sim?.SetRoom(room);
+
         /// <summary>
         /// Where the feet are in world space, including the ground's height on the surface the
         /// body is actually standing on. Portals test against this — with the flat rail depth a

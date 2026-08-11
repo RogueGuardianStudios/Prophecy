@@ -137,6 +137,14 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// </summary>
         public void Add(in StatModifier modifier) => _modifiers.Add(modifier);
 
+        /// <summary>Drop everything that declared itself room-lived. Called by the sim when the
+        /// body passes through a door — the room-scoped half of the section-change rule.</summary>
+        public void ClearRoomScoped()
+        {
+            for (int i = _modifiers.Count - 1; i >= 0; i--)
+                if (_modifiers[i].RoomScoped) _modifiers.RemoveAt(i);
+        }
+
         /// <summary>
         /// Apply a modifier, honouring its stacking rules. The entry point for anything reappliable
         /// — debuffs, DOTs, auras.

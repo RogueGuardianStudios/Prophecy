@@ -25,6 +25,11 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// independent of the order modifiers were picked up in.</summary>
         public StatStage Stage;
 
+        /// <summary>Dies when the body passes through a door. Room effects — a cursed room's
+        /// drain, a blessed room's ward — author as exactly this; anything with its own tick
+        /// expiry (the water slow) does not need it.</summary>
+        public bool RoomScoped;
+
         /// <summary>How much. A fraction for <see cref="StatStage.Percent"/> — 0.25 is +25%.</summary>
         public float Value;
 

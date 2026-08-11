@@ -43,5 +43,6 @@ namespace Rokkan.Prophecy.Sim
         UpThrust = 23,
         Swim = 24,
         Buoyancy = 25,
+        DoorTransit = 26,
     }
 }

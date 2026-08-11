@@ -185,6 +185,19 @@ namespace Rokkan.Prophecy.Editor.Build
             // --- the pool: chest-deep shelf, head-under basin, a step back out
             cursor = WaterBasin(geometry, tuning, cursor);
 
+            // --- the door: everything west of here (the pool included) is room 1, the rest
+            //     room 2. Crossing it is the room system's whole demo — the walk-through
+            //     drives the camera slide and room-scoped state (Buoyancy's float) drops.
+            //
+            //     The door stands in the middle of its own LANDING PAD (Matt's rule: a
+            //     committed crossing must deliver onto flat ground, never into a drop) — a
+            //     dedicated flat segment, so both exits land on level floor with room to
+            //     take the pad back.
+            float padStart = cursor;
+            cursor = Ground(geometry, "Ground_DoorPad", cursor, 7f);
+            float doorX = padStart + 3.5f;
+            CreateRoomDoor(geometry, doorX);
+
             // --- a chimney that can only be climbed by wall jumping
             cursor = WallJumpChimney(geometry, m, cursor);
 
@@ -202,8 +215,10 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // Markers go last, because where they stand is derived from what was built: the spawn
             // sits on real floor nearest the level's midpoint, and the portals bracket the course.
-            CreateDescriptorAndSpawn(markers, tuning, SpawnX(start, end));
+            float spawnX = SpawnX(start, end);
+            CreateDescriptorAndSpawn(markers, tuning, spawnX, spawnX < doorX ? 1 : 2);
             CreatePortals(markers, start, end);
+            CreateRoomBounds(markers, tuning, start, doorX, end);
         }
 
         /// <summary>
@@ -294,8 +309,90 @@ namespace Rokkan.Prophecy.Editor.Build
             component.shadows = LightShadows.Soft;
         }
 
+        /// <summary>
+        /// The door between rooms 1 and 2: a thin trigger spanning the full jumpable height,
+        /// because a crossing the volume misses is a room change the sim never sees — plus a
+        /// VISIBLE frame, because a door the player cannot see is a seam, not a door (Matt's
+        /// first look found no door anywhere). Two amber posts flank the lane in front and
+        /// behind, a lintel crosses overhead, all collider-stripped: the frame is vocabulary,
+        /// never a wall.
+        /// </summary>
+        private static void CreateRoomDoor(Transform parent, float x)
+        {
+            // A REAL gate (Matt's correction of the checkpoint-flag first cut): the opening
+            // is the only passage — solid wall seals everything above it to the ceiling —
+            // stepping in commits the crossing, and the camera's per-room clamps stop AT
+            // this x, so neither screen shows past the door until the walk-through.
+            const float openingHeight = 2.6f;
+
+            var door = new GameObject("Door_PoolToEast");
+            door.transform.SetParent(parent, false);
+            door.transform.position = new Vector3(x, openingHeight * 0.5f, 0f);
+
+            var box = door.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(0.4f, openingHeight, Depth);
+
+            var marker = door.AddComponent<RoomDoor>();
+            SetPrivate(marker, "_roomMinSide", 1);
+            SetPrivate(marker, "_roomMaxSide", 2);
+
+            // The seal: a doorway you can jump over is a checkpoint again.
+            Box(parent, "Door_WallAbove",
+                new Vector2(x - 0.2f, openingHeight),
+                new Vector2(x + 0.2f, 40f));
+
+            void FramePiece(string name, Vector3 position, Vector3 scale)
+            {
+                var piece = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                piece.name = name;
+                piece.transform.SetParent(door.transform, false);
+                piece.transform.position = position;
+                piece.transform.localScale = scale;
+                Object.DestroyImmediate(piece.GetComponent<Collider>());
+                piece.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Doorway();
+            }
+
+            FramePiece("Frame_PostNear",
+                       new Vector3(x, openingHeight * 0.5f, Depth * 0.5f + 0.25f),
+                       new Vector3(0.35f, openingHeight, 0.5f));
+            FramePiece("Frame_PostFar",
+                       new Vector3(x, openingHeight * 0.5f, -Depth * 0.5f - 0.25f),
+                       new Vector3(0.35f, openingHeight, 0.5f));
+            FramePiece("Frame_Lintel", new Vector3(x, openingHeight + 0.2f, 0f),
+                       new Vector3(0.5f, 0.4f, Depth + 1f));
+        }
+
+        /// <summary>
+        /// Each room's framing limits. Room 1 owns the pool, so its camera floor reaches the
+        /// basin; room 2 is ordinary ground, so its floor sits one lane below it — crossing
+        /// the door is what SLIDES the clamp between them, which is the room transition
+        /// made visible.
+        /// </summary>
+        private static void CreateRoomBounds(Transform markers, MovementTuning tuning,
+                                             float start, float doorX, float end)
+        {
+            void Room(int id, float floorY, float minX, float maxX)
+            {
+                var bounds = new GameObject($"RoomBounds_{id}");
+                bounds.transform.SetParent(markers, false);
+
+                var component = bounds.AddComponent<RoomBounds>();
+                SetPrivate(component, "_room", id);
+                SetPrivate(component, "_floorY", floorY);
+                SetPrivate(component, "_ceilingY", 40f);
+                SetPrivate(component, "_minX", minX);
+                SetPrivate(component, "_maxX", maxX);
+            }
+
+            // Both rooms' horizontal clamps STOP at the door: neither screen shows past it
+            // until the committed walk-through slides one into the other.
+            Room(1, _lowestFloorY - tuning.Data.LaneHeight, start - 6f, doorX);
+            Room(2, -tuning.Data.LaneHeight, doorX, end + 6f);
+        }
+
         private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning,
-                                                     float spawnX)
+                                                     float spawnX, int spawnRoom)
         {
             var spawnObject = new GameObject("Spawn_" + CentreSpawnId);
             spawnObject.transform.SetParent(markers, false);
@@ -304,6 +401,7 @@ namespace Rokkan.Prophecy.Editor.Build
             var spawn = spawnObject.AddComponent<SpawnPoint>();
             SetPrivate(spawn, "_id", CentreSpawnId);
             SetPrivate(spawn, "_facing", 1);
+            SetPrivate(spawn, "_room", spawnRoom);
 
             var descriptorObject = new GameObject("SceneDescriptor");
             descriptorObject.transform.SetParent(markers, false);

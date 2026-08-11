@@ -66,6 +66,16 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _launchSpeed = 0f;
         }
 
+        /// <summary>The cast is room-scoped (Matt's section rule, rooms being its final name):
+        /// passing through a door ends it, exactly as recasting would. The platform goes with
+        /// it — a float floor from the last room would be water that isn't there.</summary>
+        public override void OnRoomChanged(CharacterSim sim)
+        {
+            FloatOn = false;
+            _launching = false;
+            sim.State.HasFloatFloor = false;
+        }
+
         /// <summary>
         /// Release whatever the body is holding — ledge, rope, ladder (Matt's edge case).
         /// Clearing the shared attachment state is the sanctioned external detach: the hang

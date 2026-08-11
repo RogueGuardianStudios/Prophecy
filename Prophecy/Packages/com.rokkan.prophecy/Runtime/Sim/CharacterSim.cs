@@ -359,6 +359,32 @@ namespace Rokkan.Prophecy.Sim
         }
 
         /// <summary>
+        /// The room-change broadcast, fired by <see cref="Abilities.DoorTransit"/> as a
+        /// committed crossing COMPLETES (and by any future scripted passage): modifiers that
+        /// declared themselves room-lived die, then every module's hook runs — the channel
+        /// "a section change clears X" travels through, with Buoyancy's float as its first
+        /// passenger.
+        /// </summary>
+        public void CommitRoomChange(int room)
+        {
+            if (room == State.Room) return;
+
+            State.Room = room;
+            Stats.ClearRoomScoped();
+            for (int i = 0; i < _modules.Count; i++) _modules[i].OnRoomChanged(this);
+        }
+
+        /// <summary>
+        /// Place the body in a room without a crossing — spawns and scene arrivals, where the
+        /// full module Reset has already cleared everything a door crossing would. Silent on
+        /// purpose: an arrival is not a passage.
+        /// </summary>
+        public void SetRoom(int room)
+        {
+            State.Room = room;
+        }
+
+        /// <summary>
         /// The overworld's walkability oracle, or null for free top-down movement. Re-pointed by
         /// the host each tick, exactly as <see cref="CombatWorld"/> is — the character is a
         /// persistent prefab and the ground it stands on arrives with a scene load.

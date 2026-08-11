@@ -111,6 +111,7 @@ namespace Rokkan.Prophecy.Presentation
             _text.AppendLine();
 
             _text.AppendLine($"stance   {state.Stance}{(state.Grounded ? "  GROUNDED" : "  airborne")}");
+            _text.AppendLine($"room     {state.Room}");
             _text.AppendLine($"pos      ({state.Position.x,7:F2}, {state.Position.y,7:F2})   facing {(state.Facing < 0 ? "<-" : "->")}");
             _text.AppendLine($"vel      ({state.Velocity.x,7:F2}, {state.Velocity.y,7:F2})   speed {state.Velocity.magnitude:F2}");
 

@@ -132,6 +132,83 @@ ended the attachment" was already in their comments; Buoyancy just joined the li
 someones). Their locks are Move|Jump, not Attack, which is why the cast was reachable
 while hanging in the first place. Pinned on a submerged ladder: cast → attachment None →
 body rides up → standing on the water, hands free. 16 water tests, suite 878 green.
+**ROOMS (2026-08-10, design settled with Matt, built the same day):** the section system's
+final shape. **Rooms are IDENTITIES, not shapes** — membership is GRAPH STATE, changed only
+by passing through a predetermined DOOR (Matt: rooms are not bounded by height or width;
+doors either connect rooms or teleport — and a teleporting door is simply a Portal, nothing
+new). There is no room list anywhere: doors know their two neighbours
+(`CollisionWorld.Door`, thin trigger box; the side the feet EXIT on names the room; entering
+and backing out is not a crossing; the volume must span the passage's FULL jumpable height
+or an arcing crossing desyncs the graph from the fiction — authoring rule). The sim owns it
+all headlessly: `CharacterState.Room`, `TrackRoom` after integration, and THE ROOM-CHANGE
+CHANNEL: `Stats.ClearRoomScoped()` (new `StatModifier.RoomScoped` flag — cursed-room drains
+and blessed-room wards author as exactly this) then `OnRoomChanged` on every module — a
+hook deliberately LIGHTER than Reset: a crossing is a walk, not a teleport, so breath,
+health and combos survive; only declared room-scoped state drops. Buoyancy is the first
+passenger (the cast dies at the door, Matt's section rule). Arrivals are SILENT — spawns
+carry a `_room` (SpawnPoint), @return departures remember theirs (the departure tuple grew
+a Room), `SetRoom` seeds without firing hooks: an arrival is not a passage. CAMERA: rooms
+get optional per-room vertical bounds (`RoomBounds` marker); `LaneCameraRig` SLIDES its
+clamp (SmoothDamp, `_roomSlideSeconds` 0.5) to the current room's bounds at a crossing and
+snaps on arrivals — the v1 Metroid slide; a sim-freeze during the pan and horizontal
+clamps are the flagged next steps if Matt wants the full pan feel. The traversal course
+split at the pool's east exit: room 1 (west, owns the pool, camera floor reaches the
+basin), room 2 (east, ordinary floor) — so crossing the door visibly slides the clamp AND
+drops an armed float. 6 room tests, suite 885 green.
+**DOORS REWORKED TO COMMITMENTS (Matt: "what you made is a Super Mario World checkpoint;
+I want Zelda II doors where you shift to the next screen"):** the passive exit-side
+tracker is DEAD. A door is now a GATE, in three parts. (1) **`DoorTransit` module**
+(order 45, after everything that steers): stepping into a doorway takes an ABSOLUTE lock
+(the scene-transition priority — nothing steals a crossing), the walk drives itself
+through at `DoorWalkSpeed` (re-asserted every tick, the dive's pattern; gravity keeps
+running, so a doorway onto a drop falls correctly), and `CharacterSim.CommitRoomChange`
+fires as the crossing COMPLETES — no halfway, no backing out; reversing after arrival is
+a legitimate second crossing (a test learned this the hard way by walking itself back).
+(2) **The camera cannot see past a door**: `RoomBounds` grew MinX/MaxX and the rig a
+horizontal clamp (same slide treatment as vertical) — both rooms' clamps STOP at the
+door's x, so the next screen exists only after the walk-through, and the slide between
+clamp rects IS the screen shift. (3) **The doorway is sealed**: solid wall from the 2.6 m
+opening to the ceiling — a doorway you can jump over is a checkpoint again — with the
+amber frame around the opening. AUTHORING RULE: rooms must be sealed except at doors;
+the clamps and the graph both assume it. 7 room tests, suite 886 green.
+**SECOND ROOM DRIVE (Matt): landing pads and camera sync.** (1) AUTHORING RULE: a door
+always stands on its own LANDING PAD — a dedicated flat segment with the door in the
+middle, because a committed crossing must deliver onto level ground, never into a drop
+(the first placement dumped the east→west crossing 1.8 m down onto the pool's exit step).
+The course's door got a 7 m pad between the pool and the chimney. (2) THE SLIDE IS SYNCED
+TO THE WALK: `DoorTransit` exposes `Progress` (0 at step-in, 1 at delivery, pinned
+monotone — it is the camera's sync signal) and `TargetRoom`; mid-transit the rig BLENDS
+its clamp rects by SmoothStep(progress) instead of running its own SmoothDamp clock, so
+the frame arrives exactly when the feet do and the room change lands with the clamps
+already at the destination. The SmoothDamp path remains only for non-transit changes.
+NOTE for sessions: Matt was IN PLAY MODE during this build — scene regeneration and the
+test menu both refuse during play (NewScene throws); check `IsPlaying` before either.
+Suite 886 green.
+**THIRD ROOM DRIVE (Matt: "very jarring") — the pan now OWNS the camera.** The jar's
+anatomy: room 1's clamp PINS the camera at the door while the player walks to it, then the
+blending rects widen and RELEASE it mid-walk — a lurching catch-up. Blending clamp rects
+is not a pan. Now the rig aims ONCE at the step-in — captures the camera's actual position,
+computes exactly where the frame must sit in the destination room at the delivery point
+(`DoorTransit.DeliveryAxis` is known from the first tick, `TransitAxisX` names the axis) —
+and glides between the two on SmoothStep(Progress), overriding the crossing axis in
+`ResolveTargetPosition` while the other axis follows normally. Rect-blending still runs
+underneath for the clamps' continuity at handoff. Frame arrives when the feet do, from a
+fixed start to a fixed end: a Metroid pan, paced by the walk.
+**And THE BEAT (Matt: "too fast"):** the crossing's tempo is two authored numbers —
+`DoorWalkSpeed` 2.2 (a deliberate step, well under walk speed) and `DoorExitDistance` 1.6
+(how far past the frame the walk carries, floored at 0.2 so the release never re-enters
+the volume) — together ~0.9 s of committed walk, and the reason every door owns a landing
+pad. Both live-tunable; the pan paces to whatever they say. Suite 886 green.
+**Matt's first look: "there is no door" — right, and the lesson recurs:** a door the
+player cannot see is a seam, not a door (the up-thrust's invisibility, again). Doors now
+wear a VISIBLE gray-box FRAME — two amber posts flanking the lane, a lintel overhead at
+5.2 (above a double jump, so honest crossings never pass through the visual), all
+collider-stripped: vocabulary, never a wall. `GrayBoxMaterials.Doorway()` amber joins the
+colour lessons: portal blue teleports, water blue sinks, door amber is a threshold. The F1
+overlay also gained a `room` line — rooms were entirely invisible in play. Only the
+traversal course has rooms so far (the door at x≈81, between the pool's exit and the
+chimney); the tester and overworld have none by design.
+
 **THE DOUBLE BOUNCE (Matt's report, and his fall-transition instinct was right):** the
 float floor was armed only once the feet were INSIDE the water box, so every landing on
 the water spent one tick in a hole — the body plunged under the line (uncapped; Swim had

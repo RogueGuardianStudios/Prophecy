@@ -71,6 +71,46 @@ namespace Rokkan.Prophecy.Sim.Collision
     /// broadphase would be unverifiable complexity at this stage. If profiling ever says
     /// otherwise, a uniform grid slots in behind this same API.</para>
     /// </summary>
+    /// <summary>
+    /// A doorway between two rooms — the ONLY place a room change can happen (Matt: rooms are
+    /// not bounded shapes, they are identities connected by predetermined doors; a door that
+    /// teleports instead is simply a <c>Portal</c> and never reaches the sim). The volume is a
+    /// thin box across the passage; whichever side of its thin axis the body EXITS on names
+    /// the room it is now in.
+    /// </summary>
+    public readonly struct Door
+    {
+        public readonly Aabb Box;
+
+        /// <summary>The room on the thin axis' MIN side.</summary>
+        public readonly int RoomMinSide;
+
+        /// <summary>The room on the thin axis' MAX side.</summary>
+        public readonly int RoomMaxSide;
+
+        /// <summary>True when the thin (crossing) axis is X — a vertical doorway walked
+        /// through; false for a horizontal one dropped or jumped through.</summary>
+        public readonly bool CrossesX;
+
+        public Door(in Aabb box, int roomMinSide, int roomMaxSide)
+        {
+            Box = box;
+            RoomMinSide = roomMinSide;
+            RoomMaxSide = roomMaxSide;
+            CrossesX = box.Max.x - box.Min.x <= box.Max.y - box.Min.y;
+        }
+
+        /// <summary>Which room a point beside the door belongs to.</summary>
+        public int SideOf(Vector2 point)
+        {
+            float delta = CrossesX
+                ? point.x - (Box.Min.x + Box.Max.x) * 0.5f
+                : point.y - (Box.Min.y + Box.Max.y) * 0.5f;
+
+            return delta < 0f ? RoomMinSide : RoomMaxSide;
+        }
+    }
+
     public sealed class CollisionWorld
     {
         /// <summary>
@@ -83,6 +123,7 @@ namespace Rokkan.Prophecy.Sim.Collision
         private readonly List<Solid> _solids = new List<Solid>();
         private readonly List<Climbable> _climbables = new List<Climbable>();
         private readonly List<Aabb> _water = new List<Aabb>();
+        private readonly List<Door> _doors = new List<Door>();
 
         public int Count => _solids.Count;
         public IReadOnlyList<Solid> Solids => _solids;
@@ -97,6 +138,13 @@ namespace Rokkan.Prophecy.Sim.Collision
 
         public void AddClimbable(in Aabb box, ClimbableKind kind = ClimbableKind.Ladder) =>
             _climbables.Add(new Climbable(box, kind));
+
+        /// <summary>Doorways between rooms. Read by the sim's room tracking, nothing else.</summary>
+        public int DoorCount => _doors.Count;
+        public IReadOnlyList<Door> Doors => _doors;
+
+        public void AddDoor(in Aabb box, int roomMinSide, int roomMaxSide) =>
+            _doors.Add(new Door(box, roomMinSide, roomMaxSide));
 
         /// <summary>Water pools. Like climbables, the opposite of solid — regions the body
         /// passes through, read only by the abilities that care what being inside one means.</summary>
@@ -133,6 +181,7 @@ namespace Rokkan.Prophecy.Sim.Collision
             _solids.Clear();
             _climbables.Clear();
             _water.Clear();
+            _doors.Clear();
         }
 
         /// <summary>True if <paramref name="box"/> strictly overlaps any Solid. One-way platforms

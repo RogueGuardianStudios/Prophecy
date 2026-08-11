@@ -96,6 +96,14 @@ namespace Rokkan.Prophecy.Sim
         public bool DropThrough;
 
         /// <summary>
+        /// Which room the body is in. Rooms are IDENTITIES, not shapes (Matt): membership
+        /// changes only by passing through a door, so this is graph state — the room you last
+        /// entered — never a spatial query. 0 is "the whole scene", which is what every scene
+        /// without authored rooms is.
+        /// </summary>
+        public int Room;
+
+        /// <summary>
         /// A temporary supporting surface at a height, owned by whichever ability maintains it —
         /// Buoyancy's water-walk today. One-way from above: it stops downward crossings and
         /// grounds feet standing on it, while a body beneath rises through it freely. The sim's

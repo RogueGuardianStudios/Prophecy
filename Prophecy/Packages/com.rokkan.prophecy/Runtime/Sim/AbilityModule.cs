@@ -53,5 +53,14 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>Called when the sim resets the character (respawn, scene change) so a module
         /// holding internal timers can clear them.</summary>
         public virtual void Reset() { }
+
+        /// <summary>
+        /// The body passed through a door into another room. Deliberately LIGHTER than
+        /// <see cref="Reset"/>: a room change is a continuous walk, not a teleport — breath,
+        /// health and combos all survive it — so only state a module declares room-scoped
+        /// should drop here (Buoyancy's float is the first). Fired for every module, enabled
+        /// or not, the same way Reset is: dormant state is still state.
+        /// </summary>
+        public virtual void OnRoomChanged(CharacterSim sim) { }
     }
 }

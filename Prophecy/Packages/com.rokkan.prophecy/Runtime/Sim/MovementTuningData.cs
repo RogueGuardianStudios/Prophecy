@@ -290,6 +290,19 @@ namespace Rokkan.Prophecy.Sim
         [Tooltip("How fast a submerged body rises to its water-walk platform, in m/s.")]
         public float FloatSnapSpeed = 4f;
 
+        // ------------------------------------------------------------------ doors
+
+        [Header("Doors")]
+        [Tooltip("The committed walk through a doorway, in m/s. Well under walk speed on " +
+                 "purpose — the crossing should TAKE A BEAT (Matt), and the screen slide " +
+                 "paces to this walk, so this number is the transition's tempo.")]
+        public float DoorWalkSpeed = 2.2f;
+
+        [Tooltip("How far past the door's far face the walk carries before handing control " +
+                 "back, in metres. The other half of the beat: together with the speed it " +
+                 "sets the crossing's length, and it is why every door needs its landing pad.")]
+        public float DoorExitDistance = 1.6f;
+
         // ------------------------------------------------------------------ landing
 
         [Header("Landing")]

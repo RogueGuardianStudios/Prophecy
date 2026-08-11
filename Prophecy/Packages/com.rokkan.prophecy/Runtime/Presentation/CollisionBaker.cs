@@ -61,6 +61,18 @@ namespace Rokkan.Prophecy.Presentation
                 // test would never fire on it. Skip rather than add something that silently is not there.
                 if (max.x - min.x <= 0f || max.y - min.y <= 0f) continue;
 
+                // Doorways are read from triggers, same as ladders: a door you collide with
+                // is a wall wearing a costume.
+                var door = collider.GetComponentInParent<RoomDoor>();
+                if (door != null)
+                {
+                    if (!door.IsProperlyAuthored(out string doorProblem))
+                        Debug.LogWarning($"{door.name}: {doorProblem}.", door);
+
+                    world.AddDoor(new Aabb(min, max), door.RoomMinSide, door.RoomMaxSide);
+                    continue;
+                }
+
                 // Water is read from triggers, same as ladders: water that blocks is a wall.
                 var waterVolume = collider.GetComponentInParent<WaterVolume>();
                 if (waterVolume != null)

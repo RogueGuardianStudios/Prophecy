@@ -22,7 +22,14 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("+1 faces right, -1 faces left.")]
         private int _facing = 1;
 
+        [SerializeField, Tooltip("Which room the arrival stands in. Rooms are graph state — " +
+                                 "changed only at doors — so a spawn must SAY where it is; " +
+                                 "0 is 'the whole scene', right for any scene without rooms.")]
+        private int _room;
+
         public string Id => _id;
+
+        public int Room => _room;
 
         /// <summary>Normalised to +1 or -1; a spawn facing nowhere is not a thing.</summary>
         public int Facing => _facing < 0 ? -1 : 1;

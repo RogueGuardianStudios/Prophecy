@@ -33,6 +33,12 @@ namespace Rokkan.Prophecy.Editor.Build
         public static Material Water() =>
             Ensure("GrayBox_Water.mat", new Color(0.15f, 0.35f, 0.65f));
 
+        /// <summary>Doorways between rooms — amber, matching the door gizmo. The frame is the
+        /// third colour lesson: portal blue teleports you, water blue sinks you, door amber
+        /// is a threshold you walk through and the room changes.</summary>
+        public static Material Doorway() =>
+            Ensure("GrayBox_Doorway.mat", new Color(0.8f, 0.6f, 0.2f));
+
         /// <summary>Mock prop wood — trunks, posts, signs.</summary>
         public static Material PropWood() =>
             Ensure("GrayBox_PropWood.mat", new Color(0.45f, 0.32f, 0.2f));

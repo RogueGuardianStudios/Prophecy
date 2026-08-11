@@ -63,6 +63,9 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new Swim(tuning));
             sim.Add(new Buoyancy(tuning));
 
+            // Doors: the committed crossing between rooms — Zelda II's screens.
+            sim.Add(new DoorTransit(tuning));
+
             // Climbing.
             sim.Add(new LedgeHang(tuning));
             sim.Add(new LedgePullUp(tuning));

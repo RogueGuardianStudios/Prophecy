@@ -96,6 +96,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// first — and the launch's re-assert must be the tick's last word on the surge.</summary>
         public const int Buoyancy = 42;
 
+        /// <summary>After everything that steers, because a committed crossing's drive is the
+        /// tick's last word on the walk — the dive's argument, at a door.</summary>
+        public const int DoorTransit = 45;
+
         public const int DownThrust = 50;
 
         /// <summary>Beside the dive; their input conditions are disjoint (down vs up held), so

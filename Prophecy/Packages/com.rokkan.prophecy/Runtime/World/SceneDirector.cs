@@ -67,8 +67,8 @@ namespace Rokkan.Prophecy.World
         // records a departure, so by the time a return arrival is resolved the "last" departure
         // is the scene being left, not the one being returned to. That bug shipped for about a
         // minute.
-        private readonly System.Collections.Generic.Dictionary<string, (Vector3 Feet, int Facing)>
-            _departures = new System.Collections.Generic.Dictionary<string, (Vector3, int)>();
+        private readonly System.Collections.Generic.Dictionary<string, (Vector3 Feet, int Facing, int Room)>
+            _departures = new System.Collections.Generic.Dictionary<string, (Vector3, int, int)>();
 
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
@@ -186,7 +186,9 @@ namespace Rokkan.Prophecy.World
             if (_player != null && !string.IsNullOrEmpty(CurrentWorldScene))
             {
                 _departures[CurrentWorldScene] =
-                    (_player.FeetWorldPosition, _player.Sim != null ? _player.Sim.State.Facing : 0);
+                    (_player.FeetWorldPosition,
+                     _player.Sim != null ? _player.Sim.State.Facing : 0,
+                     _player.Sim != null ? _player.Sim.State.Room : 0);
             }
 
             // The world freezes the moment the transition begins — the wanderer that caught you
@@ -267,7 +269,7 @@ namespace Rokkan.Prophecy.World
             // and a player who left from a deck or a cave floor comes back onto it. Respawns
             // (falls, death) still use the resolved spawn below — dying in the fight should not
             // re-run the return.
-            var departure = default((Vector3 Feet, int Facing));
+            var departure = default((Vector3 Feet, int Facing, int Room));
             bool returning = spawnId == ReturnSpawnId &&
                              _departures.TryGetValue(scene.name, out departure);
             _activeSpawn = descriptor.ResolveSpawn(spawnId == ReturnSpawnId ? null : spawnId);
@@ -276,9 +278,15 @@ namespace Rokkan.Prophecy.World
             {
                 _player.ConfigureSpace(descriptor.Space);
                 if (returning)
+                {
                     _player.TeleportTo(departure.Feet, departure.Facing);
+                    _player.SetRoom(departure.Room);
+                }
                 else if (_activeSpawn != null)
+                {
                     _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
+                    _player.SetRoom(_activeSpawn.Room);
+                }
             }
 
             if (_camera != null)
