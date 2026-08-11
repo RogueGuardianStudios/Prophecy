@@ -1463,6 +1463,17 @@ New this session:
     authority and per-character health flows through it. When adding any owner-synced value,
     give the previous owner's writers to the new owner in the same commit — and the reserve got
     the same treatment (`SyncReserveToFlame`) before it could learn the same lesson.
+29. **Every path that places the player must also say which room the feet are in.** `Respawn()`
+    teleported the body to the spawn but did not reseed `Room` — Enter() does, Respawn forgot —
+    so falling out of a different room than the spawn's left the sim claiming the room of the
+    fall. The camera, honestly clamped to that room's bounds, stared at the empty death room
+    while the player stood alive and off-screen at the spawn: it presented as "I didn't respawn
+    and the camera broke", two symptoms of one missing line. Rooms are graph identity, not
+    position — nothing infers them from coordinates, ON PURPOSE (doors are commitments) — which
+    is exactly why every teleport-shaped path owes an explicit `SetRoom`. When debugging a
+    "frozen" play session, check `EditorApplication.isPaused` FIRST: a paused editor mimics
+    every wedge (stale state, motionless camera) while RunCommand pokes still land, and it cost
+    half the investigation here — the session was paused deliberately to preserve the scene.
 28. **A paused clock buffers edges; drop them on the way out of a menu — but REBASELINE, do not
     Clear.** `ButtonLatch` holds a press until the sim consumes it, and a paused `SimClockDriver`
     consumes nothing — so every A pressed inside a menu would land as a sword swing on the first

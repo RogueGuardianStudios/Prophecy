@@ -406,9 +406,22 @@ namespace Rokkan.Prophecy.World
         private void Respawn()
         {
             if (_activeSpawn != null)
+            {
                 _player.RespawnAt(_activeSpawn.Position, _activeSpawn.Facing);
+
+                // The room is graph state and a respawn is an arrival like any other: without
+                // this reseed, falling out of a DIFFERENT room than the spawn's left the sim
+                // claiming the room of the fall — and the camera, honestly clamped to that
+                // room's bounds, stared at where the player died while the body stood alive
+                // and off-screen at the spawn. Matt hit it the first time he fell out of the
+                // Roc's room. Every path that places the player must also say which room the
+                // feet are in; Enter() already did, this one forgot.
+                _player.SetRoom(_activeSpawn.Room);
+            }
             else
+            {
                 _player.RespawnAt(Vector3.zero);
+            }
 
             if (_camera != null) _camera.SnapToTarget();
         }
