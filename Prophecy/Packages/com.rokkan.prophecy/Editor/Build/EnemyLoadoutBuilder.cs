@@ -55,6 +55,16 @@ namespace Rokkan.Prophecy.Editor
             (AbilityId.DropThrough, false),
             (AbilityId.Block,       false),
             (AbilityId.Parry,       false),
+            (AbilityId.UpThrust,    false),
+            (AbilityId.Buoyancy,    false),
+
+            // Sinking is the WORLD's rule, so enemies obey it too.
+            (AbilityId.Swim,        true),
+
+            // Zelda II's rule: enemies do not use doors. An absent entry would leave the
+            // module ON by inheritance, and a pursuing grunt would commit itself through a
+            // doorway mid-fight — the room's threshold is the player's choice alone.
+            (AbilityId.DoorTransit, false),
         };
 
         [MenuItem("Prophecy/Build/Generate Enemy Ability Loadout", priority = 43)]

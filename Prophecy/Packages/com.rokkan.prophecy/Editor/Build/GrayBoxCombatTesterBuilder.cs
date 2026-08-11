@@ -35,9 +35,16 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private const string GruntPrefabPath = "Assets/_Prophecy/Prefabs/Enemy_Capsule.prefab";
 
-        private const float FloorWidth = 30f;
+        private const float FloorWidth = 46f;
         private const float Depth = 3f;
         private const float GroundThickness = 2f;
+
+        // Three rooms on one flat floor (Matt: split the arena into rooms with doors). West
+        // to east: the ANTECHAMBER (exit portal, up-thrust dummy — the quiet room), the
+        // ARRIVAL (the spawn), and the DUEL (the Roc, behind a door — entering the fight is
+        // a committed choice). The flat floor is every door's landing pad for free.
+        private const float DoorWestX = -9f;
+        private const float DoorEastX = 5f;
 
         [MenuItem("Prophecy/Build/Generate GrayBox_CombatTester", priority = 42)]
         public static void Generate()
@@ -76,6 +83,20 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateRespawner(markers);
             CreateExitPortal(geometry);
             CreateUpThrustTarget(geometry);
+            CreateRooms(geometry, markers);
+        }
+
+        private static void CreateRooms(Transform geometry, Transform markers)
+        {
+            float west = -FloorWidth * 0.5f;
+            float east = FloorWidth * 0.5f;
+
+            GrayBoxDoors.Doorway(geometry, "Door_Antechamber", DoorWestX, 1, 2, Depth);
+            GrayBoxDoors.Doorway(geometry, "Door_Duel", DoorEastX, 2, 3, Depth);
+
+            GrayBoxDoors.Bounds(markers, 1, -3.6f, 40f, west - 4f, DoorWestX);
+            GrayBoxDoors.Bounds(markers, 2, -3.6f, 40f, DoorWestX, DoorEastX);
+            GrayBoxDoors.Bounds(markers, 3, -3.6f, 40f, DoorEastX, east + 4f);
         }
 
         /// <summary>
@@ -87,7 +108,7 @@ namespace Rokkan.Prophecy.Editor.Build
         /// </summary>
         private static void CreateUpThrustTarget(Transform parent)
         {
-            const float x = -10f;
+            const float x = -17f;   // the antechamber: practice hangs in the quiet room
             const float centreY = 3.2f;
             var size = new Vector2(0.9f, 0.9f);
 
@@ -173,18 +194,27 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private static void CreateDescriptorAndSpawn(Transform markers)
         {
+            // The arrival room, between the doors.
             var spawnObject = new GameObject("Spawn_default");
             spawnObject.transform.SetParent(markers, false);
-            spawnObject.transform.position = new Vector3(-6f, 0f, 0f);
+            spawnObject.transform.position = new Vector3(-2f, 0f, 0f);
 
             var spawn = spawnObject.AddComponent<SpawnPoint>();
             SetPrivate(spawn, "_id", "default");
             SetPrivate(spawn, "_facing", 1);
+            SetPrivate(spawn, "_room", 2);
 
             var descriptorObject = new GameObject("SceneDescriptor");
             descriptorObject.transform.SetParent(markers, false);
             var descriptor = descriptorObject.AddComponent<SceneDescriptor>();
             SetPrivate(descriptor, "_space", MovementSpace.SideScroll);
+
+            // Camera bounds ON: the arriving rig learns the scene's rooms in
+            // SetVerticalBounds, and the room clamps hang off that path. One lane below
+            // the floor, the project constant.
+            SetPrivate(descriptor, "_useCameraBounds", true);
+            SetPrivate(descriptor, "_cameraFloorY", -3.6f);
+            SetPrivate(descriptor, "_cameraCeilingY", 40f);
         }
 
         private static void CreateRespawner(Transform markers)
@@ -195,9 +225,10 @@ namespace Rokkan.Prophecy.Editor.Build
                                  "Prophecy > Build > Generate Enemies first, then regenerate. " +
                                  "The respawner was created unarmed.");
 
+            // Deep in the duel room, so the fight starts with ground to give.
             var post = new GameObject("RespawnPost_Grunt");
             post.transform.SetParent(markers, false);
-            post.transform.position = new Vector3(6f, 0f, 0f);
+            post.transform.position = new Vector3(14f, 0f, 0f);
 
             var respawner = post.AddComponent<CombatTesterRespawner>();
             SetPrivate(respawner, "_prefab", prefab);

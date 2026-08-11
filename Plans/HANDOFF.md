@@ -194,6 +194,23 @@ and glides between the two on SmoothStep(Progress), overriding the crossing axis
 `ResolveTargetPosition` while the other axis follows normally. Rect-blending still runs
 underneath for the clamps' continuity at handoff. Frame arrives when the feet do, from a
 fixed start to a fixed end: a Metroid pan, paced by the walk.
+**THE TESTER SPLIT INTO THREE ROOMS (Matt), and the door recipe UNIFIED:** the sparring
+floor widened to 46 and split — ANTECHAMBER (west: exit portal at −21, up-thrust dummy at
+−17; the quiet room), ARRIVAL (middle: spawn at −2, room 2), DUEL (east: the Roc's post at
+14 — the fight sits behind a door, so entering it is a committed choice). Doors at −9 and
++5; the flat floor is every door's landing pad for free. `GrayBoxDoors` (Editor/Build) is
+now the ONE recipe for doorway + seal + frame + room bounds — extracted the moment a second
+builder wanted it, with TYPED setters instead of a switch (the per-builder SetPrivate
+switch is the recorded trap). TWO LATENT BUGS caught during the split: (1) the enemy
+loadout's explicit list predated the new abilities, and absent = "leave alone" = ON — so
+enemies had DoorTransit (a pursuing grunt would commit itself through a doorway), UpThrust
+and Buoyancy by omission. Now explicit: Swim ON (sinking is the world's rule), the rest
+OFF — Zelda II's law: enemies do not use doors. Enemies can still WALK through an open
+doorway physically (no transit needed) — the Roc's KeepDistance keeps it home in practice;
+a real containment rule is future work if a drive demands it. (2) `ClearVerticalBounds`
+(scenes without camera bounds) never reset the horizontal room clamps or the room cache —
+a roomed scene's stale X-clamps would pin the camera in the ARENA. Both fixed. The tester's
+descriptor now uses camera bounds (the room system hangs off that path). Suite 886 green.
 **And THE BEAT (Matt: "too fast"):** the crossing's tempo is two authored numbers —
 `DoorWalkSpeed` 2.2 (a deliberate step, well under walk speed) and `DoorExitDistance` 1.6
 (how far past the frame the walk carries, floored at 0.2 so the release never re-enters

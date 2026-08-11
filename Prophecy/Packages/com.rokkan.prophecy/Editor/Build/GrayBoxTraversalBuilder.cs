@@ -317,78 +317,21 @@ namespace Rokkan.Prophecy.Editor.Build
         /// behind, a lintel crosses overhead, all collider-stripped: the frame is vocabulary,
         /// never a wall.
         /// </summary>
-        private static void CreateRoomDoor(Transform parent, float x)
-        {
-            // A REAL gate (Matt's correction of the checkpoint-flag first cut): the opening
-            // is the only passage — solid wall seals everything above it to the ceiling —
-            // stepping in commits the crossing, and the camera's per-room clamps stop AT
-            // this x, so neither screen shows past the door until the walk-through.
-            const float openingHeight = 2.6f;
-
-            var door = new GameObject("Door_PoolToEast");
-            door.transform.SetParent(parent, false);
-            door.transform.position = new Vector3(x, openingHeight * 0.5f, 0f);
-
-            var box = door.AddComponent<BoxCollider>();
-            box.isTrigger = true;
-            box.size = new Vector3(0.4f, openingHeight, Depth);
-
-            var marker = door.AddComponent<RoomDoor>();
-            SetPrivate(marker, "_roomMinSide", 1);
-            SetPrivate(marker, "_roomMaxSide", 2);
-
-            // The seal: a doorway you can jump over is a checkpoint again.
-            Box(parent, "Door_WallAbove",
-                new Vector2(x - 0.2f, openingHeight),
-                new Vector2(x + 0.2f, 40f));
-
-            void FramePiece(string name, Vector3 position, Vector3 scale)
-            {
-                var piece = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                piece.name = name;
-                piece.transform.SetParent(door.transform, false);
-                piece.transform.position = position;
-                piece.transform.localScale = scale;
-                Object.DestroyImmediate(piece.GetComponent<Collider>());
-                piece.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Doorway();
-            }
-
-            FramePiece("Frame_PostNear",
-                       new Vector3(x, openingHeight * 0.5f, Depth * 0.5f + 0.25f),
-                       new Vector3(0.35f, openingHeight, 0.5f));
-            FramePiece("Frame_PostFar",
-                       new Vector3(x, openingHeight * 0.5f, -Depth * 0.5f - 0.25f),
-                       new Vector3(0.35f, openingHeight, 0.5f));
-            FramePiece("Frame_Lintel", new Vector3(x, openingHeight + 0.2f, 0f),
-                       new Vector3(0.5f, 0.4f, Depth + 1f));
-        }
+        private static void CreateRoomDoor(Transform parent, float x) =>
+            GrayBoxDoors.Doorway(parent, "Door_PoolToEast", x, 1, 2, Depth);
 
         /// <summary>
         /// Each room's framing limits. Room 1 owns the pool, so its camera floor reaches the
-        /// basin; room 2 is ordinary ground, so its floor sits one lane below it — crossing
-        /// the door is what SLIDES the clamp between them, which is the room transition
-        /// made visible.
+        /// basin; room 2 is ordinary ground, so its floor sits one lane below it. Both
+        /// horizontal clamps STOP at the door: neither screen shows past it until the
+        /// committed walk-through pans one into the other.
         /// </summary>
         private static void CreateRoomBounds(Transform markers, MovementTuning tuning,
                                              float start, float doorX, float end)
         {
-            void Room(int id, float floorY, float minX, float maxX)
-            {
-                var bounds = new GameObject($"RoomBounds_{id}");
-                bounds.transform.SetParent(markers, false);
-
-                var component = bounds.AddComponent<RoomBounds>();
-                SetPrivate(component, "_room", id);
-                SetPrivate(component, "_floorY", floorY);
-                SetPrivate(component, "_ceilingY", 40f);
-                SetPrivate(component, "_minX", minX);
-                SetPrivate(component, "_maxX", maxX);
-            }
-
-            // Both rooms' horizontal clamps STOP at the door: neither screen shows past it
-            // until the committed walk-through slides one into the other.
-            Room(1, _lowestFloorY - tuning.Data.LaneHeight, start - 6f, doorX);
-            Room(2, -tuning.Data.LaneHeight, doorX, end + 6f);
+            GrayBoxDoors.Bounds(markers, 1, _lowestFloorY - tuning.Data.LaneHeight, 40f,
+                                start - 6f, doorX);
+            GrayBoxDoors.Bounds(markers, 2, -tuning.Data.LaneHeight, 40f, doorX, end + 6f);
         }
 
         private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning,

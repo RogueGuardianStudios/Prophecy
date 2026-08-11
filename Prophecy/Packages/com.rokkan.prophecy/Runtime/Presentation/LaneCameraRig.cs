@@ -165,10 +165,22 @@ namespace Rokkan.Prophecy.Presentation
             _boundsMaxX = _targetMaxX = 100000f;
             _roomBounds = FindObjectsByType<RoomBounds>(FindObjectsSortMode.None);
             _lastRoom = int.MinValue;
+            _panActive = false;
             UpdateRoomBounds(snap: true);
         }
 
-        public void ClearVerticalBounds() => _hasBounds = false;
+        /// <summary>Scenes without camera bounds also have no rooms to clamp by — the room
+        /// cache and the horizontal clamps must reset here too, or a roomed scene's stale
+        /// X-clamps would pin the camera in the next scene.</summary>
+        public void ClearVerticalBounds()
+        {
+            _hasBounds = false;
+            _boundsMinX = _targetMinX = -100000f;
+            _boundsMaxX = _targetMaxX = 100000f;
+            _roomBounds = System.Array.Empty<RoomBounds>();
+            _lastRoom = int.MinValue;
+            _panActive = false;
+        }
 
         /// <summary>
         /// Slide the clamp to the current room's bounds. Rooms are the sim's fact (graph
