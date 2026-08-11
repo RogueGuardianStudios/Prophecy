@@ -54,6 +54,11 @@ namespace Rokkan.Prophecy.World
         [SerializeField, Tooltip("Turn off for scenes with no falling — the overworld, interiors.")]
         private bool _killPlaneEnabled = true;
 
+        [SerializeField, Tooltip("Quarters of health a fall below the kill plane costs — half a " +
+                                 "heart (Matt). The respawn returns to where the player last " +
+                                 "entered the room, so this toll is the fall's whole punishment.")]
+        private int _fallDamageQuarters = 2;
+
         [SerializeField, Tooltip("Running out of health respawns the player, exactly as falling " +
                                  "out of the world does. A placeholder for a real death flow — " +
                                  "the switch to turn off when there is one.")]
@@ -65,6 +70,9 @@ namespace Rokkan.Prophecy.World
         public float KillPlaneY => _killPlaneY;
 
         public bool KillPlaneEnabled => _killPlaneEnabled;
+
+        /// <summary>What a fall costs, in health quarters. See <see cref="SceneDirector"/>.</summary>
+        public int FallDamageQuarters => _fallDamageQuarters;
 
         /// <summary>Whether death sends the player back to the spawn point. See <see cref="SceneDirector"/>.</summary>
         public bool RespawnOnDeath => _respawnOnDeath;

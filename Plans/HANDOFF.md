@@ -1480,6 +1480,14 @@ New this session:
     camera behind the black, and reveals onto the finished shot. `SnapToTarget` learned to
     snap the room CLAMPS along with the position for the same reason — a snap that resolved
     its shot under the old room's still-sliding limits revealed a camera still settling.
+    And the destination is now Matt's fall rule: **a fall is a toll, a death is a restart.**
+    Falling costs `SceneDescriptor.FallDamageQuarters` (2 — half a heart, charged straight to
+    Vitals so i-frames cannot shrug off the world) and returns to `_roomEntry` — where the
+    player last ENTERED the current room, seeded by every arrival and re-planted on each
+    door's landing pad (the director watches the DoorTransit false-edge; the sim module never
+    learns the rule exists) — placed with `TeleportTo`, NOT `RespawnAt`, so the toll stays
+    spent. Death keeps the full restore at the scene spawn and reseeds the checkpoint with
+    it; a fall that spends the last quarters IS a death, counted in both reset statistics.
 28. **A paused clock buffers edges; drop them on the way out of a menu — but REBASELINE, do not
     Clear.** `ButtonLatch` holds a press until the sim consumes it, and a paused `SimClockDriver`
     consumes nothing — so every A pressed inside a menu would land as a sword swing on the first

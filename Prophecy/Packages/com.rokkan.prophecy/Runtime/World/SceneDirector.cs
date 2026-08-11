@@ -75,6 +75,14 @@ namespace Rokkan.Prophecy.World
         private readonly System.Collections.Generic.Dictionary<string, (Vector3 Feet, int Facing, int Room)>
             _departures = new System.Collections.Generic.Dictionary<string, (Vector3, int, int)>();
 
+        // Where the player last ENTERED the current room — the scene arrival's placement, or
+        // the landing pad of the last door crossed (Matt's fall rule). This is Zelda II's
+        // screen-entrance checkpoint: a fall costs its toll and puts you back at this point,
+        // not at the scene's spawn half a level away.
+        private (Vector3 Feet, int Facing, int Room) _roomEntry;
+        private bool _hasRoomEntry;
+        private bool _wasTransiting;
+
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
         public int FallResetCount { get; private set; }
@@ -311,6 +319,10 @@ namespace Rokkan.Prophecy.World
                     _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
                     _player.SetRoom(_activeSpawn.Room);
                 }
+
+                // Wherever the arrival put the feet IS this room's entrance — the fall
+                // checkpoint until a door hands it a landing pad.
+                RecordRoomEntry();
             }
 
             if (_camera != null)
@@ -356,17 +368,25 @@ namespace Rokkan.Prophecy.World
             if (IsTransitioning) return;
             if (_player == null || _descriptor == null) return;
 
+            // A finished door crossing plants the checkpoint on its landing pad: the edge is
+            // watched here rather than inside the sim because "where falls return to" is the
+            // director's rule, and the sim's door module should not need to know it exists.
+            var transit = _player.Sim != null ? _player.Sim.Get<Sim.Abilities.DoorTransit>() : null;
+            bool transiting = transit != null && transit.IsTransiting;
+            if (_wasTransiting && !transiting) RecordRoomEntry();
+            _wasTransiting = transiting;
+
             if (_descriptor.KillPlaneEnabled && _player.transform.position.y <= _descriptor.KillPlaneY)
             {
                 FallResetCount++;
-                StartCoroutine(RespawnSequence());
+                StartCoroutine(RespawnSequence(fromFall: true));
                 return;
             }
 
             if (_descriptor.RespawnOnDeath && _player.Sim != null && !_player.Sim.Vitals.IsAlive)
             {
                 DeathResetCount++;
-                StartCoroutine(RespawnSequence());
+                StartCoroutine(RespawnSequence(fromFall: false));
                 return;
             }
 
@@ -412,31 +432,60 @@ namespace Rokkan.Prophecy.World
         /// and felt broken, because the eye watched the camera whip and the body pop; the
         /// same beat the doors and the portals spend is what makes this read as "you are
         /// being carried back" instead of "the game glitched".
+        ///
+        /// <para><b>A fall and a death return to different places</b> (Matt's rule). A fall
+        /// is a toll: half a heart, and back to where the player last entered the room — the
+        /// arrival point or the last door's landing pad — with everything else exactly as it
+        /// was. Zelda II's screen-entrance rule. Death is the full restart: the scene's
+        /// spawn, health restored, and the checkpoint reset with it. A fall that spends the
+        /// last quarters IS a death and takes the death path.</para>
         /// </summary>
-        private IEnumerator RespawnSequence()
+        private IEnumerator RespawnSequence(bool fromFall)
         {
             IsTransitioning = true;
             FreezeWorld(true);
 
+            // The toll is charged before the curtain: the hearts drop and the screen edges
+            // flash as the fade begins, so the cost is shown at the moment it is paid.
+            bool lethalFall = false;
+            if (fromFall && _player.Sim != null)
+            {
+                _player.Sim.Vitals.ApplyDamage(_descriptor.FallDamageQuarters,
+                                               _player.Sim.CurrentTick);
+                lethalFall = !_player.Sim.Vitals.IsAlive;
+
+                // A fall that kills is both statistics at once — "I keep falling here" and
+                // "I keep dying here" are both true, and both numbers should say so.
+                if (lethalFall) DeathResetCount++;
+            }
+
             _veil?.BeginCover();
             while (_veil != null && !_veil.IsOpaque) yield return null;
 
-            if (_activeSpawn != null)
+            if (fromFall && !lethalFall && _hasRoomEntry)
+            {
+                // The toll path: placed, not restored — TeleportTo on purpose, so the half
+                // heart stays spent. The room reseed is load-bearing: rooms are graph state
+                // (nothing infers them from coordinates), and every path that places the
+                // player must also say which room the feet are in. Its omission here once
+                // left the camera staring at the room of the fall while the body stood
+                // alive and off-screen.
+                _player.TeleportTo(_roomEntry.Feet, _roomEntry.Facing);
+                _player.SetRoom(_roomEntry.Room);
+            }
+            else if (_activeSpawn != null)
             {
                 _player.RespawnAt(_activeSpawn.Position, _activeSpawn.Facing);
-
-                // The room is graph state and a respawn is an arrival like any other: without
-                // this reseed, falling out of a DIFFERENT room than the spawn's left the sim
-                // claiming the room of the fall — and the camera, honestly clamped to that
-                // room's bounds, stared at where the player died while the body stood alive
-                // and off-screen at the spawn. Matt hit it the first time he fell out of the
-                // Roc's room. Every path that places the player must also say which room the
-                // feet are in; Enter() already did, this one forgot.
                 _player.SetRoom(_activeSpawn.Room);
+
+                // The restart re-enters the level at the spawn: the old checkpoint belongs
+                // to a run that just ended.
+                RecordRoomEntry();
             }
             else
             {
                 _player.RespawnAt(Vector3.zero);
+                RecordRoomEntry();
             }
 
             if (_camera != null) _camera.SnapToTarget();
@@ -447,6 +496,19 @@ namespace Rokkan.Prophecy.World
             yield return null;
 
             yield return Reveal();
+        }
+
+        /// <summary>The feet, facing and room right now become the fall checkpoint — called
+        /// wherever the player legitimately enters a room: arrivals, door exits, restarts.</summary>
+        private void RecordRoomEntry()
+        {
+            if (_player == null) return;
+
+            _roomEntry = (_player.FeetWorldPosition,
+                          _player.Sim != null ? _player.Sim.State.Facing : 0,
+                          _player.Sim != null ? _player.Sim.State.Room : 0);
+            _hasRoomEntry = true;
+            _wasTransiting = false;
         }
 
         /// <summary>Any loaded scene other than this one carrying a <see cref="SceneDescriptor"/>.</summary>
