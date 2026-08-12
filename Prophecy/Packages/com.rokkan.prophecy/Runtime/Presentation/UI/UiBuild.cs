@@ -81,6 +81,11 @@ namespace Rokkan.Prophecy.Presentation.UI
             if (height.HasValue) element.style.height = height.Value;
         }
 
+        /// <summary>The one menu footprint — 90% of the design space, leaving a 5% margin of
+        /// world on every side (Matt: "only a 10% non-menu border").</summary>
+        public const float MenuWidth = 1920f * 0.9f;
+        public const float MenuHeight = 1080f * 0.9f;
+
         /// <summary>Centre on the screen — the menus' one placement.</summary>
         public static void Centre(VisualElement element, float width, float height)
         {

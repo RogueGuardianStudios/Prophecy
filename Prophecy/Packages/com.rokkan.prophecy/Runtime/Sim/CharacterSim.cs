@@ -47,6 +47,10 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>The flask row. Capacity never shrinks; the world's refills do.</summary>
         public Flasks Flasks { get; } = new Flasks();
 
+        /// <summary>What the Bearer wears and wields — the pack sheet's loadout panel reads
+        /// this. Names in slots until an item economy exists to hold more.</summary>
+        public Equipment Worn { get; } = new Equipment();
+
         /// <summary>The ONE equipped art (spec §3.1 — no in-combat selection exists). Changed
         /// only from the arts volume. Buoyancy by default, so the cast button keeps doing
         /// exactly what Matt tuned it to do until the volume says otherwise.</summary>

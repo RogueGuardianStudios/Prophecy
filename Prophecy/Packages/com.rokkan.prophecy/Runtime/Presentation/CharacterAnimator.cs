@@ -59,6 +59,10 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>The state showing right now. For the overlay and for tests.</summary>
         public BodyState Current => _current;
 
+        /// <summary>The clip set this body animates from. The pack portrait's double borrows
+        /// it to stand in idle.</summary>
+        public BodyAnimationSet Set => _set;
+
         /// <summary>
         /// The last few states, newest first, with how long each lasted in seconds.
         ///

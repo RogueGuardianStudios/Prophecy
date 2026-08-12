@@ -45,19 +45,19 @@ namespace Rokkan.Prophecy.Presentation.UI
         public BookMenu(VisualElement layer)
         {
             var panel = UiBuild.Bordered(layer, "Book",
-                                         UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Centre(panel, 460f, 380f);
+                                         UiPalette.Umber, UiPalette.Parchment, 3f);
+            UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
             Root = panel;
 
-            _title = UiBuild.Text(panel, "Title", "", 16, UiPalette.Umber);
-            UiBuild.Place(_title, left: 18f, top: 12f, width: 300f, height: 24f);
+            _title = UiBuild.Text(panel, "Title", "", 30, UiPalette.Umber);
+            UiBuild.Place(_title, left: 28f, top: 20f, width: 500f, height: 40f);
 
-            _body = UiBuild.Text(panel, "Body", "", 14, UiPalette.Ink);
-            UiBuild.Place(_body, left: 24f, top: 52f, width: 412f, height: 280f);
+            _body = UiBuild.Text(panel, "Body", "", 26, UiPalette.Ink);
+            UiBuild.Place(_body, left: 40f, top: 84f, width: 1648f, height: 800f);
 
             var hints = UiBuild.Text(panel, "Hints", "LB / RB  turn the page        B  close",
-                                     12, UiPalette.Muted, TextAnchor.MiddleCenter);
-            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 10f, height: 20f);
+                                     20, UiPalette.Muted, TextAnchor.MiddleCenter);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 14f, height: 30f);
 
             IsOpen = false;
         }

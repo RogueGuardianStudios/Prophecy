@@ -114,7 +114,9 @@ namespace Rokkan.Prophecy.Editor.Build
             settings.themeStyleSheet = theme;
             settings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
             settings.referenceResolution = new Vector2Int(1920, 1080);
-            settings.match = 0.5f;
+            // Height-match: UI is sized by the vertical frame, so ultrawide gets side
+            // margin instead of a grown UI.
+            settings.match = 1f;
             settings.sortingOrder = 10;
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssetIfDirty(settings);

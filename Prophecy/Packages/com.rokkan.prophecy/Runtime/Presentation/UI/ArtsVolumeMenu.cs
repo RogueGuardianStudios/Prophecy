@@ -35,42 +35,42 @@ namespace Rokkan.Prophecy.Presentation.UI
         public ArtsVolumeMenu(VisualElement layer)
         {
             var panel = UiBuild.Bordered(layer, "ArtsVolume",
-                                         UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Centre(panel, 420f, 470f);
+                                         UiPalette.Umber, UiPalette.Parchment, 3f);
+            UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
             Root = panel;
 
-            var title = UiBuild.Text(panel, "Title", "THE ORDER'S VOLUME", 16, UiPalette.Umber);
-            UiBuild.Place(title, left: 18f, top: 12f, width: 300f, height: 24f);
+            var title = UiBuild.Text(panel, "Title", "THE ORDER'S VOLUME", 30, UiPalette.Umber);
+            UiBuild.Place(title, left: 28f, top: 20f, width: 500f, height: 40f);
 
-            _bar = new FlameBarWidget(panel, 18f, 44f, new Vector2(380f, 13f));
+            _bar = new FlameBarWidget(panel, 28f, 78f, new Vector2(1672f, 24f));
 
             var arts = ArtCatalog.All;
             for (int i = 0; i < arts.Length; i++)
             {
                 var row = new Row();
-                float y = 76f + i * 44f;
+                float y = 130f + i * 96f;
 
                 row.Highlight = UiBuild.Solid(panel, $"Row{i}", UiPalette.Bright);
-                UiBuild.Place(row.Highlight, left: 10f, top: y, width: 396f, height: 40f);
+                UiBuild.Place(row.Highlight, left: 16f, top: y, width: 1696f, height: 88f);
 
-                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 15,
+                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 28,
                                         UiPalette.Ink, TextAnchor.MiddleLeft);
-                UiBuild.Place(row.Name, left: 10f, top: 0f, width: 250f, height: 40f);
+                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 88f);
 
-                row.Running = UiBuild.Text(row.Highlight, "Running", "running", 12,
+                row.Running = UiBuild.Text(row.Highlight, "Running", "running", 20,
                                            UiPalette.Gilt, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Running, right: 108f, top: 0f, width: 80f, height: 40f);
+                UiBuild.Place(row.Running, right: 240f, top: 0f, width: 160f, height: 88f);
 
                 row.Pips = UiBuild.Text(row.Highlight, "Pips", HudController.Pips(arts[i].Cost),
-                                        12, UiPalette.HearthGold, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Pips, right: 12f, top: 0f, width: 90f, height: 40f);
+                                        20, UiPalette.HearthGold, TextAnchor.MiddleRight);
+                UiBuild.Place(row.Pips, right: 24f, top: 0f, width: 180f, height: 88f);
 
                 _rows.Add(row);
             }
 
-            var hints = UiBuild.Text(panel, "Hints", "A  cast        B  close", 12,
+            var hints = UiBuild.Text(panel, "Hints", "A  cast        B  close", 20,
                                      UiPalette.Muted, TextAnchor.MiddleCenter);
-            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 10f, height: 20f);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 14f, height: 30f);
 
             IsOpen = false;
         }

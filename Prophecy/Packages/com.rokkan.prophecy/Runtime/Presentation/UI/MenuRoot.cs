@@ -76,6 +76,10 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             public abstract void Opened(CharacterSim sim);
             public abstract void Tick(in Frame frame);
+
+            /// <summary>The door shut — by close, by another door, or by a transition.
+            /// Panels holding live resources (the pack's portrait camera) let go here.</summary>
+            public virtual void Closed() { }
         }
 
         private void OnEnable()
@@ -132,7 +136,11 @@ namespace Rokkan.Prophecy.Presentation.UI
                 return;
             }
 
-            if (_open != null) _open.IsOpen = false;
+            if (_open != null)
+            {
+                _open.IsOpen = false;
+                _open.Closed();
+            }
 
             _open = panel;
             _open.IsOpen = true;
@@ -148,7 +156,12 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         private void Close()
         {
-            if (_open != null) _open.IsOpen = false;
+            if (_open != null)
+            {
+                _open.IsOpen = false;
+                _open.Closed();
+            }
+
             _open = null;
 
             // Unpause only what this class paused: a transition's freeze is the director's
