@@ -105,6 +105,28 @@ it.
 **Done looks like:** references audited, then deleted — or a note here saying which asset still
 needs it and why.
 
+### Rank numerals borrow an OS serif font
+
+**Set:** 2026-08-12, `UiBuild.Serif` — the pack sheet's rank values render in the first of
+Georgia / Times New Roman / Cambria found on the machine, because a sans roman numeral I reads
+as a lowercase l and Unity ships no serif.
+
+**Done looks like:** a serif font asset bundled with the project and used instead — an OS
+lookup is fine on Matt's machine and a silent sans fallback anywhere else, which is not a
+shipping answer.
+
+### The player starts with half a rite of Resolve
+
+**Set:** 2026-08-12, in `PlayerCharacterFactory.Create` — `AwardResolve(cost / 2)` right after
+the stat seeding.
+
+**Why:** nothing awards Resolve yet, so the pack sheet's Resolve seam would sit empty forever;
+Matt asked for a 50% fill to test the bar against. It cannot accidentally level — `AwardResolve`
+only converts at the full threshold.
+
+**Done looks like:** the line is deleted the day anything real awards Resolve, and a fresh
+player's seam starts honestly empty.
+
 ### Enemy GOAP diagnostics — `_debugPlanSearch`, `GoapTraceProbe`, `EnemyBrainHost._trace`
 
 Three diagnostics turned on while bringing the first planner-driven enemy up, all set by

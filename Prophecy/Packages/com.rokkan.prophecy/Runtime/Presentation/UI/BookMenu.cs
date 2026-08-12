@@ -50,14 +50,14 @@ namespace Rokkan.Prophecy.Presentation.UI
             Root = panel;
 
             _title = UiBuild.Text(panel, "Title", "", 30, UiPalette.Umber);
-            UiBuild.Place(_title, left: 28f, top: 20f, width: 500f, height: 40f);
+            UiBuild.Place(_title, left: 24f, top: 14f, width: 500f, height: 40f);
 
-            _body = UiBuild.Text(panel, "Body", "", 26, UiPalette.Ink);
-            UiBuild.Place(_body, left: 40f, top: 84f, width: 1648f, height: 800f);
+            _body = UiBuild.Text(panel, "Body", "", 24, UiPalette.Ink);
+            UiBuild.Place(_body, left: 36f, top: 72f, width: 1464f, height: 700f);
 
             var hints = UiBuild.Text(panel, "Hints", "LB / RB  turn the page        B  close",
                                      20, UiPalette.Muted, TextAnchor.MiddleCenter);
-            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 14f, height: 30f);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 8f, height: 30f);
 
             IsOpen = false;
         }

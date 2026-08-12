@@ -81,10 +81,15 @@ namespace Rokkan.Prophecy.Presentation.UI
             if (height.HasValue) element.style.height = height.Value;
         }
 
-        /// <summary>The one menu footprint — 90% of the design space, leaving a 5% margin of
-        /// world on every side (Matt: "only a 10% non-menu border").</summary>
-        public const float MenuWidth = 1920f * 0.9f;
-        public const float MenuHeight = 1080f * 0.9f;
+        /// <summary>The one menu footprint — 80% of the design space, leaving a 10% buffer
+        /// of world on every side (Matt).</summary>
+        public const float MenuWidth = 1920f * 0.8f;
+        public const float MenuHeight = 1080f * 0.8f;
+
+        /// <summary>THE item square (Matt: "standardize the sizes") — loadout slots, carousel
+        /// cards and bag cells are all this size. Capped by the bag's six-visible-rows
+        /// minimum; raise it only with that window's height.</summary>
+        public const float ItemSquare = 76f;
 
         /// <summary>Centre on the screen — the menus' one placement.</summary>
         public static void Centre(VisualElement element, float width, float height)
@@ -109,6 +114,36 @@ namespace Rokkan.Prophecy.Presentation.UI
             label.style.whiteSpace = WhiteSpace.Normal;
             parent.Add(label);
             return label;
+        }
+
+        private static Font _serif;
+        private static bool _serifSearched;
+
+        /// <summary>Set a serifed face on <paramref name="label"/> — a roman numeral I needs
+        /// its cap and foot or it reads as a lowercase l (Matt). Borrowed from the OS for the
+        /// gray box; shipping wants a bundled font asset (Release-Checklist).</summary>
+        public static void Serif(Label label)
+        {
+            if (!_serifSearched)
+            {
+                _serifSearched = true;
+
+                var installed = new System.Collections.Generic.HashSet<string>(
+                    Font.GetOSInstalledFontNames());
+
+                foreach (var name in new[] { "Georgia", "Times New Roman", "Cambria" })
+                {
+                    if (!installed.Contains(name)) continue;
+                    _serif = Font.CreateDynamicFontFromOSFont(name, 32);
+                    break;
+                }
+
+                if (_serif == null)
+                    Debug.LogWarning("[Prophecy] No OS serif font found — rank numerals stay sans.");
+            }
+
+            if (_serif != null)
+                label.style.unityFontDefinition = FontDefinition.FromFont(_serif);
         }
 
         /// <summary>Roman numerals for the pack sheet — the Flame RANK is a numeral, never a

@@ -40,37 +40,37 @@ namespace Rokkan.Prophecy.Presentation.UI
             Root = panel;
 
             var title = UiBuild.Text(panel, "Title", "THE ORDER'S VOLUME", 30, UiPalette.Umber);
-            UiBuild.Place(title, left: 28f, top: 20f, width: 500f, height: 40f);
+            UiBuild.Place(title, left: 24f, top: 14f, width: 500f, height: 40f);
 
-            _bar = new FlameBarWidget(panel, 28f, 78f, new Vector2(1672f, 24f));
+            _bar = new FlameBarWidget(panel, 24f, 70f, new Vector2(1488f, 22f));
 
             var arts = ArtCatalog.All;
             for (int i = 0; i < arts.Length; i++)
             {
                 var row = new Row();
-                float y = 130f + i * 96f;
+                float y = 108f + i * 88f;
 
                 row.Highlight = UiBuild.Solid(panel, $"Row{i}", UiPalette.Bright);
-                UiBuild.Place(row.Highlight, left: 16f, top: y, width: 1696f, height: 88f);
+                UiBuild.Place(row.Highlight, left: 16f, top: y, width: 1504f, height: 80f);
 
-                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 28,
+                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 26,
                                         UiPalette.Ink, TextAnchor.MiddleLeft);
-                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 88f);
+                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 80f);
 
                 row.Running = UiBuild.Text(row.Highlight, "Running", "running", 20,
                                            UiPalette.Gilt, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Running, right: 240f, top: 0f, width: 160f, height: 88f);
+                UiBuild.Place(row.Running, right: 220f, top: 0f, width: 150f, height: 80f);
 
                 row.Pips = UiBuild.Text(row.Highlight, "Pips", HudController.Pips(arts[i].Cost),
                                         20, UiPalette.HearthGold, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Pips, right: 24f, top: 0f, width: 180f, height: 88f);
+                UiBuild.Place(row.Pips, right: 20f, top: 0f, width: 170f, height: 80f);
 
                 _rows.Add(row);
             }
 
             var hints = UiBuild.Text(panel, "Hints", "A  cast        B  close", 20,
                                      UiPalette.Muted, TextAnchor.MiddleCenter);
-            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 14f, height: 30f);
+            UiBuild.Place(hints, left: 0f, right: 0f, bottom: 8f, height: 30f);
 
             IsOpen = false;
         }

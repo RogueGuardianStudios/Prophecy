@@ -1,6 +1,8 @@
+using RGS.Core;
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
+using Rokkan.Prophecy.Sim.Items;
 
 namespace Rokkan.Prophecy.Sim
 {
@@ -85,6 +87,12 @@ namespace Rokkan.Prophecy.Sim
             // which is exactly how the old 100 survived the quarters renumber for a day.
             sim.Stats.Tuning.BaseHealth = combat.MaxHealth;
 
+            // DEV ONLY (Matt, 2026-08-12): half the first rite's cost, so the pack's Resolve
+            // seam has something to show while nothing awards Resolve yet. Safe against
+            // levelling — AwardResolve only converts at the full cost. Remove when the
+            // Resolve economy exists; listed in Plans/Release-Checklist.md.
+            sim.Stats.AwardResolve(sim.Stats.Tuning.ResolveForNextLevel(sim.Stats.TotalLevels) / 2);
+
             sim.Vitals.MaxHealth = combat.MaxHealth;
             sim.Vitals.Reset();
             sim.HitStunTicks = combat.HitStunTicks;
@@ -98,6 +106,22 @@ namespace Rokkan.Prophecy.Sim
             // The cast button and the flask row — the HUD's verbs.
             sim.Add(new CastArt(combat));
             sim.Add(new DrinkFlask(combat));
+
+            // The sim already swings and guards, so the sheet says so from the first boot.
+            // Code-built data for the gray box; authored ItemDetails assets take over when
+            // items are found in the world rather than born with.
+            sim.Worn[EquipSlot.Sword] = new ItemData
+            {
+                Id = SerializableGuid.NewGuid(),
+                Name = "a plain sword",
+                Slot = ItemSlotType.Sword,
+            };
+            sim.Worn[EquipSlot.Shield] = new ItemData
+            {
+                Id = SerializableGuid.NewGuid(),
+                Name = "a plain shield",
+                Slot = ItemSlotType.Shield,
+            };
 
             // Declared, not yet built. See PlannedAbilities.
             sim.Add(new Crawl());

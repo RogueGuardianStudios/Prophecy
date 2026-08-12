@@ -48,8 +48,13 @@ namespace Rokkan.Prophecy.Sim
         public Flasks Flasks { get; } = new Flasks();
 
         /// <summary>What the Bearer wears and wields — the pack sheet's loadout panel reads
-        /// this. Names in slots until an item economy exists to hold more.</summary>
+        /// this. Slots hold plain <see cref="Items.ItemData"/>; factories do the seeding.</summary>
         public Equipment Worn { get; } = new Equipment();
+
+        /// <summary>The bag — slot-stacked item state, read by the pack's grid. The flask
+        /// row stays its own tuned system (<see cref="Flasks"/>); the grid's first cell
+        /// mirrors it rather than a bag slot.</summary>
+        public Items.Inventory Bag { get; } = new Items.Inventory();
 
         /// <summary>The ONE equipped art (spec §3.1 — no in-combat selection exists). Changed
         /// only from the arts volume. Buoyancy by default, so the cast button keeps doing
