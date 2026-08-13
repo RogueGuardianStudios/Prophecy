@@ -1,0 +1,21 @@
+{
+    "name": "Rokkan.Prophecy",
+    "rootNamespace": "Rokkan.Prophecy",
+    "references": [
+        "Rokkan.Prophecy.Sim",
+        "RGS.Core",
+        "Rokkan.Core",
+        "Rokkan.Animation",
+        "Unity.InputSystem",
+        "Unity.Cinemachine"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

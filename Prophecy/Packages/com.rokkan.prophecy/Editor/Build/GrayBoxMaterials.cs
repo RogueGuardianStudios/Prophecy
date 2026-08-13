@@ -1,0 +1,77 @@
+using UnityEditor;
+using UnityEngine;
+
+namespace Rokkan.Prophecy.Editor.Build
+{
+    /// <summary>
+    /// The few materials the gray boxes share, created idempotently.
+    ///
+    /// <para>Gray-box geometry is deliberately colourless, which makes the exceptions the
+    /// vocabulary: a portal must not look like scenery, and it must look like the same thing in
+    /// every scene it appears in — the player is being taught "this colour moves you", and one
+    /// asset used everywhere is what keeps the lesson consistent.</para>
+    /// </summary>
+    internal static class GrayBoxMaterials
+    {
+        private const string Folder = "Assets/_Prophecy/Data/Materials";
+
+        /// <summary>The portal colour, everywhere a portal appears.</summary>
+        public static Material Portal() =>
+            Ensure("GrayBox_Portal.mat", new Color(0.2f, 0.75f, 1f));
+
+        /// <summary>
+        /// The overworld's ground. The tile prefabs ship pointing at Unity's built-in
+        /// Default-Diffuse, which URP renders as eye-searing magenta — so the grid host repaints
+        /// every placed tile with this. One material for all of them until per-region palettes
+        /// (the darkening) take over.
+        /// </summary>
+        public static Material Ground() =>
+            Ensure("GrayBox_Ground.mat", new Color(0.52f, 0.58f, 0.5f));
+
+        /// <summary>Water, everywhere water appears — a deeper blue than the portal's cyan, so
+        /// "this colour moves you" and "this colour sinks you" stay two different lessons.</summary>
+        public static Material Water() =>
+            Ensure("GrayBox_Water.mat", new Color(0.15f, 0.35f, 0.65f));
+
+        /// <summary>Doorways between rooms — amber, matching the door gizmo. The frame is the
+        /// third colour lesson: portal blue teleports you, water blue sinks you, door amber
+        /// is a threshold you walk through and the room changes.</summary>
+        public static Material Doorway() =>
+            Ensure("GrayBox_Doorway.mat", new Color(0.8f, 0.6f, 0.2f));
+
+        /// <summary>Mock prop wood — trunks, posts, signs.</summary>
+        public static Material PropWood() =>
+            Ensure("GrayBox_PropWood.mat", new Color(0.45f, 0.32f, 0.2f));
+
+        /// <summary>Mock prop foliage — a deliberately darker green than the ground caps, so a
+        /// tree reads as a thing ON the grass, not a lump of it.</summary>
+        public static Material PropFoliage() =>
+            Ensure("GrayBox_PropFoliage.mat", new Color(0.16f, 0.42f, 0.2f));
+
+        private static Material Ensure(string fileName, Color colour,
+                                       string shaderName = "Prophecy/GrayBoxLit")
+        {
+            string path = $"{Folder}/{fileName}";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+
+            if (material == null)
+            {
+                if (!AssetDatabase.IsValidFolder(Folder))
+                    AssetDatabase.CreateFolder("Assets/_Prophecy/Data", "Materials");
+
+                material = new Material(Shader.Find(shaderName));
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            // Set on every run, not just on creation, so retuning the colour here reaches scenes
+            // on their next regeneration — the same idempotence contract as every generator.
+            // The gray-box shaders carry the cutaways (halo hole, cave invert); in side-scroll
+            // scenes their globals are zero and they are just matte lambert.
+            material.shader = Shader.Find(shaderName);
+            material.SetColor("_BaseColor", colour);
+            EditorUtility.SetDirty(material);
+
+            return material;
+        }
+    }
+}

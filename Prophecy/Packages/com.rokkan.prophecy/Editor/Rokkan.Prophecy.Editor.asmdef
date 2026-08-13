@@ -1,0 +1,29 @@
+{
+    "name": "Rokkan.Prophecy.Editor",
+    "rootNamespace": "Rokkan.Prophecy.Editor",
+    "references": [
+        "Rokkan.Prophecy",
+        "Rokkan.Prophecy.Sim",
+        "RGS.Core",
+        "Rokkan.Core",
+        "Unity.InputSystem",
+        "UnityEditor.TestRunner",
+        "UnityEngine.TestRunner",
+        "Rokkan.Animation",
+        "RGS.GOAP.Core",
+        "Rokkan.Prophecy.Goap",
+        "Rokkan.Prophecy.Overworld",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

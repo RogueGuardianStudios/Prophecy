@@ -1,0 +1,16 @@
+{
+    "name": "Rokkan.Prophecy.Sim",
+    "rootNamespace": "Rokkan.Prophecy.Sim",
+    "references": [
+        "RGS.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,81 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5538d52a1eeb6241ae71f90773502de, type: 3}
+  m_Name: MovementTuning_Enemy
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Core.MovementTuning
+  _data:
+    BodyWidth: 0.9
+    StandHeight: 1.8
+    CrouchHeight: 0.95
+    LaneHeightMultiplier: 2
+    WalkSpeed: 3.2
+    RunSpeed: 6
+    GroundAcceleration: 60
+    GroundFriction: 70
+    CrouchSpeedMultiplier: 0.4
+    MoveDeadzone: 0.2
+    RunMode: 0
+    AirAcceleration: 35
+    AirFriction: 8
+    JumpHeight: 2.4
+    RiseGravity: 45
+    FallGravity: 70
+    ApexGravityScale: 0.55
+    ApexVelocityThreshold: 2
+    MaxFallSpeed: 26
+    JumpCutMultiplier: 0.4
+    CoyoteTicks: 6
+    JumpBufferTicks: 8
+    AirJumps: 1
+    AirJumpHeight: 1.9
+    AirJumpArmTicks: 8
+    WallSlideSpeed: 4.5
+    WallProbeDistance: 0.08
+    WallJumpHeight: 2.2
+    WallJumpPushSpeed: 6.5
+    WallJumpControlLockTicks: 10
+    WallSlideNeedsInput: 1
+    LedgeGrabMinHeight: 1
+    LedgeGrabMaxHeight: 1.7
+    LedgeProbeDistance: 0.35
+    LedgeHangDrop: 1.55
+    LedgeGrabRequiresFalling: 1
+    LedgePullUpTicks: 12
+    LedgeRegrabCooldownTicks: 12
+    ClimbSpeed: 3.2
+    ClimbLateralSpeed: 1.6
+    ClimbMountThreshold: 0.5
+    ClimbDismountJumpHeight: 1.6
+    CrouchInputThreshold: 0.5
+    DropThroughHoldTicks: 10
+    DropThroughTicks: 16
+    DownThrustSpeed: 22
+    DownThrustBounceHeight: 2.4
+    DownThrustMinTicks: 4
+    UpThrustMinTicks: 4
+    WaterSpeedPenalty: 0.4
+    WaterSinkSpeed: 2.5
+    BreathTicks: 480
+    DrownDamage: 1
+    DrownIntervalTicks: 6
+    BuoyancyLaunchMinDepth: 0.05
+    BuoyancyLaunchBonus: 1.5
+    FloatSnapSpeed: 4
+    DoorWalkSpeed: 2.2
+    DoorExitDistance: 1.6
+    HardLandingSpeed: 18
+    HardLandingTicks: 0
+    TopDownSpeed: 6
+    TopDownAcceleration: 75
+    TopDownFriction: 90
+    InteractRange: 1.2
+    InteractBufferTicks: 8

@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80074b4bf09825d478b7f57a0856ff7d, type: 3}
+  m_Name: Heartland
+  m_EditorClassIdentifier: Rokkan.WorldGen::Rokkan.WorldGen.Directors.Regional.RegionArchetype
+  ladder:
+  - tierName: landmark
+    count: 1
+    prominence: 1
+    roadHalfWidth: 5
+    candidateCount: 64
+    boundsInsetFrac: 0.08
+    minSpacingFrac: 0.3
+    edgeBandCenter: 0
+    sourceBoost: 0.15
+    losSamples: 8
+  - tierName: outpost
+    count: 3
+    prominence: 0.4
+    roadHalfWidth: 3
+    candidateCount: 96
+    boundsInsetFrac: 0.06
+    minSpacingFrac: 0.18
+    edgeBandCenter: 0.3
+    sourceBoost: 0.1
+    losSamples: 6
+  claimExclusionFrac: 0.12
+  beaconDistanceFrac: 2.5
+  defaultRangeScaleFrac: 0.6
+  beaconApexBoost: 2
+  eyeBoost: 0.02
+  roadFalloff: 12
+  bendCandidates: 9
+  bendMaxFrac: 0.3
+  costSamples: 12
+  roadLosSamples: 4
+  roadSourceBoost: 0.1
+  slotSpacingFrac: 0.1
+  slotStepAlongRoad: 40
+  slotOffRoadOffset: 8
+  encounterRadius: 60
+  maxGap: 120
+  beatClasses:
+  - vista
+  - camp
+  - curio
+  - shrine
+  - danger
+  maxBeatClassShare: 0.6
+  minWildernessFrac: 0.08
+  minCorridorOrientation: 0.7
+  orphanPolicy: 0

@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb2e8e83fa170fc40ada34f96ec990cf, type: 3}
+  m_Name: StalbergGridConfig
+  m_EditorClassIdentifier: Assembly-CSharp::RGS_Core.StalbergGrid.StalbergGridConfig
+  boundsSize: {x: 1000, y: 0, z: 1000}
+  spacing: 5
+  jitter: 0.3
+  relaxIterations: 8
+  arcSegments: 4
+  floorMaterial: {fileID: 0}
+  regionSkirtCells: 2
+  axisAlignedWallInsetCells: 0.5
+  wallHeight: 3
+  wallThickness: 0.3
+  stepMax: 0.4
+  jumpMax: 2
+  wallMaterial: {fileID: 0}
+  maxCornerGradient: 0.5
+  maxRampDeltaY: 3
+  corridorMinHalfWidthFactor: 0.6
+  stairThreshold: 1.5
+  defaultRoad: 0
+  defaultCorruption: 0
+  defaultBiomeIndex: 0
+  defaultEffects: 0

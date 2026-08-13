@@ -1,0 +1,373 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5750721582263145223
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3662275141688354749}
+  - component: {fileID: 4661686183067807320}
+  - component: {fileID: 3385863312158110931}
+  - component: {fileID: 458568804098834392}
+  - component: {fileID: 1719510542709080894}
+  - component: {fileID: 201498067572195026}
+  - component: {fileID: 3769771030393151552}
+  - component: {fileID: 3699971481274449698}
+  - component: {fileID: 5712152816918719345}
+  - component: {fileID: 8574968284677836948}
+  m_Layer: 0
+  m_Name: Enemy_Caster
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3662275141688354749
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7118330935137254072}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4661686183067807320
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2a83b57bfa1001438f6c285c15f4848, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.PlayerCharacterHost
+  _tuning: {fileID: 11400000, guid: 59671f68842c49a43bd96871b56f6f48, type: 2}
+  _loadout: {fileID: 11400000, guid: 3631cec18ae1b024d992119f971cdc72, type: 2}
+  _combatTuning: {fileID: 11400000, guid: ed21b0eaf49212a459d61fd4a36c0eb6, type: 2}
+  _artTuning: {fileID: 0}
+  _clockDriver: {fileID: 0}
+  _input:
+    underlyingValue: {fileID: 0}
+  _space: 1
+  _collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _railDepth: 0
+  _bakeOnStart: 1
+--- !u!114 &3385863312158110931
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2f69b07aac89ba4fb58231efcec5076, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.CharacterView
+  _host: {fileID: 4661686183067807320}
+  _body: {fileID: 7118330935137254072}
+  _turnSpeed: 900
+  _resizeProxyOnCrouch: 1
+  _resizeSmoothing: 0.06
+--- !u!114 &458568804098834392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc3cb08f900afaf48873fb40855f78a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.Combatant
+  _combatId: 0
+  _team: 2
+  _simHost: {fileID: 4661686183067807320}
+  _size: {x: 0.9, y: 1.8}
+  _offset: {x: 0, y: 0.9}
+  _maxHealth: 12
+  _reviveSeconds: 2
+  _contactDamage: 0
+  _contactIntervalTicks: 45
+  _contactDefeats: 3
+  _flashColour: {r: 1, g: 0.35, b: 0.25, a: 1}
+  _blockColour: {r: 0.55, g: 0.8, b: 1, a: 1}
+  _parryColour: {r: 1, g: 0.95, b: 0.5, a: 1}
+  _flashSeconds: 0.12
+  _knockback: 0.25
+  _knockbackRecoverySeconds: 0.35
+--- !u!114 &1719510542709080894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5748ce2940653ea4399e68d106219834, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.EnemyBrainHost
+  _host: {fileID: 4661686183067807320}
+  _team: 2
+  _attackPool: 1
+  _tuning:
+    SightRange: 12
+    AttackRange: 1.4
+    LoseInterestRange: 16
+    AttackCooldownTicks: 90
+    MemoryTicks: 120
+  _fallbackWhenNoBrain: 1
+  _trace: 1
+  _traceEveryTicks: 30
+--- !u!114 &201498067572195026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7abb1c729d8dd4d8acfac5c0529d60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.AttackTelegraph
+  _host: {fileID: 4661686183067807320}
+  _combatant: {fileID: 458568804098834392}
+  _windUpColour: {r: 1, g: 0.78, b: 0.25, a: 1}
+  _activeColour: {r: 1, g: 0.2, b: 0.12, a: 1}
+--- !u!114 &3769771030393151552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42dca2c0301bc4d4fbfcefd6bb865f83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapAgentContext
+  Agent: {fileID: 5712152816918719345}
+  _registeredKeys: []
+  _preCacheCommonComponents: 1
+  _actionOverrides:
+    _entries: []
+  _goalOverrides:
+    _entries: []
+  _beliefSettings:
+    _entries: []
+  _transitionOverrides: []
+  references:
+    version: 2
+    RefIds: []
+--- !u!114 &3699971481274449698
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 512948a3a1f44b5a8fa5f9f2b6f1b44f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.SensorController
+  Sensors:
+  - rid: 2975720775853801748
+  - rid: 2975720775853801749
+  - rid: 2975720775853801750
+  references:
+    version: 2
+    RefIds:
+    - rid: 2975720775853801748
+      type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        Sensor: {fileID: 11400000, guid: 27b15fca952a1914683da3e841de818b, type: 2}
+        UpdateInterval: 0.1
+        OutputMappings:
+        - OutputName: HasTarget
+          ExpectedType: 0
+          TargetSlot: {fileID: 11400000, guid: a43d8d00dd621ab41accd7721efc87bd, type: 2}
+        - OutputName: CanSeeTarget
+          ExpectedType: 0
+          TargetSlot: {fileID: 11400000, guid: c8ad09ba0b97b1843bf957440d311e83, type: 2}
+        - OutputName: TargetDistanceX
+          ExpectedType: 1
+          TargetSlot: {fileID: 11400000, guid: 7f46c9d9eff6d8049b6515f5e8014df5, type: 2}
+        - OutputName: TargetDirection
+          ExpectedType: 3
+          TargetSlot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
+    - rid: 2975720775853801749
+      type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        Sensor: {fileID: 11400000, guid: d325c14fd9c735e41aa2628a1f0b74a3, type: 2}
+        UpdateInterval: 0.1
+        OutputMappings:
+        - OutputName: BlockedAhead
+          ExpectedType: 0
+          TargetSlot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
+    - rid: 2975720775853801750
+      type: {class: GoapSensorLocalSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
+      data:
+        Sensor: {fileID: 11400000, guid: bf2bbc7c9973d9e45969b2197aa82a0f, type: 2}
+        UpdateInterval: 0.1
+        OutputMappings:
+        - OutputName: HasAttackToken
+          ExpectedType: 0
+          TargetSlot: {fileID: 11400000, guid: 06f2869bb1313f54eaa3278db751797e, type: 2}
+--- !u!114 &5712152816918719345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4cb3637f74f5fc4ba6875a759ecaf3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapAgent
+  _brain: {fileID: 11400000, guid: aeb3647ea32f277469f11c0d93223366, type: 2}
+  _overrideStartState:
+    Name: 
+    StateId:
+      Part1: 3629877764
+      Part2: 1093983718
+      Part3: 96621486
+      Part4: 2603469948
+    Actions: []
+    Goals: []
+    Beliefs: []
+    RequiredBeliefs: []
+    GraphVisualData: 
+  _transitionCheckInterval: 0.1
+  _maxConsecutiveFailures: 5
+  _replanCooldown: 0.25
+  _enableGoalPreemption: 1
+  _goalReevaluationInterval: 0.5
+  _goalPreemptionMargin: 0.1
+  _debugPlanSearch: 0
+  _currentGoalName: 
+  _currentActionName: 
+  references:
+    version: 2
+    RefIds: []
+--- !u!114 &8574968284677836948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5750721582263145223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0efeeb3d51b23f458ea90d2bc5307aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy.Goap::Rokkan.Prophecy.Goap.GoapTraceProbe
+  _interval: 0.5
+--- !u!1 &7670929028324034323
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7118330935137254072}
+  - component: {fileID: 1213661560822662100}
+  - component: {fileID: 5414215783084595511}
+  m_Layer: 0
+  m_Name: Body
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7118330935137254072
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7670929028324034323}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.9, z: 0}
+  m_LocalScale: {x: 0.9, y: 0.9, z: 0.9}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3662275141688354749}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &1213661560822662100
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7670929028324034323}
+  m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &5414215783084595511
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7670929028324034323}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 1
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}

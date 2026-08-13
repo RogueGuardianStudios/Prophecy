@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 029d41b07dcf1b84893d241577df4157, type: 3}
+  m_Name: Province_MesaMoor
+  m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldProvince
+  DisplayName: Mesa Moor
+  MapTint: {r: 0.75, g: 0.45, b: 0.25, a: 1}
+  Wanderers:
+  - Prefab: {fileID: 9148650902389916593, guid: 9ee101770fea1744590c300d40d118fb, type: 3}
+    Weight: 1
+  SpawnEverySeconds: 8
+  MaxAlive: 3
+  EncounterScene: GrayBox_Traversal
+  EncounterSpawnId: centre

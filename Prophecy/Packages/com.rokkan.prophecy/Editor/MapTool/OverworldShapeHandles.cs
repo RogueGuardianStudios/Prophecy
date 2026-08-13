@@ -1,0 +1,548 @@
+using System.Collections.Generic;
+using Rokkan.Prophecy.Overworld;
+using UnityEditor;
+using UnityEngine;
+
+namespace Rokkan.Prophecy.Editor.MapTool
+{
+    /// <summary>
+    /// Everything the tool knows about one shape kind, in one row: what the panel calls it, how
+    /// to reach its array in the map, which extras it takes (province, cover), and how one of it
+    /// draws. <see cref="OverworldShapeHandles.Draw"/> and the window's selection panel both
+    /// iterate THESE — adding a kind is adding a descriptor, not finding five switches, and a
+    /// rename can no longer be discarded by a write-case someone forgot to mirror.
+    /// </summary>
+    internal sealed class OverworldShapeKind
+    {
+        public int Kind;
+        public string PanelLabel;
+
+        /// <summary>How many of this kind the map holds (a null array is zero).</summary>
+        public System.Func<OverworldMap, int> Count;
+
+        public System.Func<OverworldMap, int, string> GetName;
+        public System.Action<OverworldMap, int, string> SetName;
+
+        /// <summary>Province accessors — null on kinds that carry no gameplay rules.</summary>
+        public System.Func<OverworldMap, int, OverworldProvince> GetProvince;
+        public System.Action<OverworldMap, int, OverworldProvince> SetProvince;
+
+        /// <summary>Cover accessors — layers only.</summary>
+        public System.Func<OverworldMap, int, CoverStyle> GetCover;
+        public System.Action<OverworldMap, int, CoverStyle> SetCover;
+
+        /// <summary>Draw shape <c>index</c>: (map, preview, offset, index, selected, select).</summary>
+        public System.Action<OverworldMap, OverworldMapPreview, Vector2, int, bool, System.Action>
+            DrawShape;
+
+        public bool HasProvince => SetProvince != null;
+        public bool HasCover => SetCover != null;
+    }
+
+    /// <summary>
+    /// Scene-view handles for the map's shape vocabulary: drag region and layer rects, ramp
+    /// strips, river and road courses where they actually live, over the live preview. Every
+    /// mutation is one undo step (Unity groups per drag), dirties the asset, and marks the
+    /// shape's old and new cell footprints on the preview so only the touched chunks rebuild.
+    ///
+    /// <para>The transform convention matches the RASTERIZER, not intuition: the compiler maps
+    /// world to shape-local by rotating through <c>-RotationDegrees</c>, so local-to-world here
+    /// rotates by <c>+RotationDegrees</c> — the drawn outline must be the compiled footprint or
+    /// the tool lies.</para>
+    /// </summary>
+    internal static class OverworldShapeHandles
+    {
+        private static readonly Color RegionColour = new Color(0.35f, 0.9f, 0.4f, 0.9f);
+        private static readonly Color LayerColour = new Color(0.8f, 0.5f, 1f, 0.9f);
+        private static readonly Color RampColour = new Color(1f, 0.8f, 0.25f, 0.9f);
+        private static readonly Color RiverColour = new Color(0.3f, 0.6f, 1f, 0.9f);
+        private static readonly Color RoadColour = new Color(0.85f, 0.7f, 0.45f, 0.9f);
+
+        // Selection kinds, matched by the window's stored (_selectedKind, _selectedIndex).
+        public const int KindRegion = 0;
+        public const int KindLayer = 1;
+        public const int KindRamp = 2;
+        public const int KindRiver = 3;
+        public const int KindRoad = 4;
+        public const int KindBiomeArea = 5;
+        public const int KindGreeble = 6;
+
+        private static readonly Color BiomeAreaColour = new Color(0.95f, 0.6f, 0.2f, 0.9f);
+        private static readonly Color GreebleColour = new Color(0.1f, 0.5f, 0.2f, 0.9f);
+
+        /// <summary>The kinds, in draw order — later entries' handles sit atop earlier ones,
+        /// so the terrain-defining shapes win contested clicks.</summary>
+        public static readonly OverworldShapeKind[] Kinds =
+        {
+            new OverworldShapeKind
+            {
+                Kind = KindBiomeArea,
+                PanelLabel = "Biome Area",
+                Count = m => m.BiomeAreas != null ? m.BiomeAreas.Length : 0,
+                GetName = (m, i) => m.BiomeAreas[i].Name,
+                SetName = (m, i, v) => m.BiomeAreas[i].Name = v,
+                GetProvince = (m, i) => m.BiomeAreas[i].Province,
+                SetProvince = (m, i, v) => m.BiomeAreas[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.BiomeAreas[i].Centre, map.BiomeAreas[i].Size,
+                                    map.BiomeAreas[i].RotationDegrees, 0f),
+                             (c, s, r) =>
+                             {
+                                 map.BiomeAreas[i].Centre = c;
+                                 map.BiomeAreas[i].Size = s;
+                                 map.BiomeAreas[i].RotationDegrees = r;
+                             },
+                             BiomeAreaColour, map.BiomeAreas[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindGreeble,
+                PanelLabel = "Greeble Mass",
+                Count = m => m.Greebles != null ? m.Greebles.Length : 0,
+                GetName = (m, i) => m.Greebles[i].Name,
+                SetName = (m, i, v) => m.Greebles[i].Name = v,
+                GetProvince = (m, i) => m.Greebles[i].Province,
+                SetProvince = (m, i, v) => m.Greebles[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Greebles[i].Centre, map.Greebles[i].Size,
+                                    map.Greebles[i].RotationDegrees, 0f),
+                             (c, s, r) =>
+                             {
+                                 map.Greebles[i].Centre = c;
+                                 map.Greebles[i].Size = s;
+                                 map.Greebles[i].RotationDegrees = r;
+                             },
+                             GreebleColour, map.Greebles[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRegion,
+                PanelLabel = "Terrain",
+                Count = m => m.Regions != null ? m.Regions.Length : 0,
+                GetName = (m, i) => m.Regions[i].Name,
+                SetName = (m, i, v) => m.Regions[i].Name = v,
+                GetProvince = (m, i) => m.Regions[i].Province,
+                SetProvince = (m, i, v) => m.Regions[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Regions[i].Centre, map.Regions[i].Size,
+                                    map.Regions[i].RotationDegrees, map.Regions[i].Y),
+                             (c, s, r) =>
+                             {
+                                 map.Regions[i].Centre = c;
+                                 map.Regions[i].Size = s;
+                                 map.Regions[i].RotationDegrees = r;
+                             },
+                             RegionColour, map.Regions[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindLayer,
+                PanelLabel = "Layer",
+                Count = m => m.Layers != null ? m.Layers.Length : 0,
+                GetName = (m, i) => m.Layers[i].Name,
+                SetName = (m, i, v) => m.Layers[i].Name = v,
+                GetCover = (m, i) => m.Layers[i].Cover,
+                SetCover = (m, i, v) => m.Layers[i].Cover = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Layers[i].Centre, map.Layers[i].Size,
+                                    map.Layers[i].RotationDegrees, map.Layers[i].Y),
+                             (c, s, r) =>
+                             {
+                                 map.Layers[i].Centre = c;
+                                 map.Layers[i].Size = s;
+                                 map.Layers[i].RotationDegrees = r;
+                             },
+                             LayerColour, map.Layers[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRamp,
+                PanelLabel = "Ramp",
+                Count = m => m.Ramps != null ? m.Ramps.Length : 0,
+                GetName = (m, i) => m.Ramps[i].Name,
+                SetName = (m, i, v) => m.Ramps[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRamp(map, preview, offset, map.Ramps[i], selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRiver,
+                PanelLabel = "River",
+                Count = m => m.Rivers != null ? m.Rivers.Length : 0,
+                GetName = (m, i) => m.Rivers[i].Name,
+                SetName = (m, i, v) => m.Rivers[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawCourse(map, preview, offset, map.Rivers[i].Name,
+                               () => map.Rivers[i].Points, p => map.Rivers[i].Points = p,
+                               map.Rivers[i].HalfWidth, RiverColour, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRoad,
+                PanelLabel = "Road",
+                Count = m => m.Roads != null ? m.Roads.Length : 0,
+                GetName = (m, i) => m.Roads[i].Name,
+                SetName = (m, i, v) => m.Roads[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawCourse(map, preview, offset, map.Roads[i].Name,
+                               () => map.Roads[i].Points, p => map.Roads[i].Points = p,
+                               map.Roads[i].HalfWidth, RoadColour, selected, select),
+            },
+        };
+
+        /// <summary>The descriptor a stored kind id names, or null — the window's selection
+        /// state survives domain reloads, so a stale id must answer softly.</summary>
+        public static OverworldShapeKind KindOf(int kind)
+        {
+            for (int i = 0; i < Kinds.Length; i++)
+                if (Kinds[i].Kind == kind) return Kinds[i];
+            return null;
+        }
+
+        public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
+                                System.Func<int, bool> visible,
+                                int selectedKind, int selectedIndex,
+                                System.Action<int, int> select)
+        {
+            if (map == null) return;
+            var offset = new Vector2(worldOffset.x, worldOffset.z);
+
+            foreach (var kind in Kinds)
+            {
+                if (!visible(kind.Kind)) continue;
+
+                int count = kind.Count(map);
+                for (int i = 0; i < count; i++)
+                {
+                    int index = i;
+                    kind.DrawShape(map, preview, offset, index,
+                                   selectedKind == kind.Kind && selectedIndex == index,
+                                   () => select(kind.Kind, index));
+                }
+            }
+        }
+
+        /// <summary>An unselected shape's whole presence: a small pick dot. Click to select.</summary>
+        private static bool PickDot(Vector3 pos, Color colour, string label)
+        {
+            Handles.color = colour;
+            Handles.Label(pos + Vector3.up * 0.4f, label);
+            return Handles.Button(pos, Quaternion.identity,
+                                  HandleUtility.GetHandleSize(pos) * 0.09f,
+                                  HandleUtility.GetHandleSize(pos) * 0.12f,
+                                  Handles.SphereHandleCap);
+        }
+
+        // ---------------------------------------------------------------- rects
+
+        private static void DrawRect(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
+                                     System.Func<(Vector2 centre, Vector2 size, float rot, float y)> read,
+                                     System.Action<Vector2, Vector2, float> write,
+                                     Color colour, string label, bool selected,
+                                     System.Action select)
+        {
+            var (centre, size, rot, y) = read();
+            float height = Mathf.Round(y / OverworldTileGrid.Step) * OverworldTileGrid.Step + 0.1f;
+            var world = centre + offset;
+            var pos = new Vector3(world.x, height, world.y);
+            var half = size * 0.5f;
+
+            Handles.color = selected ? colour : new Color(colour.r, colour.g, colour.b, 0.35f);
+            var corners = new Vector3[5];
+            corners[0] = RectPoint(world, new Vector2(-half.x, -half.y), rot, height);
+            corners[1] = RectPoint(world, new Vector2(-half.x, half.y), rot, height);
+            corners[2] = RectPoint(world, new Vector2(half.x, half.y), rot, height);
+            corners[3] = RectPoint(world, new Vector2(half.x, -half.y), rot, height);
+            corners[4] = corners[0];
+            Handles.DrawAAPolyLine(selected ? 4f : 1.5f, corners);
+
+            if (!selected)
+            {
+                if (PickDot(pos, colour, label)) select();
+                return;
+            }
+
+            Handles.color = colour;
+            Handles.Label(pos + Vector3.up * 0.4f, label);
+
+            // Centre move.
+            EditorGUI.BeginChangeCheck();
+            var moved = Handles.FreeMoveHandle(pos, HandleUtility.GetHandleSize(pos) * 0.12f,
+                                               Vector3.zero, Handles.SphereHandleCap);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Commit(map, preview, offset, centre, size, rot,
+                       new Vector2(moved.x, moved.z) - offset, size, rot, write);
+                return;
+            }
+
+            // Edge sliders for size, along the shape's own axes.
+            var axisX = RectDir(new Vector2(1f, 0f), rot);
+            var axisZ = RectDir(new Vector2(0f, 1f), rot);
+            TrySizeSlider(map, preview, offset, centre, size, rot, write, pos, axisX, half.x, true);
+            TrySizeSlider(map, preview, offset, centre, size, rot, write, pos, -axisX, half.x, true);
+            TrySizeSlider(map, preview, offset, centre, size, rot, write, pos, axisZ, half.y, false);
+            TrySizeSlider(map, preview, offset, centre, size, rot, write, pos, -axisZ, half.y, false);
+
+            // Rotation disc around the centre.
+            EditorGUI.BeginChangeCheck();
+            var q = Handles.Disc(Quaternion.Euler(0f, -rot, 0f), pos, Vector3.up,
+                                 Mathf.Min(half.x, half.y) * 0.7f, false, 0f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                float newRot = -q.eulerAngles.y;
+                if (newRot < -180f) newRot += 360f;
+                Commit(map, preview, offset, centre, size, rot, centre, size, newRot, write);
+            }
+        }
+
+        private static void TrySizeSlider(OverworldMap map, OverworldMapPreview preview,
+                                          Vector2 offset, Vector2 centre, Vector2 size, float rot,
+                                          System.Action<Vector2, Vector2, float> write,
+                                          Vector3 pos, Vector3 dir, float half, bool isX)
+        {
+            var handle = pos + dir * half;
+            EditorGUI.BeginChangeCheck();
+            var moved = Handles.Slider(handle, dir, HandleUtility.GetHandleSize(handle) * 0.08f,
+                                       Handles.CubeHandleCap, 0f);
+            if (!EditorGUI.EndChangeCheck()) return;
+
+            float newHalf = Mathf.Max(0.5f, Vector3.Dot(moved - pos, dir));
+            var newSize = isX ? new Vector2(newHalf * 2f, size.y) : new Vector2(size.x, newHalf * 2f);
+            Commit(map, preview, offset, centre, size, rot, centre, newSize, rot, write);
+        }
+
+        private static void Commit(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
+                                   Vector2 oldCentre, Vector2 oldSize, float oldRot,
+                                   Vector2 newCentre, Vector2 newSize, float newRot,
+                                   System.Action<Vector2, Vector2, float> write)
+        {
+            Undo.RecordObject(map, "Edit Overworld Shape");
+            write(newCentre, newSize, newRot);
+            EditorUtility.SetDirty(map);
+            MarkRect(preview, offset, oldCentre, oldSize);
+            MarkRect(preview, offset, newCentre, newSize);
+        }
+
+        /// <summary>Shape-local to world, the rasterizer's inverse: rotate by +RotationDegrees.</summary>
+        private static Vector3 RectPoint(Vector2 worldCentre, Vector2 local, float rotDeg, float y)
+        {
+            var r = RotateXZ(local, rotDeg);
+            return new Vector3(worldCentre.x + r.x, y, worldCentre.y + r.y);
+        }
+
+        private static Vector3 RectDir(Vector2 local, float rotDeg)
+        {
+            var r = RotateXZ(local, rotDeg);
+            return new Vector3(r.x, 0f, r.y).normalized;
+        }
+
+        private static Vector2 RotateXZ(Vector2 v, float rotDeg)
+        {
+            float rad = rotDeg * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(rad);
+            float sin = Mathf.Sin(rad);
+            return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
+        }
+
+        // ---------------------------------------------------------------- ramps
+
+        private static void DrawRamp(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
+                                     AuthoredRamp ramp, bool selected, System.Action select)
+        {
+            var a = ramp.Start + offset;
+            var b = ramp.End + offset;
+            var posA = new Vector3(a.x, ramp.StartY + 0.1f, a.y);
+            var posB = new Vector3(b.x, ramp.EndY + 0.1f, b.y);
+
+            Handles.color = selected ? RampColour
+                                     : new Color(RampColour.r, RampColour.g, RampColour.b, 0.35f);
+            Handles.DrawAAPolyLine(selected ? 4f : 1.5f, posA, posB);
+
+            if (!selected)
+            {
+                if (PickDot((posA + posB) * 0.5f, RampColour, ramp.Name)) select();
+                return;
+            }
+
+            var dir = (b - a).normalized;
+            var perp = new Vector3(-dir.y, 0f, dir.x);
+            Handles.DrawAAPolyLine(2f, posA - perp * ramp.HalfWidth, posB - perp * ramp.HalfWidth);
+            Handles.DrawAAPolyLine(2f, posA + perp * ramp.HalfWidth, posB + perp * ramp.HalfWidth);
+            Handles.Label((posA + posB) * 0.5f + Vector3.up * 0.4f, ramp.Name);
+
+            EditorGUI.BeginChangeCheck();
+            var movedA = Handles.FreeMoveHandle(posA, HandleUtility.GetHandleSize(posA) * 0.1f,
+                                                Vector3.zero, Handles.SphereHandleCap);
+            var movedB = Handles.FreeMoveHandle(posB, HandleUtility.GetHandleSize(posB) * 0.1f,
+                                                Vector3.zero, Handles.SphereHandleCap);
+            var mid = (posA + posB) * 0.5f + perp * ramp.HalfWidth;
+            var movedW = Handles.Slider(mid, perp, HandleUtility.GetHandleSize(mid) * 0.07f,
+                                        Handles.CubeHandleCap, 0f);
+            if (!EditorGUI.EndChangeCheck()) return;
+
+            Undo.RecordObject(map, "Edit Overworld Ramp");
+            MarkStrip(preview, offset, ramp.Start, ramp.End, ramp.HalfWidth);
+            ramp.Start = new Vector2(movedA.x, movedA.z) - offset;
+            ramp.End = new Vector2(movedB.x, movedB.z) - offset;
+            ramp.HalfWidth = Mathf.Max(0.5f, Vector3.Dot(movedW - (posA + posB) * 0.5f, perp));
+            EditorUtility.SetDirty(map);
+            MarkStrip(preview, offset, ramp.Start, ramp.End, ramp.HalfWidth);
+        }
+
+        // ---------------------------------------------------------------- polyline courses
+
+        private static void DrawCourse(OverworldMap map, OverworldMapPreview preview, Vector2 offset,
+                                       string label, System.Func<Vector2[]> read,
+                                       System.Action<Vector2[]> write, float halfWidth, Color colour,
+                                       bool selected, System.Action select)
+        {
+            var points = read();
+            if (points == null || points.Length == 0) return;
+
+            var preview3 = new Vector3[points.Length];
+            for (int i = 0; i < points.Length; i++)
+            {
+                var w = points[i] + offset;
+                preview3[i] = new Vector3(w.x, CourseHeight(preview, w), w.y);
+            }
+
+            Handles.color = selected ? colour : new Color(colour.r, colour.g, colour.b, 0.35f);
+            if (preview3.Length > 1) Handles.DrawAAPolyLine(selected ? 4f : 1.5f, preview3);
+
+            if (!selected)
+            {
+                if (PickDot(preview3[preview3.Length / 2], colour, label)) select();
+                return;
+            }
+
+            Handles.Label(preview3[0] + Vector3.up * 0.5f, label);
+
+            var e = Event.current;
+
+            // Shift+click a point deletes it (two points minimum stay).
+            // Otherwise every point is a free-move handle.
+            for (int i = 0; i < points.Length; i++)
+            {
+                if (e.shift && points.Length > 2)
+                {
+                    if (Handles.Button(preview3[i], Quaternion.identity,
+                                       HandleUtility.GetHandleSize(preview3[i]) * 0.12f,
+                                       HandleUtility.GetHandleSize(preview3[i]) * 0.15f,
+                                       Handles.SphereHandleCap))
+                    {
+                        Undo.RecordObject(map, "Delete Course Point");
+                        var list = new List<Vector2>(points);
+                        MarkStrip(preview, offset, points[Mathf.Max(0, i - 1)],
+                                  points[Mathf.Min(points.Length - 1, i + 1)], halfWidth);
+                        list.RemoveAt(i);
+                        write(list.ToArray());
+                        EditorUtility.SetDirty(map);
+                        return;
+                    }
+                    continue;
+                }
+
+                EditorGUI.BeginChangeCheck();
+                var moved = Handles.FreeMoveHandle(preview3[i],
+                                                   HandleUtility.GetHandleSize(preview3[i]) * 0.1f,
+                                                   Vector3.zero, Handles.SphereHandleCap);
+                if (!EditorGUI.EndChangeCheck()) continue;
+
+                Undo.RecordObject(map, "Move Course Point");
+                var old = points[i];
+                points[i] = new Vector2(moved.x, moved.z) - offset;
+                write(points);
+                EditorUtility.SetDirty(map);
+                MarkStrip(preview, offset, old, points[i], halfWidth);
+            }
+
+            // Ctrl+click inserts a point on the nearest segment.
+            if (e.control && e.type == EventType.MouseDown && e.button == 0 && points.Length > 1)
+            {
+                var ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+                if (Mathf.Abs(ray.direction.y) > 1e-4f)
+                {
+                    float t = -ray.origin.y / ray.direction.y;
+                    var hit = ray.origin + ray.direction * t;
+                    var p = new Vector2(hit.x, hit.z) - offset;
+
+                    int best = -1;
+                    float bestDist = 2f;   // metres — a deliberate click, not a stray one
+                    for (int i = 0; i + 1 < points.Length; i++)
+                    {
+                        float d = DistanceToSegment(p, points[i], points[i + 1]);
+                        if (d < bestDist) { bestDist = d; best = i; }
+                    }
+
+                    if (best >= 0)
+                    {
+                        Undo.RecordObject(map, "Insert Course Point");
+                        var list = new List<Vector2>(points);
+                        list.Insert(best + 1, p);
+                        write(list.ToArray());
+                        EditorUtility.SetDirty(map);
+                        MarkStrip(preview, offset, points[best], points[best + 1], halfWidth);
+                        e.Use();
+                    }
+                }
+            }
+        }
+
+        private static float CourseHeight(OverworldMapPreview preview, Vector2 world)
+        {
+            var grid = preview?.Grid;
+            if (grid != null && grid.TryCellAt(world, out int x, out int z))
+                return grid.SurfaceHeight(x, z, world) + 0.3f;
+            return 0.3f;
+        }
+
+        private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            var ab = b - a;
+            float t = ab.sqrMagnitude < 1e-6f
+                ? 0f
+                : Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+            return (p - (a + ab * t)).magnitude;
+        }
+
+        // ---------------------------------------------------------------- dirty marking
+
+        private static void MarkRect(OverworldMapPreview preview, Vector2 offset,
+                                     Vector2 centre, Vector2 size)
+        {
+            var grid = preview?.Grid;
+            if (grid == null) { preview?.MarkAll(); return; }
+
+            // Conservative: the rotated rect's axis-aligned bounds. Rotation extents are at
+            // most the half-diagonal, so use it outright — a slightly fat dirty set beats a
+            // hole in the preview.
+            float reach = size.magnitude * 0.5f;
+            var world = centre + offset;
+            int minX = Mathf.FloorToInt(world.x - reach - grid.Origin.x);
+            int maxX = Mathf.CeilToInt(world.x + reach - grid.Origin.x);
+            int minZ = Mathf.FloorToInt(world.y - reach - grid.Origin.y);
+            int maxZ = Mathf.CeilToInt(world.y + reach - grid.Origin.y);
+            preview.MarkCells(minX, minZ, maxX, maxZ);
+        }
+
+        private static void MarkStrip(OverworldMapPreview preview, Vector2 offset,
+                                      Vector2 a, Vector2 b, float halfWidth)
+        {
+            var grid = preview?.Grid;
+            if (grid == null) { preview?.MarkAll(); return; }
+
+            var wa = a + offset;
+            var wb = b + offset;
+            int minX = Mathf.FloorToInt(Mathf.Min(wa.x, wb.x) - halfWidth - grid.Origin.x);
+            int maxX = Mathf.CeilToInt(Mathf.Max(wa.x, wb.x) + halfWidth - grid.Origin.x);
+            int minZ = Mathf.FloorToInt(Mathf.Min(wa.y, wb.y) - halfWidth - grid.Origin.y);
+            int maxZ = Mathf.CeilToInt(Mathf.Max(wa.y, wb.y) + halfWidth - grid.Origin.y);
+            preview.MarkCells(minX, minZ, maxX, maxZ);
+        }
+    }
+}

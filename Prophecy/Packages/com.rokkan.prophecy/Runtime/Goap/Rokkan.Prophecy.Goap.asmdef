@@ -1,0 +1,19 @@
+{
+    "name": "Rokkan.Prophecy.Goap",
+    "rootNamespace": "Rokkan.Prophecy.Goap",
+    "references": [
+        "Rokkan.Prophecy",
+        "Rokkan.Prophecy.Sim",
+        "RGS.Core",
+        "RGS.GOAP.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

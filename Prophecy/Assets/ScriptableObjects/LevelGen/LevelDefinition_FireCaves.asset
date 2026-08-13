@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64985e7a5e91ec94ca4eb5fec2d8685f, type: 3}
+  m_Name: LevelDefinition_FireCaves
+  m_EditorClassIdentifier: Rokkan.WorldGen::Rokkan.WorldGen.Level.LevelDefinition
+  themeName: Fire Caves
+  satisfiesTags: []
+  topology: {fileID: 0}
+  layout: {fileID: 0}
+  placements:
+    _entries: []
+  gateDepth: 0
+  loopBias: 0.5
+  totalBudget: 100
+  injectionReserve: 20
+  tileSet: {fileID: 0}
+  enemyPool: {fileID: 0}
+  ambientTags: {fileID: 11400000, guid: 39ce55f67a159f64bb0de6470474b578, type: 2}
+  quests:
+  - {fileID: 11400000, guid: b8d48d1670251394d89c808042a6ee5e, type: 2}

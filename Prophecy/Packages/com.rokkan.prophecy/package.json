@@ -1,0 +1,8 @@
+{
+  "name": "com.rokkan.prophecy",
+  "version": "0.1.0",
+  "displayName": "Rokkan Prophecy",
+  "description": "The Legend of Rokkan: Prophecy — game code. Fixed-tick simulation (character motor, ability modules, combat windows, region flame state) plus the presentation layer that reads it. Simulation is plain C# and must run headless; MonoBehaviours capture input and render, and never decide gameplay outcomes. See CLAUDE.md at the repo root.",
+  "unity": "6000.5",
+  "author": { "name": "Rogue Guardian Studios" }
+}

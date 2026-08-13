@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 999a9eb2fefc02b4f9f2bc7d3630c718, type: 3}
+  m_Name: OverworldTileSet
+  m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldTileSet
+  Cap: {fileID: 4989135245176396796, guid: 6bfe05809397a3e47a2e8b75bcae70be, type: 3}
+  Ramp: {fileID: 4724167564379898507, guid: 19c4ff0afcd7f5843bb7df500cd4d692, type: 3}
+  Stairs: {fileID: 79829700328627339, guid: 1be845bab02cad74cb8bd38a081db61d, type: 3}
+  Water: {fileID: 7734485407923312560, guid: 9c9cf75ecaed1df458a9f4375dc86b14, type: 3}
+  Face1: {fileID: 7123306789930728420, guid: 8f8e8cd2e1873a247907ad61686afc1e, type: 3}
+  Face2: {fileID: 1586593366458235448, guid: 191b38055b3d79a45828ca309cc67fba, type: 3}
+  Face3: {fileID: 8685963266585766375, guid: 809d9526e1b1b6c4894bd1e985066cd8, type: 3}
+  OuterPost1: {fileID: 4609461842451376927, guid: 46bb7c52b63111748b4c1613d1a3a56d, type: 3}
+  OuterPost2: {fileID: 4012272971760240971, guid: d2e92c3bba25f2c40bf90af1360eb88f, type: 3}
+  OuterPost3: {fileID: 2626040363220382616, guid: 28f3eb4cd6c7a2e4187c22b60932308c, type: 3}
+  InnerPost1: {fileID: 899079952453498417, guid: 5bbe7b6374e864a42bbaa5ee9fc7694a, type: 3}
+  InnerPost2: {fileID: 349971269593067338, guid: 097e65fd2ba89ff4b82d406932b67a39, type: 3}
+  InnerPost3: {fileID: 7240174135816331776, guid: d7cc4613b05f93843a439c0f792392f9, type: 3}
+  Cheek: {fileID: 6621448988658685898, guid: 7bcc3c71a36d6e549ad7ec5804b2ce8c, type: 3}
+  CheekMirrored: {fileID: 3598235357293197938, guid: db1cc3ea1cc4ea34b82eb1adb187a386, type: 3}
+  ShoreEdge: {fileID: 8169601429533501762, guid: f589b6c0d6da72746a3611f0139d010f, type: 3}
+  ShoreOuterPost: {fileID: 6488796543752876660, guid: b862d08464a41c34c91978b17e58998a, type: 3}

@@ -1,0 +1,30 @@
+{
+    "name": "Rokkan.Prophecy.Tests",
+    "rootNamespace": "Rokkan.Prophecy.Tests",
+    "references": [
+        "Rokkan.Prophecy",
+        "Rokkan.Prophecy.Sim",
+        "Rokkan.Prophecy.Goap",
+        "RGS.GOAP.Core",
+        "RGS.Core",
+        "Rokkan.Core",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Rokkan.Prophecy.Overworld"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

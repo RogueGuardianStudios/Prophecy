@@ -1,0 +1,159 @@
+# Prophecy — pre-release checklist
+
+Things deliberately set for development that **must be revisited before shipping**. Each entry
+says what was changed, why, and what "done" looks like — a checklist item nobody can act on
+because they don't know the reasoning is just a nag.
+
+Add to this the moment you set something for convenience rather than for the player. The cost of
+an entry here is thirty seconds; the cost of shipping a debug default is a review.
+
+---
+
+## Settings
+
+### `runInBackground` — turn OFF before release
+
+**Set to ON:** 2026-07-29, during M3.
+**Where:** `Edit → Project Settings → Player → Resolution and Presentation → Run In Background*`
+(`ProjectSettings.asset`, key `runInBackground`).
+
+**Why it was turned on:** Unity freezes play mode the instant the Editor loses focus, which makes
+it impossible to drive a play test from outside the Editor — the sim stalls at `frameCount = 1`
+and a perfectly good collision bake looks broken. It is genuinely needed for tooling-driven
+verification.
+
+**Why it must come off:** it also governs the shipped build. Left on, the game keeps simulating
+while alt-tabbed — enemies keep moving, the fixed tick keeps accumulating, and a player who tabs
+out to answer a message comes back dead. For a single-player action game the correct shipping
+behaviour is to pause.
+
+**Done looks like:** `runInBackground: 0` in `ProjectSettings.asset`, and a deliberate decision
+about what the game does when it loses focus (pause menu? silent pause?) rather than an accident.
+
+### `SENTIS_ANALYTICS_ENABLED` scripting define — decide, don't inherit
+
+**Appeared:** 2026-07-29, in the `Standalone` defines of `ProjectSettings.asset`. Set by
+`com.unity.ai.inference` 2.6.1 — Unity's on-device neural-network inference runtime, formerly
+named **Sentis**, which is why the define does not match any package name in the manifest.
+
+**What it is:** Sentis / Inference Engine runs ONNX models inside the game on Burst or compute
+shaders (the successor to Barracuda). The define gates that package's analytics path, and it is a
+*Standalone* define, so it compiles into player builds rather than being editor-only.
+
+**Worth knowing:** `com.unity.ai.inference` is a **depth-0 entry in `manifest.json`**, not a
+transitive dependency — `com.unity.ai.assistant` (which ships the MCP server this project uses)
+does not declare it in `packages-lock.json`. So it is very likely removable without losing the
+Editor tooling.
+
+**Done looks like:** either the package is genuinely used for gameplay ML — nothing in Prophecy
+currently is — or it is removed from the manifest, which takes the define with it. Verify the MCP
+relay still works after removal before committing to it.
+
+---
+
+## Content
+
+### `AbilityLoadout_GrayBox` is not the shipping loadout
+
+Every ability is switched on so the gray box can be tested. The real game unlocks them over the
+course of the story.
+
+**Done looks like:** a separate loadout asset assigned to the player prefab, with the starting
+moveset only, and the unlock schedule driven by progression rather than by this asset being
+hand-edited.
+
+### `ArenaStations` warp is editor scaffolding
+
+Number keys teleport the player between arena stations and restore health. It exists because the
+arena is over a hundred metres long and the stations that fight back are at the far end, so testing
+a parry window meant a long walk before every attempt.
+
+**Done looks like:** the component is gone, along with the gray-box scenes it belongs to. It is on
+a generated scene object, so deleting the generator call removes it — nothing in Bootstrap or the
+player prefab references it.
+
+### Death is a respawn, and that is scaffolding
+
+`SceneDescriptor.RespawnOnDeath` ships **on**. Running out of health puts the player back at the
+scene's spawn point with every stat restored — exactly what falling off the level does, sharing
+`SceneDirector.Respawn` so the two cannot drift.
+
+This exists because a defensive system you cannot lose to is one you cannot test: dying at a
+training dummy should cost a second, not a play session. It is **not a design decision**. Zelda II's
+own rule is back to the start with everything else intact, but Prophecy's binding economy may want
+something else entirely — and the answer belongs with the Protector fights, alongside the
+health-economy question the finisher model already raised.
+
+**Done looks like:** a real death flow exists and this flag is off — or a deliberate note here
+saying the placeholder *is* the design, with the reasoning written down.
+
+### `MovementDebugOverlay` must not ship visible
+
+F1 overlay on the `UI` object in `Bootstrap`. It ships enabled and visible-on-start. The F2
+`CombatDebugOverlay` beside it is the same story, and additionally draws hit volumes with `GL`
+every frame.
+
+**Done looks like:** both off by default in release builds — or stripped entirely, since they also
+carry an IMGUI dependency that a shipping UI has no other reason to include.
+
+### Stock `InputSystem_Actions.inputactions` is still in the project
+
+The URP template's input asset. `Prophecy.inputactions` replaced it functionally, but the stock
+one was deliberately left alone because template scenes and project settings may still reference
+it.
+
+**Done looks like:** references audited, then deleted — or a note here saying which asset still
+needs it and why.
+
+### Rank numerals borrow an OS serif font
+
+**Set:** 2026-08-12, `UiBuild.Serif` — the pack sheet's rank values render in the first of
+Georgia / Times New Roman / Cambria found on the machine, because a sans roman numeral I reads
+as a lowercase l and Unity ships no serif.
+
+**Done looks like:** a serif font asset bundled with the project and used instead — an OS
+lookup is fine on Matt's machine and a silent sans fallback anywhere else, which is not a
+shipping answer.
+
+### The player starts with half a rite of Resolve
+
+**Set:** 2026-08-12, in `PlayerCharacterFactory.Create` — `AwardResolve(cost / 2)` right after
+the stat seeding.
+
+**Why:** nothing awards Resolve yet, so the pack sheet's Resolve seam would sit empty forever;
+Matt asked for a 50% fill to test the bar against. It cannot accidentally level — `AwardResolve`
+only converts at the full threshold.
+
+**Done looks like:** the line is deleted the day anything real awards Resolve, and a fresh
+player's seam starts honestly empty.
+
+### Enemy GOAP diagnostics — `_debugPlanSearch`, `GoapTraceProbe`, `EnemyBrainHost._trace`
+
+Three diagnostics turned on while bringing the first planner-driven enemy up, all set by
+`EnemyBuilder` and so re-applied every time the enemy is regenerated:
+
+- `GoapAgent._debugPlanSearch` — per-frame planner search detail, on because the package's own
+  planning-failure message recommends it.
+- `GoapTraceProbe` — a component that writes `Logs/goap-trace.txt` every half second.
+- `EnemyBrainHost._trace` — writes `Logs/enemy-trace.txt` every 30 ticks.
+
+The trace writers are `#if UNITY_EDITOR`, so they cannot reach a player; `_debugPlanSearch` is a
+serialized bool and **will** ship enabled if nobody clears it.
+
+**Done looks like:** `_debugPlanSearch` wired to `false` in `EnemyBuilder.AttachGoap`, and the
+probe component dropped from the prefab once enemies plan reliably.
+
+---
+
+## Verification
+
+### Combat timing at 30 / 60 / 144 fps
+
+Already covered by `MovementTests.Movement_IsIdenticalAt30_60_And144Fps` for movement. The same
+guarantee has to hold for combat once `AttackTimeline` exists, and the check belongs in the test
+suite rather than in someone's memory.
+
+### The sim must still run headless
+
+`SimArchitectureGateTests` enforces it structurally, but confirm a real headless run before
+shipping — the gate proves no type is coupled, not that a build with no display actually starts.

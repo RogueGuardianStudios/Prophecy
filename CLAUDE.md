@@ -1,0 +1,161 @@
+# Prophecy — project guide
+
+**The Legend of Rokkan: Prophecy** — a 2.5D Zelda II homage in the Rokkan universe. Cel-shaded 3D over axis-constrained gameplay, top-down overworld + side-scroll action. The player is the cataclysm: binding the Protectors to grow strong is what ends the world.
+
+- **Design bible:** `Plans/Design-Bible.md` (the canonical spec — read before making design calls)
+- **Gray box plan:** `Plans/Gray-Box-Build-Plan.md` (proxy & gray box phase, lock-order)
+- **Release checklist:** `Plans/Release-Checklist.md` — dev-only settings that must be reverted before shipping. **Add an entry whenever you set something for convenience rather than for the player** (e.g. `runInBackground` is currently ON so play mode survives losing focus; it must ship OFF).
+
+## ⚠️ The repo is nested one level deeper than it looks
+
+```
+C:\Users\MattS\Documents\RGS\Prophecy\Prophecy\     <- GIT ROOT
+    .gitignore                                      <- repo-level (anchors resolve HERE)
+    CLAUDE.md, Plans/
+    Prophecy\                                       <- UNITY PROJECT ROOT
+        .gitignore                                  <- Unity-level (anchors resolve HERE)
+        Assets\  Packages\  ProjectSettings\
+```
+
+**Both `.gitignore` files are required.** The repo-root one uses root-anchored patterns (`/[Ll]ibrary/`, `/[Tt]emp/`, …) that resolve against the git root and so never match the nested Unity project. Without the second copy, `git add .` commits the entire `Library/` folder. If you touch either file, verify with:
+
+```bash
+git check-ignore -q Prophecy/Library/ && echo ok
+git status --porcelain -uall | grep -Ei "Library/|/Temp/|/obj/|\.csproj|\.sln"   # must be empty
+```
+
+A clean baseline is ~109 files (Assets + Packages + ProjectSettings). Thousands means the ignore broke.
+
+## Environment
+
+| | |
+|---|---|
+| Unity | **6000.5.0f1** — this is the target version for shared packages |
+| Pipeline | URP 17.5.0, active (`Assets/Settings/PC_RPAsset.asset`) |
+| Input | Input System 1.19.0, `activeInputHandler: 1` — **new system only**, old Input Manager is off |
+| TextMeshPro | via `com.unity.ugui` 2.5.0 (no standalone TMP package in Unity 6) |
+| Cinemachine | **3.1.7** — 3.1.4 and earlier do **not compile** on Unity 6000.5 (they call `Object.GetInstanceID()`, now an error-level obsolete, CS0619). The hand-rolled `FollowCamera` it replaced is gone; `LaneCameraRig` drives it. |
+| Scale | 1 unit = 1 metre. Levels are composed in **lanes** — a floor-to-floor module of `StandHeight × LaneHeightMultiplier` (1.8 × 2 = **3.6 m**). **Camera framing is authored as the character's share of the viewport, not as a lane count** — `LaneCameraRig._characterViewportShare` is **0.20**, so the visible height is derived (1.8 / 0.2 = 9 m = 2.5 lanes) and the character reads the same size however the body or the lane is retuned. Feet sit at 37.5% up the frame. |
+
+Vendor folders to leave alone: `Assets/ai.meshy/` (Meshy Bridge plugin, GPL-3.0), `Assets/MeshyImports/` (throwaway test generations), `Assets/TutorialInfo/` (URP template).
+
+## Sibling project — HopeFell
+
+`C:\Users\MattS\Documents\RGS\HopeFell` — Unity 6000.3.0f1, repo `RogueGuardianStudios/HopeFell`, governed by `docs/systems-contract.md`.
+
+**HopeFell is the *next* game, not a live one.** Prophecy ships first and drives the shared packages; HopeFell catches up later. So: refine shared code freely for Prophecy's needs, but **log every shared-package change** in `MIGRATION-HopeFell.md` so the catch-up is a checklist, not archaeology.
+
+Reusable material lives in HopeFell's `Packages/`, **not** its `Assets/`.
+
+### Shared packages — `C:\Users\MattS\Documents\RGS\Packages\` (its own git repo)
+
+| Package | Holds | Status |
+|---|---|---|
+| `com.rgs.core` **0.2.0** | `SerializableGuid`, `TagMask128`, RNG streams, `ISerializer`/`JsonSerializer`, `PersistentSingleton`, `VectorMath`, `DeterministicMath`, **`RGS.Core.Sim`** (the 60 Hz fixed-tick spine) | ✅ extracted, consumed |
+| `com.rokkan.core` | `SavePrimitives.cs` (`ISaveable`, `IBind<T>`) | ✅ extracted, consumed |
+| `com.rokkan.animation` | The clip-injection system | ⏳ planned M4 |
+| `com.rgs.goap` **2.0.0** | GOAP: Burst A* planner, Recollection memory, blackboard, editor suite | ✅ extracted, consumed. **Framework only** — HopeFell's beliefs, sensors and demos stayed behind; Prophecy supplies sensors that read the sim |
+
+Consumed via `file:../../../../Packages/<name>` in `Prophecy/Packages/manifest.json`. The path is relative to the **Packages folder** and is four levels up because of the nested layout — if Unity reports a package cannot be resolved, that depth is the thing to check.
+
+> ⚠️ **Tests in `file:` packages only run if the package is in `testables`.** Unity compiles tests from *embedded* packages (physically inside `Packages/`, like `com.rokkan.prophecy`) automatically, but silently ignores test assemblies in local/registry packages unless the package name appears in the `"testables"` array of `manifest.json`. A missing entry does not error — the tests just never run and the suite reports green. **Add every new shared package to `testables`**, then confirm its `*.Tests.dll` appears in `Library/ScriptAssemblies/`.
+
+**These were copied, not moved.** HopeFell was mid-work (branch `foundry/docs-tdd`, 15 uncommitted changes) and is byte-for-byte untouched; it keeps its own embedded copies until its turn comes. **Log every shared-package change in `RGS/Packages/MIGRATION-HopeFell.md`** — that file is HopeFell's adoption checklist and the only thing preventing its catch-up becoming archaeology.
+
+The shared `Sim` files deliberately reuse HopeFell's original `.meta` GUIDs so its existing `SimClockDriver` scene references resolve after migration. **Do not regenerate those `.meta` files.**
+
+## Architecture rules
+
+### Sim / presentation split — binding
+
+Inherited from HopeFell's contract §6.2 and adopted deliberately:
+
+> **Simulation is plain C# on a fixed tick and must run headless. MonoBehaviours read sim state and capture input; they never decide gameplay outcomes.**
+
+- Sim systems implement `ISimSystem` — no `MonoBehaviour`, `Transform`, `Animator`, `Camera`. Tick at 60 Hz, read `SimConstants.FixedDeltaSeconds`, **never** `Time.deltaTime`.
+- Because a capsule-cast mover can't run headless, **sim owns its own `CollisionWorld`** (plain AABBs). A `CollisionBaker` fills it from scene colliders once at load — outside the tick, so the split holds.
+- Presentation interpolates between the last two sim states; 60 Hz sim renders stepped otherwise.
+- Acceptance test: the sim runs headless. If it can't, the split is broken somewhere.
+
+### Combat timing is authored in ticks, never animation events
+
+HopeFell learned this the expensive way — its `ClipEventChannel` carries a **VESTIGIAL** annotation: hit/parry/i-frame/block windows were demoted off animation events onto a fixed-tick `AttackTimeline`, with an explicit *"do not re-attach gameplay decisions to these."*
+
+- Hit windows, parry windows, i-frames, cancel windows → **authored tick counts** on a timeline.
+- Animation event channels → VFX, SFX, footsteps, visual sync **only**.
+
+### Hitboxes are sim-side AABBs, not trigger colliders
+
+Design bible §6.1 and §7 both say "trigger-collider hitboxes". **They are superseded**, agreed
+2026-07-29. Trigger colliders put hit resolution outside the fixed tick and need a live
+`PhysicsScene`, which would break the headless contract and make combat timing untestable — the
+same reasoning that gave the sim its own `CollisionWorld`, and the same mistake HopeFell already
+paid for once with animation events.
+
+Hits resolve as plain AABB overlaps inside the tick. Presentation may mirror them as gizmos for
+debugging; it must never own the decision. The acceptance test is unchanged: **identical combat
+results at 30, 60 and 144 fps.**
+
+### Ability modules never reference each other
+
+Modules talk only through the controller, which arbitrates via **action locks** (`LockFlags { Move, Turn, Jump, Attack, Defend }` + priority + cancel window). Adding a new module must not require editing an existing one — that's the architecture test. Cancel windows read sim elapsed ticks, never frame time.
+
+### Enemies never share state — GOAP strategies and sensors are stateless
+
+Enemy A must not be able to reach anything of enemy B's. A's swing does not start B's cooldown, and
+a patrol direction is one enemy's heading, not the level's.
+
+The trap is that `GoapActionStrategy` and `GoapSensorSO` are **ScriptableObjects — one instance for
+the whole game**. A field on one is a global variable wearing a member's clothing. It has already
+cost a caster that never fired: the grunt stamped its swing tick on the shared `SwingStrategy`, the
+caster read it, concluded it had already attacked, and skipped the shot. No error, no failed plan.
+
+- Per-agent working state lives on **`EnemyBrainHost.ActionScratch`**, which exists once per enemy.
+- Serialized fields on a strategy are fine — those are authored config, identical for every agent by
+  design and never written at runtime.
+- Enforced by `StrategyIsolationGateTests`, which fails on any private non-readonly, non-serialized
+  instance field on a strategy or sensor. The failure is invisible with one enemy in the scene and
+  only appears once two of a kind exist, which is when it is hardest to attribute — so it is a
+  structural test rather than a convention.
+
+### Animation
+
+`AnimationSystem` hijacks the `Animator` via a `PlayableGraph` and **nulls `runtimeAnimatorController`**. Consequence: direct `Animator.SetFloat`/`SetBool` calls become *silent no-ops*. Always route through the `IClipInjector` parameter facade.
+
+`PlayClip` returns a `ClipHandle` — a per-play subscription scope. Subscribe there, never to global events. `RaiseDone` fires exactly once per play (natural end, hot-swap, or cancel).
+
+## Conventions
+
+- Game code lives in `Assets/_Prophecy/` (underscore sorts above vendor folders) or in `Packages/com.rokkan.prophecy/`.
+- Assembly definitions: `Rokkan.Prophecy` (runtime), `Rokkan.Prophecy.Editor`, `Rokkan.Prophecy.Tests` (EditMode).
+- Namespaces: `Rokkan.Prophecy.*` — `Sim`, `Sim.Abilities`, `Combat`, `World`, `Presentation`, `Core`.
+- 4-space indent, `_camelCase` private fields, `[SerializeField]` over `public`.
+- Tuning numbers live in ScriptableObjects (`MovementTuning`, `CombatTuning`), never as literals in code — SO edits persist through play mode, so they are the live tuning surface.
+
+## Unity assets: use `unity-mcp`, never hand-author YAML
+
+Scenes, prefabs, materials, `.asset` files and `.inputactions` are fragile generated formats with GUID cross-references. **Never create or edit them with `Write`/`Edit`.** C# source is the exception — write that directly.
+
+**Unity's own MCP server is available** (`mcp__unity-mcp__*`). It ships inside `com.unity.ai.assistant` and is registered for this project as a stdio relay (`~/.unity/relay/relay_win.exe --mcp`). Use it for scene and prefab work, for running play mode, and for reading the console — it removes the need to ask the user to click things.
+
+*(Coplay was removed entirely — package and MCP registration. Ignore any lingering references to it.)*
+
+**One exception, on purpose: the gray box level geometry is generated from code.** `GrayBox_Traversal` is meant to be the living dictionary of level dimensions, with jump gaps sized off run speed and ledges at hang height — all *derived from* `MovementTuning`. So it is built by an idempotent `[MenuItem("Prophecy/Build/…")]` generator under `Editor/Build/`, not hand-placed. Retune a number, regenerate, and the geometry stays honest; hand-placed boxes silently rot the moment a value changes.
+
+Everything else — Bootstrap, the player prefab, the camera rig — is one-off imperative setup where a generator would be pure ceremony. Build those directly.
+
+### Running tests
+
+`Unity.exe -batchmode -runTests` **refuses to open a project an Editor already has open**. While Unity is running, use `Prophecy → Tests → Run EditMode Tests` (`Editor/TestRunnerMenu.cs`), which runs the suite in-process and writes `Logs/test-results.txt`. Use batchmode only when the Editor is closed.
+
+## Verification
+
+```bash
+# Prophecy sim gate (headless — a sim system touching a Transform must throw)
+Unity.exe -batchmode -runTests -projectPath <Prophecy> -testPlatform EditMode -assemblyNames Rokkan.Prophecy.Tests
+
+# One-time, after extracting shared packages: prove the move was faithful
+Unity.exe -batchmode -runTests -projectPath <HopeFell> -testPlatform EditMode -assemblyNames Rokkan.Gameplay.Tests
+```
+
+Combat timing must produce identical results at 30, 60 and 144 fps — if it doesn't, the fixed tick isn't doing its job.

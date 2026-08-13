@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7180119f90991418f7bb767c8a95db, type: 3}
+  m_Name: BodyAnimationSet
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.BodyAnimationSet
+  _entries:
+  - State: 0
+    Clip: {fileID: 1827226128182048838, guid: a4b8f2deec6a99945987cfc59b1b4e54, type: 3}
+    Loop: 1
+    ReferenceSpeed: 0
+  - State: 1
+    Clip: {fileID: 1827226128182048838, guid: 4f79281e6eb3df54889369eba3aa1c67, type: 3}
+    Loop: 1
+    ReferenceSpeed: 2.595
+  - State: 2
+    Clip: {fileID: 1827226128182048838, guid: d2995d8a62be0ce42a4e73698b62b275, type: 3}
+    Loop: 1
+    ReferenceSpeed: 7.271
+  - State: 3
+    Clip: {fileID: 1827226128182048838, guid: 52a2eb3158000934eb33267c807b8b15, type: 3}
+    Loop: 1
+    ReferenceSpeed: 0
+  - State: 4
+    Clip: {fileID: 1827226128182048838, guid: db828642e342e7a469d83568b41af133, type: 3}
+    Loop: 1
+    ReferenceSpeed: 1.457
+  - State: 5
+    Clip: {fileID: -2993534804863918692, guid: b3f40610e0721964c9679e65bd5a61bd, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 6
+    Clip: {fileID: 3874071007334998130, guid: 8a47dcc6235cb2746aa329ea965a6900, type: 3}
+    Loop: 1
+    ReferenceSpeed: 0
+  - State: 7
+    Clip: {fileID: 8511969792219828138, guid: 5b750a06450eb454f971cbc16c776fb4, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 9
+    Clip: {fileID: -2993534804863918692, guid: b3f40610e0721964c9679e65bd5a61bd, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 16
+    Clip: {fileID: 8952413660455403669, guid: b96a3e38fca3f1f4ab5c7baf1321adad, type: 3}
+    Loop: 1
+    ReferenceSpeed: 0
+  - State: 17
+    Clip: {fileID: -8364131450492058579, guid: 7966ebc17e0dc2a4b8faaf62594fb9b2, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 18
+    Clip: {fileID: -5694488986427802680, guid: adc1feaf8563f6247989bffd0737b6ad, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 19
+    Clip: {fileID: -377892130397285394, guid: b3ac7f325a7e6a843be780efd40ca046, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 20
+    Clip: {fileID: -7717634560727564301, guid: 9f773338b2a96174ebe9b63870034ca3, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 21
+    Clip: {fileID: 5800342443961765143, guid: 95697c3218923dd43aa160c110bfbc79, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 22
+    Clip: {fileID: 8332939666779294377, guid: b963d0c4e093a9c4ea792b8095e51ba2, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  - State: 25
+    Clip: {fileID: -7862834798869268496, guid: 90f98101f7a4c2c4bbbf30f76e7b91c7, type: 3}
+    Loop: 0
+    ReferenceSpeed: 0
+  _blendSeconds: 0.12
+  _minPlaybackSpeed: 0.25
+  _maxPlaybackSpeed: 2.5

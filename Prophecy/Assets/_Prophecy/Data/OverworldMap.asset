@@ -1,0 +1,1849 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6547e00349480143b6d625054419d9e, type: 3}
+  m_Name: OverworldMap
+  m_EditorClassIdentifier: Rokkan.Prophecy.Overworld::Rokkan.Prophecy.Overworld.OverworldMap
+  Topology: 1
+  Seed: 7
+  Spacing: 1
+  Jitter: 0.35
+  BoundsSize: {x: 192, y: 144}
+  Regions:
+  - Name: Heartland
+    Centre: {x: 0, y: 0}
+    Size: {x: 64, y: 44}
+    RotationDegrees: 0
+    Y: 0
+    Structured: 0
+    Province: {fileID: 11400000, guid: 92f98b7efd7653e4c8ae35852ff43327, type: 2}
+  - Name: West Reach
+    Centre: {x: -35.2, y: 8}
+    Size: {x: 24, y: 18}
+    RotationDegrees: 15
+    Y: 0
+    Structured: 1
+    Province: {fileID: 0}
+  - Name: East Cape
+    Centre: {x: 35.199997, y: -6}
+    Size: {x: 20, y: 16}
+    RotationDegrees: -20
+    Y: 0
+    Structured: 1
+    Province: {fileID: 0}
+  - Name: North Spur
+    Centre: {x: 10, y: 24.199997}
+    Size: {x: 18, y: 14}
+    RotationDegrees: 0
+    Y: 0
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: Foothills
+    Centre: {x: -20, y: 14}
+    Size: {x: 20, y: 14}
+    RotationDegrees: 0
+    Y: 2
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: Bluffs
+    Centre: {x: -24, y: 20}
+    Size: {x: 16, y: 11}
+    RotationDegrees: 0
+    Y: 4
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: Highlands
+    Centre: {x: -28, y: 25}
+    Size: {x: 13, y: 9}
+    RotationDegrees: 0
+    Y: 6
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: Crown
+    Centre: {x: -31, y: 29}
+    Size: {x: 10, y: 7}
+    RotationDegrees: 0
+    Y: 8
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: North Rise
+    Centre: {x: 10, y: 26}
+    Size: {x: 18, y: 10}
+    RotationDegrees: 0
+    Y: 2
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: North Shelf
+    Centre: {x: 14, y: 30}
+    Size: {x: 12, y: 7}
+    RotationDegrees: 0
+    Y: 4
+    Structured: 0
+    Province: {fileID: 0}
+  - Name: East Mesa
+    Centre: {x: 30, y: -6}
+    Size: {x: 10, y: 8}
+    RotationDegrees: 0
+    Y: 2
+    Structured: 0
+    Province: {fileID: 0}
+  Ramps:
+  - Name: Foothills Road
+    Start: {x: -14, y: 1}
+    End: {x: -14, y: 13}
+    StartY: 0
+    EndY: 2
+    HalfWidth: 2.5
+  - Name: Bluffs Climb
+    Start: {x: -18, y: 14}
+    End: {x: -18, y: 24}
+    StartY: 2
+    EndY: 4
+    HalfWidth: 2
+  - Name: Highlands Steps
+    Start: {x: -22, y: 20}
+    End: {x: -22, y: 29}
+    StartY: 4
+    EndY: 6
+    HalfWidth: 2
+  - Name: Crown Approach
+    Start: {x: -30, y: 24}
+    End: {x: -30, y: 32}
+    StartY: 6
+    EndY: 8
+    HalfWidth: 1.8
+  - Name: North Road
+    Start: {x: 8, y: 16}
+    End: {x: 8, y: 26}
+    StartY: 0
+    EndY: 2
+    HalfWidth: 2.5
+  - Name: Shelf Path
+    Start: {x: 13, y: 25}
+    End: {x: 13, y: 33}
+    StartY: 2
+    EndY: 4
+    HalfWidth: 2
+  - Name: Mesa Trail
+    Start: {x: 21, y: -6}
+    End: {x: 31, y: -6}
+    StartY: 0
+    EndY: 2
+    HalfWidth: 2
+  Layers:
+  - Name: Foothills Hollow
+    Centre: {x: -22, y: 9}
+    Size: {x: 3, y: 4}
+    RotationDegrees: 0
+    Y: 0
+    Cover: 0
+  - Name: Foothills Overlook
+    Centre: {x: -8.5, y: 12}
+    Size: {x: 3, y: 3}
+    RotationDegrees: 0
+    Y: 2
+    Cover: 0
+  - Name: Eastwater Bridge
+    Centre: {x: 12.699997, y: -4.5}
+    Size: {x: 6, y: 2}
+    RotationDegrees: 0
+    Y: 0
+    Cover: 0
+  Rivers:
+  - Name: Eastwater
+    Points:
+    - {x: 17, y: 26}
+    - {x: 17.5, y: 20}
+    - {x: 16, y: 12}
+    - {x: 14, y: 4}
+    - {x: 12, y: -8}
+    - {x: 14, y: -23}
+    HalfWidth: 1.5
+  Roads:
+  - Name: Mesa Road
+    Points:
+    - {x: -13, y: 0}
+    - {x: -4, y: 0}
+    - {x: 6, y: -2}
+    - {x: 12.699997, y: -4.5}
+    - {x: 19, y: -6}
+    HalfWidth: 1
+  CellOverrides:
+  - X: 103
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 105
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 107
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 108
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 109
+    Z: 44
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 45
+    Terrain: 2
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 45
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 107
+    Z: 45
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 108
+    Z: 45
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 109
+    Z: 45
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 110
+    Z: 45
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 46
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 107
+    Z: 46
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 108
+    Z: 46
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 109
+    Z: 46
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 110
+    Z: 46
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 47
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 109
+    Z: 47
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 48
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 49
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 50
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 106
+    Z: 50
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 105
+    Z: 51
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 96
+    Z: 52
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 52
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 52
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 105
+    Z: 52
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 96
+    Z: 53
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 53
+    Terrain: 1
+    Level: 1
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 53
+    Terrain: 1
+    Level: 1
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 53
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 96
+    Z: 54
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 54
+    Terrain: 1
+    Level: 1
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 54
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 54
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 92
+    Z: 55
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 93
+    Z: 55
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 55
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 95
+    Z: 55
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 96
+    Z: 55
+    Terrain: 1
+    Level: 1
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 55
+    Terrain: 1
+    Level: 1
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 55
+    Terrain: 1
+    Level: 1
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 55
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 85
+    Z: 56
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 1
+    Unwalkable: 0
+  - X: 86
+    Z: 56
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 92
+    Z: 56
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 56
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 102
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 103
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 104
+    Z: 56
+    Terrain: 1
+    Level: 2
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 92
+    Z: 57
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 93
+    Z: 57
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 57
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 57
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 101
+    Z: 57
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 92
+    Z: 58
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 93
+    Z: 58
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 98
+    Z: 58
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 58
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 93
+    Z: 59
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 59
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 79
+    Z: 60
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 80
+    Z: 60
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 93
+    Z: 60
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 60
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 73
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 74
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 75
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 76
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 77
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 78
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 79
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 93
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 61
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 73
+    Z: 62
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 93
+    Z: 62
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 62
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 73
+    Z: 63
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 93
+    Z: 63
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 63
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 73
+    Z: 64
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 2
+    Unwalkable: 0
+  - X: 93
+    Z: 64
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 64
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 93
+    Z: 65
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 65
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 65
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 66
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 66
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 100
+    Z: 66
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 67
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 67
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 113
+    Z: 67
+    Terrain: 1
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 68
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 99
+    Z: 68
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 94
+    Z: 69
+    Terrain: 0
+    Level: 0
+    Road: 1
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 75
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 75
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 61
+    Z: 75
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 76
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 76
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 76
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 76
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 61
+    Z: 76
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 55
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 61
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 92
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 93
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 94
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 95
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 96
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 97
+    Z: 77
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 54
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 55
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 61
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 78
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 54
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 55
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 79
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 54
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 55
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 80
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 55
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 97
+    Z: 81
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 55
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 61
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 92
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 93
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 94
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 95
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 96
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 97
+    Z: 82
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: -1
+    Greeble: 0
+    Unwalkable: 1
+  - X: 55
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 60
+    Z: 83
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 84
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 84
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 84
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 56
+    Z: 85
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 57
+    Z: 85
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 85
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 86
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 87
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 59
+    Z: 87
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 88
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 89
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  - X: 58
+    Z: 90
+    Terrain: 0
+    Level: 0
+    Road: 0
+    Biome: 1
+    Greeble: 0
+    Unwalkable: 0
+  Props:
+  - Name: Prop_Tree
+    Prefab: {fileID: 8252939163899602683, guid: 7b44befd02443d14dba3f7c236947cf1, type: 3}
+    Position: {x: -6.5, y: 3.5}
+    YawDegrees: 0
+    SurfaceLayer: 0
+    BlockCells: 1
+    BlockSize: {x: 1, y: 1}
+  BiomeAreas:
+  - Name: Mesa Moor
+    BiomeIndex: 0
+    Centre: {x: 30, y: -6}
+    Size: {x: 14, y: 12}
+    RotationDegrees: 0
+    Feather: 5
+    Province: {fileID: 11400000, guid: e4142a5a520a36047938ab89eabaefe4, type: 2}
+  Greebles:
+  - Name: Westwood
+    Centre: {x: -20, y: -12}
+    Size: {x: 10, y: 8}
+    RotationDegrees: 0
+    Province: {fileID: 11400000, guid: b42d9bcee241bdd49a21c6897e7a3ed2, type: 2}

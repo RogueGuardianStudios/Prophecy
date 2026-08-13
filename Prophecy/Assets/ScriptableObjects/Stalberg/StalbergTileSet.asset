@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6427cfa88bd8ce245984a5ef8fa85680, type: 3}
+  m_Name: StalbergTileSet
+  m_EditorClassIdentifier: Assembly-CSharp::RGS_Core.StalbergGrid.StalbergTileSet
+  void_NoGeometry: {fileID: 996707102748264680, guid: d747b4b640eb92e45824cbee56ffa589, type: 3}
+  concaveCorner: {fileID: 8660860436934894726, guid: fb537c93f52a77346ad387dcb20205ec, type: 3}
+  straightEdge: {fileID: 2056441662025913989, guid: 561e16a8c36fad64cbd694f130db968a, type: 3}
+  saddle: {fileID: 7682754105811411472, guid: 8008d8f87d3a7ee4daa54284b930f72b, type: 3}
+  convexCorner: {fileID: 2382054985249217073, guid: 3f1979e40263db347b0bf0a5c3489787, type: 3}
+  allFloor: {fileID: 8659546247831841311, guid: aca23188ffe08ad41ace3e0338512977, type: 3}
+  boundaryWall: {fileID: 5336001053924361903, guid: 86c033f9907844f48b3ed14b28d96697, type: 3}
+  doorPrefab: {fileID: 6946143921301264567, guid: 9153e1b043886b54b99be045bb6ab724, type: 3}
+  stairPrefab: {fileID: 6946143921301264567, guid: e2eb44e92575f424897af81ab22fb070, type: 3}
+  wallHeight: 3
+  skirtDepth: 10
+  arcSegments: 4
+  cornerSquareness: 1
+  wallCapWidth: 0.3

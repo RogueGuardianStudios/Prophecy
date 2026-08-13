@@ -1,0 +1,524 @@
+using System.Collections;
+using RGS.Core.Sim;
+using Rokkan.Prophecy.Presentation;
+using Rokkan.Prophecy.Sim;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace Rokkan.Prophecy.World
+{
+    /// <summary>
+    /// Swaps world scenes under a persistent player, and owns the order in which that happens.
+    ///
+    /// <para>The sequence is not arbitrary and every step has a reason:</para>
+    /// <list type="number">
+    ///   <item>unload the old world, so two sets of geometry never coexist in the bake</item>
+    ///   <item>load the new one additively — Bootstrap must never be unloaded</item>
+    ///   <item>make it the active scene, or its lighting and skybox are ignored and anything
+    ///         instantiated later lands in Bootstrap instead</item>
+    ///   <item>wait a frame, so the arriving scene's own Awake and Start have run</item>
+    ///   <item>apply its declared movement space, which re-bakes collision with the right
+    ///         axis projection</item>
+    ///   <item>place the player, then snap the camera so it does not slide in from wherever it
+    ///         was looking a moment ago</item>
+    /// </list>
+    ///
+    /// <para><b>Why anything owns this at all.</b> <c>PlayerCharacterHost</c> bakes collision in
+    /// its own <c>Start</c>, which is right when the world is already there and wrong the instant
+    /// worlds start arriving later than the player. Rather than have the player guess when the
+    /// ground exists, the thing that loads the ground says so. That is also why the Bootstrap
+    /// player has its start-up bake switched off — one owner, one moment.</para>
+    /// </summary>
+    public sealed class SceneDirector : MonoBehaviour
+    {
+        [SerializeField]
+        private PlayerCharacterHost _player;
+
+        [SerializeField]
+        private LaneCameraRig _camera;
+
+        [SerializeField, Tooltip("Loaded on start-up, unless a world scene is already open.")]
+        private string _firstWorldScene = "GrayBox_Traversal";
+
+        [SerializeField, Tooltip("The HUD and menu scene, loaded additively at start-up and " +
+                                 "never unloaded — it lives in the persistent layer with " +
+                                 "Bootstrap, not among the swapped world scenes. Empty skips it.")]
+        private string _uiScene = "GrayBox_UI";
+
+        /// <summary>
+        /// Spawn id meaning "back where the player left this scene". Zelda II's encounter rule:
+        /// the fight interrupts the journey, it does not restart it. The director remembers the
+        /// feet (with their surface height — a departure from a bridge deck or a cave floor
+        /// returns to that surface, not the one above or below it) and the facing at every
+        /// departure; a portal targeting this id arrives there. Falls back to the scene's
+        /// default spawn when nothing is remembered — a fresh session started inside the
+        /// side-scroll scene has no departure to return to.
+        /// </summary>
+        public const string ReturnSpawnId = "@return";
+
+        public static SceneDirector Instance { get; private set; }
+
+        /// <summary>The persistent player this director moves. Read by portals, which need to know
+        /// where the feet are without going looking for them.</summary>
+        public PlayerCharacterHost Player => _player;
+
+        private SceneDescriptor _descriptor;
+        private SpawnPoint _activeSpawn;
+        private TransitionVeil _veil;
+        private SimClockDriver _worldClock;
+
+        // The checkpoint state itself lives in the ledger — plain data a save file can own one
+        // day, kept apart from this class's scene-swap choreography on purpose.
+        private readonly CheckpointLedger _checkpoints = new CheckpointLedger();
+        private bool _wasTransiting;
+
+        /// <summary>Departures and room entries — the state "where may the player be put
+        /// back" lives in. Exposed for the save system this project will eventually grow.</summary>
+        public CheckpointLedger Checkpoints => _checkpoints;
+
+        /// <summary>Times the player has fallen out of the world this session. Debug overlay —
+        /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
+        public int FallResetCount { get; private set; }
+
+        /// <summary>How many times the player has been respawned for running out of health. Kept
+        /// apart from <see cref="FallResetCount"/> because "I keep dying here" and "I keep falling
+        /// off here" are different problems with the same fix.</summary>
+        public int DeathResetCount { get; private set; }
+
+        /// <summary>Name of the world scene currently loaded, or empty.</summary>
+        public string CurrentWorldScene { get; private set; } = string.Empty;
+
+        /// <summary>True while a transition is in flight. Portals check this so a player standing
+        /// in two overlapping triggers cannot start two loads.</summary>
+        public bool IsTransitioning { get; private set; }
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogWarning($"{name}: a second SceneDirector appeared — destroying it. " +
+                                 "Bootstrap should be loaded exactly once.", this);
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+
+            // Belt to the input capture's braces: the Bootstrap flow knows its player by
+            // serialized reference, so publish it here too — direct-play scenes publish
+            // through the capture component instead, and both roads meet at the locator.
+            if (_player != null) PlayerLocator.Publish(_player);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+            if (_player != null) PlayerLocator.Withdraw(_player);
+        }
+
+        private IEnumerator Start()
+        {
+            _veil = TransitionVeil.Create(transform);
+            _worldClock = FindAnyObjectByType<SimClockDriver>();
+
+            // The UI layer, before any world exists — the HUD binds to the player lazily, so
+            // order is forgiving, but loading it first means the first revealed frame already
+            // has its hearts. A UI scene not yet generated (or not in the build list) is a
+            // warning and a HUD-less session, not a failure.
+            if (!string.IsNullOrEmpty(_uiScene) &&
+                !SceneManager.GetSceneByName(_uiScene).isLoaded)
+            {
+                if (Application.CanStreamedLevelBeLoaded(_uiScene))
+                {
+                    var uiLoad = SceneManager.LoadSceneAsync(_uiScene, LoadSceneMode.Additive);
+                    while (uiLoad != null && !uiLoad.isDone) yield return null;
+                }
+                else
+                {
+                    Debug.LogWarning($"{name}: UI scene '{_uiScene}' is not in the build " +
+                                     "settings — run Prophecy > Build > Generate GrayBox_UI.", this);
+                }
+            }
+
+            // Pressing Play from a world scene loads Bootstrap on top (see BootstrapLoader), so
+            // the world is already open and loading _firstWorldScene would be wrong — adopt what
+            // is there. Iterating for a scene with a descriptor beats trusting the build order.
+            var existing = FindOpenWorldScene();
+
+            if (existing.IsValid())
+            {
+                Debug.Log($"[Prophecy] SceneDirector adopting open world scene '{existing.name}'.");
+
+                // No old world to fade out of — start black and frozen, reveal the adopted scene.
+                _veil.SnapCovered();
+                FreezeWorld(true);
+                yield return Enter(existing, null);
+                yield return Reveal();
+            }
+            else if (!string.IsNullOrEmpty(_firstWorldScene))
+            {
+                Debug.Log($"[Prophecy] SceneDirector found no open world scene; loading " +
+                          $"'{_firstWorldScene}'.");
+                yield return Transition(_firstWorldScene, null);
+            }
+        }
+
+        /// <summary>
+        /// Stop or resume the simulation itself — the player, every enemy, every projectile.
+        ///
+        /// <para>Zelda II freezes the world the moment a transition begins: the thing that
+        /// touched you holds its pose while the screen does its work. Pausing the clock's feed
+        /// is what makes that one switch — everything simulated stops together, interpolation
+        /// holds the last rendered pose, and nothing accumulates a backlog to burst through on
+        /// resume. The veil deliberately runs on unscaled time, so the curtain itself is immune
+        /// to the freeze it accompanies.</para>
+        /// </summary>
+        private void FreezeWorld(bool frozen)
+        {
+            if (_worldClock == null) _worldClock = FindAnyObjectByType<SimClockDriver>();
+            if (_worldClock != null) _worldClock.Paused = frozen;
+        }
+
+        /// <summary>Go to another world scene, arriving at <paramref name="spawnId"/>.</summary>
+        public void GoTo(string sceneName, string spawnId = null)
+        {
+            if (IsTransitioning)
+            {
+                Debug.LogWarning($"{name}: already transitioning; ignoring request for '{sceneName}'.", this);
+                return;
+            }
+
+            StartCoroutine(Transition(sceneName, spawnId));
+        }
+
+        private IEnumerator Transition(string sceneName, string spawnId)
+        {
+            // Breadcrumb, deliberately permanent: "how did I end up in this scene" has already
+            // cost one long hunt, and the answer is always one of a handful of callers a stack
+            // trace names for free.
+            Debug.Log($"[Prophecy] Transition: '{CurrentWorldScene}' -> '{sceneName}' " +
+                      $"(spawn '{spawnId ?? "default"}').");
+
+            IsTransitioning = true;
+
+            // Fail fast, before the curtain: a typo'd scene name should be an error in the
+            // console, not a fade to black and back for nothing.
+            if (!Application.CanStreamedLevelBeLoaded(sceneName))
+            {
+                Debug.LogError($"{name}: scene '{sceneName}' is not in the build settings.", this);
+                IsTransitioning = false;
+                yield break;
+            }
+
+            // Remember the departure before anything moves: a portal targeting ReturnSpawnId in
+            // the next scene brings the player back to exactly this spot, on exactly this
+            // surface — FeetWorldPosition carries the layered ground height, which is what lets
+            // a return into a cave or onto a bridge deck land on the right floor.
+            if (_player != null && !string.IsNullOrEmpty(CurrentWorldScene))
+            {
+                _checkpoints.RecordDeparture(CurrentWorldScene,
+                    _player.FeetWorldPosition,
+                    _player.Sim != null ? _player.Sim.State.Facing : 0,
+                    _player.Sim != null ? _player.Sim.State.Room : 0);
+            }
+
+            // The world freezes the moment the transition begins — the wanderer that caught you
+            // holds its pose, mid-stride, while the screen does its work — and the effect plays
+            // over that stopped frame. Movement resumes only when the reveal has finished.
+            FreezeWorld(true);
+
+            _veil?.BeginCover();
+            while (_veil != null && !_veil.IsOpaque) yield return null;
+
+            if (!string.IsNullOrEmpty(CurrentWorldScene))
+            {
+                var current = SceneManager.GetSceneByName(CurrentWorldScene);
+                if (current.IsValid() && current.isLoaded)
+                {
+                    var unload = SceneManager.UnloadSceneAsync(current);
+                    while (unload != null && !unload.isDone) yield return null;
+                }
+            }
+
+            var load = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
+            while (load != null && !load.isDone) yield return null;
+
+            yield return Enter(SceneManager.GetSceneByName(sceneName), spawnId);
+            yield return Reveal();
+        }
+
+        /// <summary>
+        /// Wait out the black, fade the new world in, and only then declare the transition over.
+        ///
+        /// <para><c>IsTransitioning</c> stays true through the reveal on purpose: portals and
+        /// encounters check it, and a player who can re-trigger a transition while the previous
+        /// one is still fading in would stack curtains.</para>
+        /// </summary>
+        private IEnumerator Reveal()
+        {
+            while (_veil != null && !_veil.HoldSatisfied) yield return null;
+
+            _veil?.BeginUncover();
+            while (_veil != null && !_veil.IsClear) yield return null;
+
+            // The world starts moving again only now, with the animation fully over — arriving
+            // reads as a held establishing shot, then life resumes.
+            FreezeWorld(false);
+            IsTransitioning = false;
+        }
+
+        private IEnumerator Enter(Scene scene, string spawnId)
+        {
+            // Error paths leave the veil alone: every caller follows Enter with Reveal, which
+            // owns the fade-up. Uncovering here instead once deadlocked the pair — Reveal waits
+            // for the hold, and a veil already uncovering can never satisfy it.
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                Debug.LogError($"{name}: cannot enter an unloaded scene.", this);
+                yield break;
+            }
+
+            SceneManager.SetActiveScene(scene);
+            CurrentWorldScene = scene.name;
+
+            // One frame, so the arriving scene's Start has run before anything is measured.
+            yield return null;
+
+            var descriptor = FindDescriptorIn(scene);
+
+            if (descriptor == null)
+            {
+                Debug.LogError($"{name}: '{scene.name}' has no SceneDescriptor — cannot tell " +
+                               "which movement space it is, or where the player starts.", this);
+                yield break;
+            }
+
+            _descriptor = descriptor;
+
+            // A return arrival goes back to the remembered departure, not to a SpawnPoint. The
+            // remembered feet keep their surface height, so TeleportTo re-seeds the ground layer
+            // and a player who left from a deck or a cave floor comes back onto it. Respawns
+            // (falls, death) still use the resolved spawn below — dying in the fight should not
+            // re-run the return.
+            var departure = default(CheckpointLedger.Placement);
+            bool returning = spawnId == ReturnSpawnId &&
+                             _checkpoints.TryGetDeparture(scene.name, out departure);
+            _activeSpawn = descriptor.ResolveSpawn(spawnId == ReturnSpawnId ? null : spawnId);
+
+            if (_player != null)
+            {
+                _player.ConfigureSpace(descriptor.Space);
+                if (returning)
+                {
+                    _player.TeleportTo(departure.Feet, departure.Facing);
+                    _player.SetRoom(departure.Room);
+                }
+                else if (_activeSpawn != null)
+                {
+                    _player.TeleportTo(_activeSpawn.Position, _activeSpawn.Facing);
+                    _player.SetRoom(_activeSpawn.Room);
+                }
+
+                // Wherever the arrival put the feet IS this room's entrance — the fall
+                // checkpoint until a door hands it a landing pad.
+                RecordRoomEntry();
+            }
+
+            if (_camera != null)
+            {
+                if (descriptor.UseCameraBounds)
+                    _camera.SetVerticalBounds(descriptor.CameraFloorY, descriptor.CameraCeilingY);
+                else
+                    _camera.ClearVerticalBounds();
+
+                _camera.SnapToTarget();
+            }
+
+            // Every rig a scene brought with it gets put on its mark too — an arriving rig
+            // initialised against the player's PRE-teleport position, and letting damping walk
+            // it over would be the exact slide SnapToTarget exists to prevent. Through the
+            // registry, so a third kind of rig is a registration and never another branch here.
+            ArrivalCameras.SnapAll();
+
+            // One more frame under the black, so the Cinemachine brain processes the snapped
+            // cameras before the reveal can begin. The first visible frame is the final shot —
+            // which is the entire point of the curtain. Reveal() owns the fade-up.
+            yield return null;
+        }
+
+        /// <summary>
+        /// Catch the player when they fall out of the world, or when they run out of health.
+        ///
+        /// <para>Without the first, a missed jump in the gray box means stopping and restarting
+        /// play mode — which is enough friction to stop anyone iterating on jump feel, the one
+        /// thing that whole milestone existed to do. The second is the same problem wearing
+        /// combat's clothes: a defensive system you cannot lose to is one you cannot test, and
+        /// dying at a training dummy should cost a second, not a play session.</para>
+        ///
+        /// <para><b>Both are the same event on purpose, and both are a placeholder.</b> Real death
+        /// is a decision this project has not made — Zelda II's own rule is back to the start with
+        /// everything else intact, but Prophecy's binding economy may want something else entirely,
+        /// and the answer belongs with the Protector fights. Until then, dying does exactly what
+        /// falling does, which is honest about being scaffolding rather than pretending to be
+        /// design. See <c>Plans/Release-Checklist.md</c>.</para>
+        /// </summary>
+        private void Update()
+        {
+            if (IsTransitioning) return;
+            if (_player == null || _descriptor == null) return;
+
+            // A finished door crossing plants the checkpoint on its landing pad: the edge is
+            // watched here rather than inside the sim because "where falls return to" is the
+            // director's rule, and the sim's door module should not need to know it exists.
+            var transit = _player.Sim != null ? _player.Sim.Get<Sim.Abilities.DoorTransit>() : null;
+            bool transiting = transit != null && transit.IsTransiting;
+            if (_wasTransiting && !transiting) RecordRoomEntry();
+            _wasTransiting = transiting;
+
+            // The sim's feet, never the transform: the transform is interpolated presentation,
+            // so a threshold read from it crosses on a tick that depends on frame rate — and the
+            // toll it charges is a combat outcome, which must land on the tick it happened.
+            if (_descriptor.KillPlaneEnabled && _player.FeetWorldPosition.y <= _descriptor.KillPlaneY)
+            {
+                FallResetCount++;
+                StartCoroutine(RespawnSequence(fromFall: true));
+                return;
+            }
+
+            if (_descriptor.RespawnOnDeath && _player.Sim != null && !_player.Sim.Vitals.IsAlive)
+            {
+                DeathResetCount++;
+                StartCoroutine(RespawnSequence(fromFall: false));
+                return;
+            }
+
+            // The same law for everyone else: below the kill plane, an enemy dies with its
+            // object. The player gets a respawn because the player is the story continuing.
+            // The WHEN and the threshold are this director's policy; the culling itself lives
+            // with the combat director, which owns combatant lifetime records.
+            if (_descriptor.KillPlaneEnabled && CombatDirector.Instance != null)
+                CombatDirector.Instance.CullBelow(_descriptor.KillPlaneY,
+                                                  _player != null ? _player.gameObject : null);
+        }
+
+        /// <summary>
+        /// Back to the spawn point the player arrived at, restored to starting condition.
+        ///
+        /// <para>Shared by both resets so they cannot drift: whatever "start again" means, falling
+        /// off the world and being killed have to agree about it.</para>
+        /// </summary>
+        /// <summary>
+        /// The respawn is a transition, and it wears the transition's clothes (Matt): the
+        /// world freezes and fades to black, the body and the camera are placed behind the
+        /// curtain, and the reveal opens on the finished shot — the player standing in
+        /// frame, the camera already settled. An instant teleport was mechanically identical
+        /// and felt broken, because the eye watched the camera whip and the body pop; the
+        /// same beat the doors and the portals spend is what makes this read as "you are
+        /// being carried back" instead of "the game glitched".
+        ///
+        /// <para><b>A fall and a death return to different places</b> (Matt's rule). A fall
+        /// is a toll: half a heart, and back to where the player last entered the room — the
+        /// arrival point or the last door's landing pad — with everything else exactly as it
+        /// was. Zelda II's screen-entrance rule. Death is the full restart: the scene's
+        /// spawn, health restored, and the checkpoint reset with it. A fall that spends the
+        /// last quarters IS a death and takes the death path.</para>
+        /// </summary>
+        private IEnumerator RespawnSequence(bool fromFall)
+        {
+            IsTransitioning = true;
+            FreezeWorld(true);
+
+            // The toll is charged before the curtain: the hearts drop and the screen edges
+            // flash as the fade begins, so the cost is shown at the moment it is paid.
+            bool lethalFall = false;
+            if (fromFall && _player.Sim != null)
+            {
+                _player.Sim.Vitals.ApplyDamage(_descriptor.FallDamageQuarters,
+                                               _player.Sim.CurrentTick);
+                lethalFall = !_player.Sim.Vitals.IsAlive;
+
+                // A fall that kills is both statistics at once — "I keep falling here" and
+                // "I keep dying here" are both true, and both numbers should say so.
+                if (lethalFall) DeathResetCount++;
+            }
+
+            _veil?.BeginCover();
+            while (_veil != null && !_veil.IsOpaque) yield return null;
+
+            if (fromFall && !lethalFall && _checkpoints.HasRoomEntry)
+            {
+                // The toll path: placed, not restored — TeleportTo on purpose, so the half
+                // heart stays spent. The room reseed is load-bearing: rooms are graph state
+                // (nothing infers them from coordinates), and every path that places the
+                // player must also say which room the feet are in. Its omission here once
+                // left the camera staring at the room of the fall while the body stood
+                // alive and off-screen.
+                var entry = _checkpoints.RoomEntry;
+                _player.TeleportTo(entry.Feet, entry.Facing);
+                _player.SetRoom(entry.Room);
+            }
+            else if (_activeSpawn != null)
+            {
+                _player.RespawnAt(_activeSpawn.Position, _activeSpawn.Facing);
+                _player.SetRoom(_activeSpawn.Room);
+
+                // The restart re-enters the level at the spawn: the old checkpoint belongs
+                // to a run that just ended.
+                RecordRoomEntry();
+            }
+            else
+            {
+                _player.RespawnAt(Vector3.zero);
+                RecordRoomEntry();
+            }
+
+            if (_camera != null) _camera.SnapToTarget();
+            ArrivalCameras.SnapAll();
+
+            // One frame under the black, so the Cinemachine brain processes the snapped
+            // camera before the reveal begins — the first visible frame is the final shot
+            // (Enter's rule, for the same reason).
+            yield return null;
+
+            yield return Reveal();
+        }
+
+        /// <summary>The feet, facing and room right now become the fall checkpoint — called
+        /// wherever the player legitimately enters a room: arrivals, door exits, restarts.</summary>
+        private void RecordRoomEntry()
+        {
+            if (_player == null) return;
+
+            _checkpoints.RecordRoomEntry(_player.FeetWorldPosition,
+                                         _player.Sim != null ? _player.Sim.State.Facing : 0,
+                                         _player.Sim != null ? _player.Sim.State.Room : 0);
+            _wasTransiting = false;
+        }
+
+        /// <summary>Any loaded scene other than this one carrying a <see cref="SceneDescriptor"/>.</summary>
+        private Scene FindOpenWorldScene()
+        {
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isLoaded) continue;
+                if (scene == gameObject.scene) continue;
+                if (FindDescriptorIn(scene) != null) return scene;
+            }
+
+            return default;
+        }
+
+        private static SceneDescriptor FindDescriptorIn(Scene scene)
+        {
+            var roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                var descriptor = roots[i].GetComponentInChildren<SceneDescriptor>(true);
+                if (descriptor != null) return descriptor;
+            }
+
+            return null;
+        }
+    }
+}
