@@ -32,9 +32,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
     ///
     /// <para>The gray box binds the cast to the FlameArt button — pressable ANYWHERE, water
     /// or dry land (Matt): on land it arms or disarms the toggle, in deep water it is the
-    /// launch. No Flame is charged — the meter and its costs arrive with the real art
-    /// system. This module is the movement half, which is the half the water rooms need to
-    /// be designed against.</para>
+    /// launch. LIGHTING the float spends the catalog's cost; DROPPING it is free, and a
+    /// launch with the float already lit is free too — activation is the half that costs
+    /// (Matt: one pip to activate). This module is the movement half, which is the half
+    /// the water rooms need to be designed against.</para>
     /// </summary>
     public sealed class Buoyancy : AbilityModule
     {
@@ -65,6 +66,12 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _launching = false;
             _launchSpeed = 0f;
         }
+
+        /// <summary>Lighting the float spends the catalog's cost — read from there so the
+        /// volume's difficulty pips and this spend cannot disagree. False means the reserve
+        /// could not cover it and the float stays dark.</summary>
+        private static bool TryActivate(CharacterSim sim) =>
+            sim.Reserve.TrySpend(Arts.ArtCatalog.Find(Arts.ArtId.Buoyancy).Cost);
 
         /// <summary>The cast is room-scoped (Matt's section rule, rooms being its final name):
         /// passing through a door ends it, exactly as recasting would. The platform goes with
@@ -110,26 +117,37 @@ namespace Rokkan.Prophecy.Sim.Abilities
             {
                 if (inWater && depth >= _tuning.BuoyancyLaunchMinDepth)
                 {
-                    float climb = Mathf.Max(0.01f, depth * _tuning.BuoyancyLaunchBonus);
-                    _launchSpeed = Mathf.Sqrt(2f * _tuning.RiseGravity * climb);
-                    _launching = true;
-                    _lastY = state.Position.y - 1f;   // "made progress" is true on the first tick
-                    FloatOn = true;                   // the splash-back is a landing, not a sink
+                    // A launch with the float already lit is free — the art is running.
+                    // Casting straight from a sink lights it first, and LIGHTING is the
+                    // half that costs (Matt: one to activate, free to drop).
+                    if (FloatOn || TryActivate(sim))
+                    {
+                        float climb = Mathf.Max(0.01f, depth * _tuning.BuoyancyLaunchBonus);
+                        _launchSpeed = Mathf.Sqrt(2f * _tuning.RiseGravity * climb);
+                        _launching = true;
+                        _lastY = state.Position.y - 1f;   // "made progress" is true on the first tick
+                        FloatOn = true;                   // the splash-back is a landing, not a sink
 
-                    // The surge leaves like a jump leaves: the air refreshes (the dive's
-                    // bounce precedent), so an unused double jump is still there at the top.
-                    state.AirRefreshTick = info.Tick;
+                        // The surge leaves like a jump leaves: the air refreshes (the dive's
+                        // bounce precedent), so an unused double jump is still there at the top.
+                        state.AirRefreshTick = info.Tick;
 
-                    LetGo(state);
+                        LetGo(state);
+                    }
                 }
-                else
+                else if (FloatOn)
                 {
-                    FloatOn = !FloatOn;
+                    // The drop is FREE — the rule (Matt).
+                    FloatOn = false;
+                }
+                else if (TryActivate(sim))
+                {
+                    FloatOn = true;
 
                     // Activating the float while HANGING lets go (Matt's edge case — ledge,
                     // rope and ladder alike): the art takes over the vertical, and a hand
                     // still on the wall would pin the body under its own rising water.
-                    if (FloatOn && inWater) LetGo(state);
+                    if (inWater) LetGo(state);
                 }
             }
 

@@ -2,6 +2,7 @@ using NUnit.Framework;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
+using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
@@ -49,6 +50,10 @@ namespace Rokkan.Prophecy.Tests
         {
             var sim = PlayerCharacterFactory.Create(
                 collision, tuning, MovementSpace.SideScroll, null, new CombatTuningData(), null);
+
+            // Ascent gates the double jump now; the water tests that jump out of pools
+            // light it as part of the rig.
+            sim.ActiveArts.Add(ArtId.Ascent);
 
             sim.Teleport(at, facing: 1);
             return sim;

@@ -26,6 +26,11 @@ namespace Rokkan.Prophecy.Sim.Arts
     {
         public readonly ArtId Id;
         public readonly string DisplayName;
+
+        /// <summary>The volume's one-line telling of what the art does — intent, not
+        /// mechanics, since most effects are still arriving art by art.</summary>
+        public readonly string Description;
+
         public readonly float Cost;
 
         /// <summary>Room-scoped stat effect, or default for arts whose behavior lives
@@ -33,19 +38,22 @@ namespace Rokkan.Prophecy.Sim.Arts
         public readonly StatModifier Effect;
         public readonly bool HasEffect;
 
-        public ArtEntry(ArtId id, string displayName, float cost)
+        public ArtEntry(ArtId id, string displayName, string description, float cost)
         {
             Id = id;
             DisplayName = displayName;
+            Description = description;
             Cost = cost;
             Effect = default;
             HasEffect = false;
         }
 
-        public ArtEntry(ArtId id, string displayName, float cost, StatModifier effect)
+        public ArtEntry(ArtId id, string displayName, string description, float cost,
+                        StatModifier effect)
         {
             Id = id;
             DisplayName = displayName;
+            Description = description;
             Cost = cost;
             Effect = effect;
             HasEffect = true;
@@ -53,29 +61,39 @@ namespace Rokkan.Prophecy.Sim.Arts
     }
 
     /// <summary>
-    /// The art table, static for the gray box (spec costs, placeholder effects). Buoyancy
-    /// costs nothing HERE deliberately: its cast is the water toggle Matt tuned by hand, and
-    /// charging it now would break that loop — the cost joins when the Flame economy is real.
+    /// The art table, static for the gray box (spec costs, placeholder effects). Costs are
+    /// ACTIVATION costs: dropping a running art is free, the rule (Matt) — GfP excepted, the
+    /// vow that cannot be recalled. Buoyancy charges one pip's worth to light the float
+    /// (its module spends this number; launches with the float already lit are free).
     /// </summary>
     public static class ArtCatalog
     {
         public static readonly ArtEntry[] All =
         {
-            new ArtEntry(ArtId.Ward, "Ward", 3f),
-            new ArtEntry(ArtId.Sharpen, "Sharpen", 2f, new StatModifier
-            {
-                Kind = StatKind.Might,
-                Stage = StatStage.Percent,
-                Value = 0.25f,
-                ExpiresOnTick = StatModifier.Permanent,
-                RoomScoped = true,
-            }),
-            new ArtEntry(ArtId.Ascent, "Ascent", 2f),
-            new ArtEntry(ArtId.DivineFlame, "Divine Flame of Justice", 3f),
-            new ArtEntry(ArtId.Censer, "Censer", 2f),
-            new ArtEntry(ArtId.Buoyancy, "Buoyancy", 0f),
-            new ArtEntry(ArtId.Chalice, "Chalice", 4f),
-            new ArtEntry(ArtId.GluttonForPunishment, "Glutton for Punishment", 5f),
+            new ArtEntry(ArtId.Ward, "Ward",
+                "Turns aside the next blow that would have landed.", 3f),
+            new ArtEntry(ArtId.Sharpen, "Sharpen",
+                "The blade bites a quarter deeper while this room holds.", 2f,
+                new StatModifier
+                {
+                    Kind = StatKind.Might,
+                    Stage = StatStage.Percent,
+                    Value = 0.25f,
+                    ExpiresOnTick = StatModifier.Permanent,
+                    RoomScoped = true,
+                }),
+            new ArtEntry(ArtId.Ascent, "Ascent",
+                "Gildhollow's gift — a second jump, taken from the air.", 2f),
+            new ArtEntry(ArtId.DivineFlame, "Divine Flame of Justice",
+                "A burst of judgement upon all who stand too near.", 3f),
+            new ArtEntry(ArtId.Censer, "Censer",
+                "A swung brazier whose smoke slows all it touches.", 2f),
+            new ArtEntry(ArtId.Buoyancy, "Buoyancy",
+                "Mirefen's peace with water — stand upon it, or launch from beneath it.", 1.5f),
+            new ArtEntry(ArtId.Chalice, "Chalice",
+                "Pours reserve into an empty flask, corner to corner.", 4f),
+            new ArtEntry(ArtId.GluttonForPunishment, "Glutton for Punishment",
+                "A vow that cannot be recalled until the room is done.", 5f),
         };
 
         public static ArtEntry Find(ArtId id)

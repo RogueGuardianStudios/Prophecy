@@ -31,7 +31,9 @@ namespace Rokkan.Prophecy.Presentation.UI
         {
             public VisualElement Highlight;
             public VisualElement Fill;
+            public Label Glyph;
             public Label Name;
+            public Label Description;
             public Label Pips;
             public Label Running;
         }
@@ -82,9 +84,24 @@ namespace Rokkan.Prophecy.Presentation.UI
                 row.Fill = UiBuild.Solid(row.Highlight, "Fill", UiPalette.CostSegment);
                 UiBuild.Place(row.Fill, left: 0f, top: 0f, bottom: 0f, width: 0f);
 
-                row.Name = UiBuild.Text(row.Highlight, "Name", "", 26,
-                                        UiPalette.Ink, TextAnchor.MiddleLeft);
-                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 92f);
+                // Left block: the art's icon with its name under it (Matt). The gray-box
+                // icon is a squared glyph — two letters standing where art will stand.
+                var icon = UiBuild.Bordered(row.Highlight, "Icon",
+                                            UiPalette.Umber, UiPalette.ParchmentEmpty, 2f);
+                UiBuild.Place(icon, left: 56f, top: 5f, width: 52f, height: 52f);
+
+                row.Glyph = UiBuild.Text(icon, "Glyph", "", 20, UiPalette.Umber,
+                                         TextAnchor.MiddleCenter);
+                UiBuild.Place(row.Glyph, left: 0f, top: 0f, right: 0f, bottom: 0f);
+
+                row.Name = UiBuild.Text(row.Highlight, "Name", "", 13,
+                                        UiPalette.Ink, TextAnchor.UpperCenter);
+                UiBuild.Place(row.Name, left: 12f, top: 59f, width: 140f, height: 32f);
+
+                // Centre: the art's one-line telling.
+                row.Description = UiBuild.Text(row.Highlight, "Description", "", 18,
+                                               UiPalette.Ink, TextAnchor.MiddleLeft);
+                UiBuild.Place(row.Description, left: 170f, top: 0f, width: 620f, height: 92f);
 
                 row.Running = UiBuild.Text(row.Highlight, "Running", "running", 20,
                                            UiPalette.Gilt, TextAnchor.MiddleRight);
@@ -194,6 +211,17 @@ namespace Rokkan.Prophecy.Presentation.UI
                 if (sim.KnownArts.Contains(ArtCatalog.All[i].Id)) _known.Add(i);
         }
 
+        /// <summary>Cost as CASTING DIFFICULTY (Matt): pips for the share of the bar the
+        /// cast will take, one pip per ~15%. The same art gets easier as the Flame rank
+        /// deepens the reserve — the pips recount themselves.</summary>
+        private static string Difficulty(float cost, float max)
+        {
+            if (cost <= 0f) return "—";
+
+            float fraction = max > 0f ? cost / max : 1f;
+            return HudController.Pips(Mathf.Max(1, Mathf.RoundToInt(fraction / 0.15f)));
+        }
+
         private void Draw(CharacterSim sim)
         {
             var equipped = ArtCatalog.Find(sim.EquippedArt);
@@ -228,9 +256,14 @@ namespace Rokkan.Prophecy.Presentation.UI
 
                 row.Fill.style.width = isEquipped ? _fill * RowWidth : 0f;
 
+                row.Glyph.text = entry.DisplayName.Length >= 2
+                    ? entry.DisplayName.Substring(0, 2).ToUpperInvariant()
+                    : entry.DisplayName.ToUpperInvariant();
                 row.Name.text = entry.DisplayName;
                 row.Name.style.color = affordable ? UiPalette.Ink : UiPalette.Muted;
-                row.Pips.text = HudController.Pips(entry.Cost);
+                row.Description.text = entry.Description;
+                row.Description.style.color = affordable ? UiPalette.Ink : UiPalette.Muted;
+                row.Pips.text = Difficulty(entry.Cost, sim.Reserve.Max);
                 row.Pips.style.color = affordable ? UiPalette.HearthGold : UiPalette.MutedPip;
                 row.Running.style.display = running ? DisplayStyle.Flex : DisplayStyle.None;
             }

@@ -18,6 +18,11 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// belongs to the wall jump, and spending an air jump instead would feel like the input was
     /// stolen. It asks the collision world rather than asking a wall-jump module, so the rule
     /// still holds: modules read the world and the arbiter, never each other.</para>
+    ///
+    /// <para><b>The second jump is Gildhollow's gift</b> (Matt, 2026-08-13, connecting the
+    /// gating the phase doc settled): it exists only while the Ascent art is RUNNING.
+    /// Room-scoped like every running art — a door takes it with the rest, and lighting it
+    /// again is the cost of the wings.</para>
     /// </summary>
     public sealed class DoubleJump : AbilityModule
     {
@@ -65,6 +70,10 @@ namespace Rokkan.Prophecy.Sim.Abilities
             }
 
             if (!input.Jump.Pressed) return;
+
+            // No wings without the art (see the class note).
+            if (!sim.ActiveArts.Contains(Arts.ArtId.Ascent)) return;
+
             if (_used >= _tuning.AirJumps) return;
             if (info.Tick - _airborneSinceTick < _tuning.AirJumpArmTicks) return;
             if (!sim.Can(LockFlags.Jump)) return;

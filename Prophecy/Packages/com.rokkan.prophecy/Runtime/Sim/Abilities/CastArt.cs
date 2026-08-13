@@ -50,6 +50,17 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (entry.Id == ArtId.None) return false;
             if (!sim.KnownArts.Contains(id)) return false;
 
+            // Recasting a RUNNING art is the DROP, and dropping is FREE — the rule (Matt).
+            // The one exception is the vow: GfP cannot be recalled until the room is done.
+            if (sim.ActiveArts.Contains(id))
+            {
+                if (id == ArtId.GluttonForPunishment) return false;
+
+                sim.ActiveArts.Remove(id);
+                sim.Stats.RemoveSource(ArtSource(id));
+                return true;
+            }
+
             if (!sim.Reserve.TrySpend(entry.Cost)) return false;
 
             if (id == ArtId.Chalice)
@@ -61,16 +72,21 @@ namespace Rokkan.Prophecy.Sim.Abilities
                 return true;
             }
 
-            if (!sim.ActiveArts.Contains(id)) sim.ActiveArts.Add(id);
+            sim.ActiveArts.Add(id);
 
             if (entry.HasEffect)
             {
                 var effect = entry.Effect;
                 effect.ExpiresOnTick = Stats.StatModifier.Permanent;
+                effect.SourceId = ArtSource(id);   // what the free drop removes by
                 sim.Stats.Add(effect);   // RoomScoped on the modifier is the whole duration
             }
 
             return true;
         }
+
+        /// <summary>Stat-source id for an art's own effect — its own range so a drop
+        /// removes exactly one art's modifiers and can never touch another source's.</summary>
+        private static int ArtSource(ArtId id) => 1000 + (int)id;
     }
 }

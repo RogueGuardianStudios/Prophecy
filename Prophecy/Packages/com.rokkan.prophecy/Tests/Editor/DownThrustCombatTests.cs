@@ -3,6 +3,7 @@ using NUnit.Framework;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
+using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
@@ -77,6 +78,9 @@ namespace Rokkan.Prophecy.Tests
         {
             var sim = PlayerCharacterFactory.Create(
                 Ground(), tuning, MovementSpace.SideScroll, null, combat, world);
+
+            // Ascent gates the double jump now; the pogo tests that re-jump light it.
+            sim.ActiveArts.Add(ArtId.Ascent);
 
             sim.State.CombatId = PlayerId;
             sim.State.Team = PlayerTeam;

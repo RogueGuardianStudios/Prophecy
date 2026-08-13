@@ -2,6 +2,7 @@ using NUnit.Framework;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
+using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
 
@@ -33,6 +34,11 @@ namespace Rokkan.Prophecy.Tests
                                            Vector2 at = default, AbilityLoadoutData loadout = null)
         {
             var sim = PlayerCharacterFactory.Create(world, tuning, MovementSpace.SideScroll, loadout);
+
+            // Ascent gates the double jump now; these tests are about the JUMPS themselves,
+            // so the art is lit as part of the rig.
+            sim.ActiveArts.Add(ArtId.Ascent);
+
             sim.Teleport(at);
             return sim;
         }

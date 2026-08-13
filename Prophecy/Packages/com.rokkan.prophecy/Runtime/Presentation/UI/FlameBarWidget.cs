@@ -20,7 +20,14 @@ namespace Rokkan.Prophecy.Presentation.UI
         private readonly VisualElement _fill;
         private readonly VisualElement _segment;
         private readonly VisualElement _segmentRule;
+        private readonly VisualElement _flashOverlay;
         private readonly float _width;
+
+        private float _flash;
+        private float _lastCurrent = float.NaN;
+
+        /// <summary>How long the cast flash takes to fade, in seconds.</summary>
+        private const float FlashSeconds = 0.35f;
 
         /// <summary>Build into <paramref name="parent"/> at (<paramref name="left"/>,
         /// <paramref name="top"/>), with a thin dark umber border per spec §4.1.</summary>
@@ -42,10 +49,25 @@ namespace Rokkan.Prophecy.Presentation.UI
             // The 1px umber rule separating spend-preview from keep (spec §4.2).
             _segmentRule = UiBuild.Solid(ground, "CostRule", UiPalette.Umber);
             UiBuild.Place(_segmentRule, left: 0f, top: 0f, width: 1f, height: height);
+
+            // The cast flash (Matt): a successful cast's one visible tell beyond the fill
+            // shrinking. Sits over everything, invisible until a spend lights it.
+            _flashOverlay = UiBuild.Solid(ground, "Flash", UiPalette.Bright);
+            UiBuild.Place(_flashOverlay, left: 0f, top: 0f, width: _width, height: height);
+            _flashOverlay.style.opacity = 0f;
         }
 
         public void Set(float current, float max, float cost)
         {
+            // Any SPEND lights the bar for a beat (Matt: the cast flash) — detected here so
+            // the HUD's bar and the volume's flash together, whichever path spent. Refills
+            // never flash; only money leaving does.
+            if (!float.IsNaN(_lastCurrent) && current < _lastCurrent - 0.0001f) _flash = 1f;
+            _lastCurrent = current;
+
+            _flash = Mathf.MoveTowards(_flash, 0f, Time.deltaTime / FlashSeconds);
+            _flashOverlay.style.opacity = _flash * 0.85f;
+
             float fraction = max <= 0f ? 0f : Mathf.Clamp01(current / max);
             _fill.style.width = _width * fraction;
 
