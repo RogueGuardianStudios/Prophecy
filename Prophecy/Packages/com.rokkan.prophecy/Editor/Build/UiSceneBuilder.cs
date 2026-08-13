@@ -1,7 +1,6 @@
 using System.IO;
 using Rokkan.Prophecy.Presentation.UI;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -33,53 +32,43 @@ namespace Rokkan.Prophecy.Editor.Build
         [MenuItem("Prophecy/Build/Generate GrayBox_UI", priority = 44)]
         public static void Generate()
         {
-            if (HasUnsavedChanges()) return;
-
-            var setup = EditorSceneManager.GetSceneManagerSetup();
-            bool canRestore = false;
-            for (int i = 0; setup != null && i < setup.Length; i++)
-                if (!string.IsNullOrEmpty(setup[i].path)) canRestore = true;
-
             EnsurePanelSettings(EnsureTheme());
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            // Re-loaded AFTER the scene churn, deliberately. The first build of this scene
-            // assigned the instance held from before NewScene, and the saved file came out
-            // with m_PanelSettings: {fileID: 0} — a stale object reference serializes as
-            // silently as null. Loading by path here guarantees the reference being wired is
-            // the live imported asset.
-            var settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath);
-            if (settings == null)
+            bool built = GrayBoxSceneScaffold.GenerateScene(ScenePath, () =>
             {
-                Debug.LogError($"[Prophecy] {PanelSettingsPath} failed to load — scene not built.");
-                return;
-            }
+                // Loaded by path AFTER the scene churn, deliberately. The first build of this
+                // scene assigned the instance held from before NewScene, and the saved file
+                // came out with m_PanelSettings: {fileID: 0} — a stale object reference
+                // serializes as silently as null. Loading here guarantees the reference being
+                // wired is the live imported asset.
+                var settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath);
+                if (settings == null)
+                {
+                    Debug.LogError($"[Prophecy] {PanelSettingsPath} failed to load — scene not built.");
+                    return false;
+                }
 
-            var root = new GameObject("UIRoot");
-            var document = root.AddComponent<UIDocument>();
-            document.panelSettings = settings;
-            root.AddComponent<HudController>();
-            root.AddComponent<MenuRoot>();
+                var root = new GameObject("UIRoot");
+                var document = root.AddComponent<UIDocument>();
+                document.panelSettings = settings;
+                root.AddComponent<HudController>();
+                root.AddComponent<MenuRoot>();
+                return true;
+            },
+            afterSave: () =>
+            {
+                // Trust nothing about that assignment: read the saved file back and prove the
+                // reference survived. A HUD scene whose document lost its settings renders
+                // NOTHING at runtime, with no error anywhere — this is the only place the
+                // failure is cheap to catch.
+                string saved = File.ReadAllText(ScenePath);
+                if (saved.Contains("m_PanelSettings: {fileID: 0}"))
+                    Debug.LogError($"[Prophecy] {ScenePath} saved WITHOUT its PanelSettings " +
+                                   "reference — the HUD will not render. Re-run this generator.");
+            });
 
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath).Replace('\\', '/'));
-            EditorSceneManager.SaveScene(scene, ScenePath);
-
-            AssetDatabase.Refresh();
-            BuildSettings.EnsureInBuildSettings(ScenePath);
-
-            // Trust nothing about that assignment: read the saved file back and prove the
-            // reference survived. A HUD scene whose document lost its settings renders
-            // NOTHING at runtime, with no error anywhere — this is the only place the
-            // failure is cheap to catch.
-            string saved = File.ReadAllText(ScenePath);
-            if (saved.Contains("m_PanelSettings: {fileID: 0}"))
-                Debug.LogError($"[Prophecy] {ScenePath} saved WITHOUT its PanelSettings " +
-                               "reference — the HUD will not render. Re-run this generator.");
-
-            if (canRestore) EditorSceneManager.RestoreSceneManagerSetup(setup);
-
-            Debug.Log($"[Prophecy] Generated {ScenePath} — the HUD and menu layer, on UI Toolkit.");
+            if (built)
+                Debug.Log($"[Prophecy] Generated {ScenePath} — the HUD and menu layer, on UI Toolkit.");
         }
 
         /// <summary>The default runtime theme, as an asset in the project. The file is the
@@ -122,22 +111,6 @@ namespace Rokkan.Prophecy.Editor.Build
             AssetDatabase.SaveAssetIfDirty(settings);
 
             return settings;
-        }
-
-        private static bool HasUnsavedChanges()
-        {
-            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
-            {
-                var open = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
-                if (!open.isDirty) continue;
-
-                Debug.LogError($"[Prophecy] '{(string.IsNullOrEmpty(open.name) ? "Untitled" : open.name)}' " +
-                               "has unsaved changes. Save or discard them, then run this again — " +
-                               "generating replaces the open scene.");
-                return true;
-            }
-
-            return false;
         }
     }
 }

@@ -12,12 +12,16 @@ namespace Rokkan.Prophecy.Tests
     /// wiring here fails silently at runtime (an unmapped output writes nowhere), which is
     /// exactly why it is pinned at the asset level.
     /// </summary>
+    [Category(GeneratedEnemyAssets.Category)]
     public class EnemyBrainPacingAssetTests
     {
+        [SetUp]
+        public void RequireTheGeneratorToHaveRun() => GeneratedEnemyAssets.IgnoreIfAbsent();
+
         private static GoapBrainSO LoadBrain(string archetype)
         {
             var brain = AssetDatabase.LoadAssetAtPath<GoapBrainSO>(
-                $"Assets/_Prophecy/Data/Enemies/Brain_{archetype}.asset");
+                GeneratedEnemyAssets.BrainPath(archetype));
             Assert.IsNotNull(brain, $"No Brain_{archetype}.asset — run Prophecy > Build > Generate Enemies.");
             return brain;
         }

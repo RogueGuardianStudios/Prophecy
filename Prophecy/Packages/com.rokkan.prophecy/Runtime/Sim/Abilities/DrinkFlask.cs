@@ -50,17 +50,27 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             if (!input.DrinkFlask.Pressed) return;
             if (!sim.Vitals.IsAlive) return;
+
+            // Asked like every other voluntary action. A hit-react, a death, a door crossing all
+            // hold Item in their lock — a character being carried across a threshold or knocked
+            // off their feet is not free to swig.
+            if (!sim.Can(LockFlags.Item)) return;
             if (!sim.Flasks.CanDrink) return;
 
-            // The heal is immediate; the lock, when the flag says so, is the price.
-            sim.Flasks.TryDrink(sim.Vitals);
-
-            if (_combat.DrinkBreaksGuard &&
-                sim.ForceLock(this, DrinkLock, LockPriority.Reaction))
+            if (_combat.DrinkBreaksGuard)
             {
+                // TryLock, never Force: drinking is a choice, and the arbiter's "higher priority
+                // AND an open cancel window" rule is what makes a committed swing a commitment.
+                // A raised guard leaves its window open, so the drink takes the lock and the
+                // guard comes down — the exposure the flag exists to price in. A mid-swing press
+                // is refused outright, flask unspent.
+                if (!sim.TryLock(this, DrinkLock, LockPriority.Reaction)) return;
+
                 _drinking = true;
                 _startTick = info.Tick;
             }
+
+            sim.Flasks.TryDrink(sim.Vitals);
         }
     }
 }

@@ -7,6 +7,7 @@ using Rokkan.Prophecy.Sim.AI;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -21,24 +22,13 @@ namespace Rokkan.Prophecy.Tests
         private const int EnemyId = 7;
         private const int Beat = 90;
 
-        private static CollisionWorld Ground()
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
-            return world;
-        }
-
         /// <summary>Run <paramref name="ticks"/> of a mashing enemy through the gate and the
         /// sim, returning every tick an attack STARTED.</summary>
         private static List<long> MashingRun(int ticks)
         {
             var fight = new CombatState();
-            var sim = PlayerCharacterFactory.Create(
-                Ground(), new MovementTuningData(), MovementSpace.SideScroll, null,
-                new CombatTuningData(), fight);
-            sim.State.CombatId = EnemyId;
-            sim.State.Team = 2;
-            sim.Teleport(Vector2.zero, facing: 1);
+            var sim = Player(Ground(), new CombatTuningData(), fight,
+                             combatId: EnemyId, team: 2);
 
             var intent = new EnemyIntent();
             var percept = new Percept { TargetId = 1, DistanceX = 1f, DirectionToTarget = 1 };
@@ -54,7 +44,7 @@ namespace Rokkan.Prophecy.Tests
                 fight.Tick(null, tick, Dt);
 
                 intent.PressAttack();
-                AttackPacingLink.Apply(fight, intent, in percept, EnemyId, AttackPool.Melee,
+                AttackPacingLink.Apply(fight.Attacks, intent, in percept, EnemyId, AttackPool.Melee,
                                        Beat, incapacitated: false, tick);
 
                 sim.SetInput(intent.Consume());
@@ -101,7 +91,7 @@ namespace Rokkan.Prophecy.Tests
 
             // Granted while healthy…
             fight.Tick(null, 1, Dt);
-            AttackPacingLink.Apply(fight, intent, in percept, EnemyId, AttackPool.Melee,
+            AttackPacingLink.Apply(fight.Attacks, intent, in percept, EnemyId, AttackPool.Melee,
                                    Beat, incapacitated: false, 1);
             fight.Tick(null, 2, Dt);
             Assert.IsTrue(fight.Attacks.HoldsToken(EnemyId));
@@ -110,7 +100,7 @@ namespace Rokkan.Prophecy.Tests
             long tick = 2;
             for (; tick < 25; tick++)
             {
-                AttackPacingLink.Apply(fight, intent, in percept, EnemyId, AttackPool.Melee,
+                AttackPacingLink.Apply(fight.Attacks, intent, in percept, EnemyId, AttackPool.Melee,
                                        Beat, incapacitated: true, tick);
                 fight.Tick(null, tick + 1, Dt);
             }
@@ -131,7 +121,7 @@ namespace Rokkan.Prophecy.Tests
             fight.Tick(null, 1, Dt);
 
             intent.PressAttack();
-            bool held = AttackPacingLink.Apply(fight, intent, in percept, EnemyId,
+            bool held = AttackPacingLink.Apply(fight.Attacks, intent, in percept, EnemyId,
                                                AttackPool.Melee, Beat, false, 1);
 
             Assert.IsFalse(held);

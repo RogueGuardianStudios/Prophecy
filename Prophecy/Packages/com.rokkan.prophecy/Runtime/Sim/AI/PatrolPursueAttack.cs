@@ -58,6 +58,7 @@ namespace Rokkan.Prophecy.Sim.AI
 
         private int _patrolDirection = 1;
         private long _lastAttackTick = long.MinValue;
+        private long _stampBeforePress = long.MinValue;
         private long _lastSeenTick = long.MinValue;
         private int _rememberedDirection;
 
@@ -155,8 +156,24 @@ namespace Rokkan.Prophecy.Sim.AI
 
             if (!ready) return;
 
+            _stampBeforePress = _lastAttackTick;
             _lastAttackTick = tick;
             intent.PressAttack();
+        }
+
+        /// <summary>
+        /// The pacing gate stripped the press made this tick — take the cooldown stamp back.
+        ///
+        /// <para>Stamping at press time is right when nothing sits between this loop and the sim,
+        /// which is every headless test and every fight without a director. With a director, a
+        /// denied press that kept its stamp meant the enemy waited a full cooldown for a swing
+        /// that never happened — holding a granted token idle while the beat it was pacing to
+        /// drifted past. Un-stamping lets it press again next tick until its turn actually comes,
+        /// leaving the director the single pacer it was built to be.</para>
+        /// </summary>
+        public void NotifyPressDenied(long tick)
+        {
+            if (_lastAttackTick == tick) _lastAttackTick = _stampBeforePress;
         }
 
         /// <summary>Forget everything. On death, respawn, or being pooled.</summary>
@@ -164,6 +181,7 @@ namespace Rokkan.Prophecy.Sim.AI
         {
             Behaviour = EnemyBehaviour.Patrol;
             _lastAttackTick = long.MinValue;
+            _stampBeforePress = long.MinValue;
             _lastSeenTick = long.MinValue;
             _rememberedDirection = 0;
         }

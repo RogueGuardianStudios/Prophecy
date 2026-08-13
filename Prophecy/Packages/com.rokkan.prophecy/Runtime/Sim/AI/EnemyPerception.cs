@@ -54,14 +54,17 @@ namespace Rokkan.Prophecy.Sim.AI
         /// <para>Hostility is the combat rule, not an AI rule: same team is not a target, and team
         /// 0 is neutral and hostile to everyone. Reusing it means an enemy cannot come to a
         /// different conclusion about who its enemies are than the hit resolver does.</para>
+        ///
+        /// <para>Takes the hurtbox set rather than the whole fight — it is the only part of the
+        /// fight a sensor reads, and a test feeding three hurtboxes should not have to assemble a
+        /// registry, a projectile system and a director to do it.</para>
         /// </summary>
-        public static Percept Sense(CombatState fight, CollisionWorld level, List<int> scratch,
+        public static Percept Sense(HurtboxSet boxes, CollisionWorld level, List<int> scratch,
                                     int selfId, int selfTeam, Vector2 eyes, float range)
         {
             var percept = default(Percept);
-            if (fight == null || scratch == null || range <= 0f) return percept;
+            if (boxes == null || scratch == null || range <= 0f) return percept;
 
-            var boxes = fight.Hurtboxes;
             int found = boxes.Query(eyes.x - range, eyes.x + range, scratch);
 
             float best = float.MaxValue;

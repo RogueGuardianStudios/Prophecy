@@ -6,6 +6,7 @@ using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using Rokkan.Prophecy.Sim.Stats;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -20,12 +21,9 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class RoomTests
     {
-        private const float Dt = 1f / 60f;
-
         private static CollisionWorld DoorWorld()
         {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
+            var world = Ground();
             world.AddDoor(new Aabb(new Vector2(9.8f, 0f), new Vector2(10.2f, 2.6f)),
                           roomMinSide: 1, roomMaxSide: 2);
             return world;
@@ -33,22 +31,9 @@ namespace Rokkan.Prophecy.Tests
 
         private static CharacterSim Player(CollisionWorld world, Vector2 at, int room)
         {
-            var sim = PlayerCharacterFactory.Create(
-                world, new MovementTuningData(), MovementSpace.SideScroll,
-                null, new CombatTuningData(), null);
-
-            sim.Teleport(at, facing: 1);
+            var sim = SimTestHarness.Player(world, new CombatTuningData(), null, at: at);
             sim.SetRoom(room);
             return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
         }
 
         private static InputFrame Hold(float x = 0f) => new InputFrame(new Vector2(x, 0f));

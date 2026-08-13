@@ -6,6 +6,40 @@ using UnityEngine;
 namespace Rokkan.Prophecy.Editor.MapTool
 {
     /// <summary>
+    /// Everything the tool knows about one shape kind, in one row: what the panel calls it, how
+    /// to reach its array in the map, which extras it takes (province, cover), and how one of it
+    /// draws. <see cref="OverworldShapeHandles.Draw"/> and the window's selection panel both
+    /// iterate THESE — adding a kind is adding a descriptor, not finding five switches, and a
+    /// rename can no longer be discarded by a write-case someone forgot to mirror.
+    /// </summary>
+    internal sealed class OverworldShapeKind
+    {
+        public int Kind;
+        public string PanelLabel;
+
+        /// <summary>How many of this kind the map holds (a null array is zero).</summary>
+        public System.Func<OverworldMap, int> Count;
+
+        public System.Func<OverworldMap, int, string> GetName;
+        public System.Action<OverworldMap, int, string> SetName;
+
+        /// <summary>Province accessors — null on kinds that carry no gameplay rules.</summary>
+        public System.Func<OverworldMap, int, OverworldProvince> GetProvince;
+        public System.Action<OverworldMap, int, OverworldProvince> SetProvince;
+
+        /// <summary>Cover accessors — layers only.</summary>
+        public System.Func<OverworldMap, int, CoverStyle> GetCover;
+        public System.Action<OverworldMap, int, CoverStyle> SetCover;
+
+        /// <summary>Draw shape <c>index</c>: (map, preview, offset, index, selected, select).</summary>
+        public System.Action<OverworldMap, OverworldMapPreview, Vector2, int, bool, System.Action>
+            DrawShape;
+
+        public bool HasProvince => SetProvince != null;
+        public bool HasCover => SetCover != null;
+    }
+
+    /// <summary>
     /// Scene-view handles for the map's shape vocabulary: drag region and layer rects, ramp
     /// strips, river and road courses where they actually live, over the live preview. Every
     /// mutation is one undo step (Unity groups per drag), dirties the asset, and marks the
@@ -36,84 +70,160 @@ namespace Rokkan.Prophecy.Editor.MapTool
         private static readonly Color BiomeAreaColour = new Color(0.95f, 0.6f, 0.2f, 0.9f);
         private static readonly Color GreebleColour = new Color(0.1f, 0.5f, 0.2f, 0.9f);
 
+        /// <summary>The kinds, in draw order — later entries' handles sit atop earlier ones,
+        /// so the terrain-defining shapes win contested clicks.</summary>
+        public static readonly OverworldShapeKind[] Kinds =
+        {
+            new OverworldShapeKind
+            {
+                Kind = KindBiomeArea,
+                PanelLabel = "Biome Area",
+                Count = m => m.BiomeAreas != null ? m.BiomeAreas.Length : 0,
+                GetName = (m, i) => m.BiomeAreas[i].Name,
+                SetName = (m, i, v) => m.BiomeAreas[i].Name = v,
+                GetProvince = (m, i) => m.BiomeAreas[i].Province,
+                SetProvince = (m, i, v) => m.BiomeAreas[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.BiomeAreas[i].Centre, map.BiomeAreas[i].Size,
+                                    map.BiomeAreas[i].RotationDegrees, 0f),
+                             (c, s, r) =>
+                             {
+                                 map.BiomeAreas[i].Centre = c;
+                                 map.BiomeAreas[i].Size = s;
+                                 map.BiomeAreas[i].RotationDegrees = r;
+                             },
+                             BiomeAreaColour, map.BiomeAreas[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindGreeble,
+                PanelLabel = "Greeble Mass",
+                Count = m => m.Greebles != null ? m.Greebles.Length : 0,
+                GetName = (m, i) => m.Greebles[i].Name,
+                SetName = (m, i, v) => m.Greebles[i].Name = v,
+                GetProvince = (m, i) => m.Greebles[i].Province,
+                SetProvince = (m, i, v) => m.Greebles[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Greebles[i].Centre, map.Greebles[i].Size,
+                                    map.Greebles[i].RotationDegrees, 0f),
+                             (c, s, r) =>
+                             {
+                                 map.Greebles[i].Centre = c;
+                                 map.Greebles[i].Size = s;
+                                 map.Greebles[i].RotationDegrees = r;
+                             },
+                             GreebleColour, map.Greebles[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRegion,
+                PanelLabel = "Terrain",
+                Count = m => m.Regions != null ? m.Regions.Length : 0,
+                GetName = (m, i) => m.Regions[i].Name,
+                SetName = (m, i, v) => m.Regions[i].Name = v,
+                GetProvince = (m, i) => m.Regions[i].Province,
+                SetProvince = (m, i, v) => m.Regions[i].Province = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Regions[i].Centre, map.Regions[i].Size,
+                                    map.Regions[i].RotationDegrees, map.Regions[i].Y),
+                             (c, s, r) =>
+                             {
+                                 map.Regions[i].Centre = c;
+                                 map.Regions[i].Size = s;
+                                 map.Regions[i].RotationDegrees = r;
+                             },
+                             RegionColour, map.Regions[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindLayer,
+                PanelLabel = "Layer",
+                Count = m => m.Layers != null ? m.Layers.Length : 0,
+                GetName = (m, i) => m.Layers[i].Name,
+                SetName = (m, i, v) => m.Layers[i].Name = v,
+                GetCover = (m, i) => m.Layers[i].Cover,
+                SetCover = (m, i, v) => m.Layers[i].Cover = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRect(map, preview, offset,
+                             () => (map.Layers[i].Centre, map.Layers[i].Size,
+                                    map.Layers[i].RotationDegrees, map.Layers[i].Y),
+                             (c, s, r) =>
+                             {
+                                 map.Layers[i].Centre = c;
+                                 map.Layers[i].Size = s;
+                                 map.Layers[i].RotationDegrees = r;
+                             },
+                             LayerColour, map.Layers[i].Name, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRamp,
+                PanelLabel = "Ramp",
+                Count = m => m.Ramps != null ? m.Ramps.Length : 0,
+                GetName = (m, i) => m.Ramps[i].Name,
+                SetName = (m, i, v) => m.Ramps[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawRamp(map, preview, offset, map.Ramps[i], selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRiver,
+                PanelLabel = "River",
+                Count = m => m.Rivers != null ? m.Rivers.Length : 0,
+                GetName = (m, i) => m.Rivers[i].Name,
+                SetName = (m, i, v) => m.Rivers[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawCourse(map, preview, offset, map.Rivers[i].Name,
+                               () => map.Rivers[i].Points, p => map.Rivers[i].Points = p,
+                               map.Rivers[i].HalfWidth, RiverColour, selected, select),
+            },
+            new OverworldShapeKind
+            {
+                Kind = KindRoad,
+                PanelLabel = "Road",
+                Count = m => m.Roads != null ? m.Roads.Length : 0,
+                GetName = (m, i) => m.Roads[i].Name,
+                SetName = (m, i, v) => m.Roads[i].Name = v,
+                DrawShape = (map, preview, offset, i, selected, select) =>
+                    DrawCourse(map, preview, offset, map.Roads[i].Name,
+                               () => map.Roads[i].Points, p => map.Roads[i].Points = p,
+                               map.Roads[i].HalfWidth, RoadColour, selected, select),
+            },
+        };
+
+        /// <summary>The descriptor a stored kind id names, or null — the window's selection
+        /// state survives domain reloads, so a stale id must answer softly.</summary>
+        public static OverworldShapeKind KindOf(int kind)
+        {
+            for (int i = 0; i < Kinds.Length; i++)
+                if (Kinds[i].Kind == kind) return Kinds[i];
+            return null;
+        }
+
         public static void Draw(OverworldMap map, OverworldMapPreview preview, Vector3 worldOffset,
-                                bool regions, bool ramps, bool layers, bool rivers, bool roads,
-                                bool biomeAreas, bool greebles,
+                                System.Func<int, bool> visible,
                                 int selectedKind, int selectedIndex,
                                 System.Action<int, int> select)
         {
             if (map == null) return;
             var offset = new Vector2(worldOffset.x, worldOffset.z);
 
-            bool Selected(int kind, int i) => selectedKind == kind && selectedIndex == i;
+            foreach (var kind in Kinds)
+            {
+                if (!visible(kind.Kind)) continue;
 
-            for (int i = 0; biomeAreas && map.BiomeAreas != null && i < map.BiomeAreas.Length; i++)
-                DrawRect(map, preview, offset,
-                         () => (map.BiomeAreas[i].Centre, map.BiomeAreas[i].Size,
-                                map.BiomeAreas[i].RotationDegrees, 0f),
-                         (c, s, r) =>
-                         {
-                             map.BiomeAreas[i].Centre = c;
-                             map.BiomeAreas[i].Size = s;
-                             map.BiomeAreas[i].RotationDegrees = r;
-                         },
-                         BiomeAreaColour, map.BiomeAreas[i].Name,
-                         Selected(KindBiomeArea, i), () => select(KindBiomeArea, i));
-
-            for (int i = 0; greebles && map.Greebles != null && i < map.Greebles.Length; i++)
-                DrawRect(map, preview, offset,
-                         () => (map.Greebles[i].Centre, map.Greebles[i].Size,
-                                map.Greebles[i].RotationDegrees, 0f),
-                         (c, s, r) =>
-                         {
-                             map.Greebles[i].Centre = c;
-                             map.Greebles[i].Size = s;
-                             map.Greebles[i].RotationDegrees = r;
-                         },
-                         GreebleColour, map.Greebles[i].Name,
-                         Selected(KindGreeble, i), () => select(KindGreeble, i));
-
-            for (int i = 0; regions && map.Regions != null && i < map.Regions.Length; i++)
-                DrawRect(map, preview, offset,
-                         () => (map.Regions[i].Centre, map.Regions[i].Size,
-                                map.Regions[i].RotationDegrees, map.Regions[i].Y),
-                         (c, s, r) =>
-                         {
-                             map.Regions[i].Centre = c;
-                             map.Regions[i].Size = s;
-                             map.Regions[i].RotationDegrees = r;
-                         },
-                         RegionColour, map.Regions[i].Name,
-                         Selected(KindRegion, i), () => select(KindRegion, i));
-
-            for (int i = 0; layers && map.Layers != null && i < map.Layers.Length; i++)
-                DrawRect(map, preview, offset,
-                         () => (map.Layers[i].Centre, map.Layers[i].Size,
-                                map.Layers[i].RotationDegrees, map.Layers[i].Y),
-                         (c, s, r) =>
-                         {
-                             map.Layers[i].Centre = c;
-                             map.Layers[i].Size = s;
-                             map.Layers[i].RotationDegrees = r;
-                         },
-                         LayerColour, map.Layers[i].Name,
-                         Selected(KindLayer, i), () => select(KindLayer, i));
-
-            for (int i = 0; ramps && map.Ramps != null && i < map.Ramps.Length; i++)
-                DrawRamp(map, preview, offset, map.Ramps[i],
-                         Selected(KindRamp, i), () => select(KindRamp, i));
-
-            for (int i = 0; rivers && map.Rivers != null && i < map.Rivers.Length; i++)
-                DrawCourse(map, preview, offset, map.Rivers[i].Name,
-                           () => map.Rivers[i].Points, p => map.Rivers[i].Points = p,
-                           map.Rivers[i].HalfWidth, RiverColour,
-                           Selected(KindRiver, i), () => select(KindRiver, i));
-
-            for (int i = 0; roads && map.Roads != null && i < map.Roads.Length; i++)
-                DrawCourse(map, preview, offset, map.Roads[i].Name,
-                           () => map.Roads[i].Points, p => map.Roads[i].Points = p,
-                           map.Roads[i].HalfWidth, RoadColour,
-                           Selected(KindRoad, i), () => select(KindRoad, i));
+                int count = kind.Count(map);
+                for (int i = 0; i < count; i++)
+                {
+                    int index = i;
+                    kind.DrawShape(map, preview, offset, index,
+                                   selectedKind == kind.Kind && selectedIndex == index,
+                                   () => select(kind.Kind, index));
+                }
+            }
         }
 
         /// <summary>An unselected shape's whole presence: a small pick dot. Click to select.</summary>

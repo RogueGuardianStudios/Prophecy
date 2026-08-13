@@ -7,6 +7,7 @@ using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -22,79 +23,25 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class DownThrustCombatTests
     {
-        private const float Dt = 1f / 60f;
-
         private const int PlayerId = 1;
         private const int PlayerTeam = 1;
 
-        /// <summary>Records what it was asked and answers however the test wants.</summary>
-        private sealed class RecordingWorld : ICombatWorld
-        {
-            public readonly List<Hurtbox> Targets = new List<Hurtbox>();
-            public readonly List<HitEvent> Hits = new List<HitEvent>();
-
-            public HitResult Answer = new HitResult(HitOutcome.Landed, 16);
-
-
-            /// <summary>Everything this world was asked to launch.</summary>
-            public readonly List<ProjectileDefinition> Spawned = new List<ProjectileDefinition>();
-
-            public void Spawn(ProjectileDefinition definition, in Attacker owner) =>
-                Spawned.Add(definition);
-
-            private readonly HurtboxSet _set = new HurtboxSet();
-
-            /// <summary>Rebuilt on every read so a test can add a target mid-run and have it
-            /// counted. The real one is built once a tick; correctness is the same either way.</summary>
-            public HurtboxSet Hurtboxes
-            {
-                get
-                {
-                    _set.Clear();
-                    for (int i = 0; i < Targets.Count; i++) _set.Add(Targets[i]);
-                    _set.Build();
-                    return _set;
-                }
-            }
-
-            public HitResult OnHit(in HitEvent hit)
-            {
-                Hits.Add(hit);
-                return Answer;
-            }
-        }
-
         // ---------------------------------------------------------------- harness
 
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
+        /// <summary>The shared recording world, answering the clean 16-damage landing every
+        /// dive test here assumes unless it says otherwise.</summary>
+        private static RecordingCombatWorld World() =>
+            new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Landed, 16) };
 
         private static CharacterSim Player(MovementTuningData tuning, CombatTuningData combat,
                                            ICombatWorld world, Vector2 at)
         {
-            var sim = PlayerCharacterFactory.Create(
-                Ground(), tuning, MovementSpace.SideScroll, null, combat, world);
+            var sim = SimTestHarness.Player(Ground(), combat, world, tuning, at,
+                                            PlayerId, PlayerTeam);
 
             // Ascent gates the double jump now; the pogo tests that re-jump light it.
             sim.ActiveArts.Add(ArtId.Ascent);
-
-            sim.State.CombatId = PlayerId;
-            sim.State.Team = PlayerTeam;
-            sim.Teleport(at, facing: 1);
             return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
         }
 
         private static InputFrame Hold(float x = 0f, float y = 0f) =>
@@ -127,7 +74,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             var thrust = Dive(sim);
@@ -149,7 +96,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 4f));
             var thrust = Dive(sim);
@@ -167,7 +114,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             Dive(sim);
@@ -187,7 +134,7 @@ namespace Rokkan.Prophecy.Tests
             // still overlapping would be hit again on the tick after the bounce.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             Dive(sim);
@@ -205,7 +152,7 @@ namespace Rokkan.Prophecy.Tests
             // dive is a new action, so the dedup set starts empty.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             Dive(sim);
@@ -239,7 +186,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
             var thrust = Dive(sim);
@@ -258,7 +205,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
             var thrust = Dive(sim);
@@ -289,7 +236,7 @@ namespace Rokkan.Prophecy.Tests
             // bounce rather than only on a fresh dive.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 8f));
             var thrust = Dive(sim);
@@ -310,7 +257,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             var thrust = Dive(sim);
@@ -329,7 +276,7 @@ namespace Rokkan.Prophecy.Tests
             // follow-up. Without this the safe play is never to use it far from the ground.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 10f));
 
@@ -364,7 +311,7 @@ namespace Rokkan.Prophecy.Tests
             // leave the air jump spent.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 12f));
 
@@ -384,7 +331,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 10f));
 
@@ -416,7 +363,7 @@ namespace Rokkan.Prophecy.Tests
             // way to hover over anything that has just been hit.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld { Answer = new HitResult(HitOutcome.Invulnerable) };
+            var world = new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Invulnerable) };
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             var thrust = Dive(sim);
@@ -435,7 +382,7 @@ namespace Rokkan.Prophecy.Tests
             // business, not the diver's — a shield is still a thing to push off.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld { Answer = new HitResult(HitOutcome.Blocked, 4) };
+            var world = new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Blocked, 4) };
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             var thrust = Dive(sim);
@@ -454,7 +401,7 @@ namespace Rokkan.Prophecy.Tests
             // about it. Popping them back up would make a correct read the diver's escape route.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld
+            var world = new RecordingCombatWorld
             {
                 Answer = new HitResult(HitOutcome.Parried, 0, combat.ParryStunTicks),
             };
@@ -477,7 +424,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             var thrust = Dive(sim);
@@ -518,45 +465,37 @@ namespace Rokkan.Prophecy.Tests
         /// <summary>
         /// Dive onto a fixed target and record the tick it connected and the velocity it left
         /// with. Both are integers-in, floats-out of the same fixed step, so any frame-rate
-        /// dependence in the dive would show up in one or the other.
+        /// dependence in the dive would show up in one or the other. The accumulator is the
+        /// REAL one — SimClock, the loop the game ships — so the claim covers the arithmetic
+        /// that actually runs, not a re-derivation of it.
         /// </summary>
         private static string RunAtFrameRate(int fps)
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 6f));
             world.Targets.Add(TargetAt(0f, 3f));
 
-            double fixedDelta = 1.0 / SimConstants.TicksPerSecond;
-            double frameDelta = 1.0 / fps;
-            double accumulator = 0.0;
-            long tick = 0;
-
             const int Ticks = 90;
-            int pressTick = 6;
+            const int PressTick = 5;
 
-            while (tick < Ticks)
+            var clock = new SimClock();
+            clock.Register(new TickHook(info =>
             {
-                accumulator += frameDelta;
+                // Jump on the first tick, dive on a fixed tick after it. Scripted by tick
+                // rather than by frame so the two runs are asking the same question.
+                InputFrame input;
+                if (info.Tick == 0) input = new InputFrame(Vector2.zero, jump: ButtonState.Press);
+                else if (info.Tick == PressTick) input = DiveInput();
+                else input = Hold(y: -1f);
 
-                while (accumulator >= fixedDelta && tick < Ticks)
-                {
-                    accumulator -= fixedDelta;
-                    tick++;
+                sim.SetInput(input);
+            }));
+            clock.Register(sim);
 
-                    // Jump on the first tick, dive on a fixed tick after it. Scripted by tick
-                    // rather than by frame so the two runs are asking the same question.
-                    InputFrame input;
-                    if (tick == 1) input = new InputFrame(Vector2.zero, jump: ButtonState.Press);
-                    else if (tick == pressTick) input = DiveInput();
-                    else input = Hold(y: -1f);
-
-                    sim.SetInput(input);
-                    sim.Tick(new SimTickInfo(tick, SimConstants.FixedDeltaSeconds));
-                }
-            }
+            AdvanceTicks(clock, 1.0 / fps, Ticks);
 
             var thrust = sim.Get<DownThrust>();
             return string.Format("hits={0} bounce={1} y={2:F4}",

@@ -43,9 +43,32 @@ namespace Rokkan.Prophecy.Tests
                 .OrderBy(t => t.Name);
         }
 
-        [Test]
-        public void NoSharedGoapAssetCarriesPerAgentState(
-            [ValueSource(nameof(SharedAssetTypes))] Type type)
+        /// <summary>The settings classes ride the same shared assets — a brain authored once is
+        /// run by every enemy of its kind, so a PatrolSettings is exactly as global as the
+        /// strategy holding it.</summary>
+        private static IEnumerable<Type> SharedSettingsTypes()
+        {
+            var assembly = typeof(Rokkan.Prophecy.Goap.SwingStrategy).Assembly;
+
+            return assembly.GetTypes()
+                .Where(t => !t.IsAbstract)
+                .Where(t => typeof(BaseStrategySettings).IsAssignableFrom(t))
+                .OrderBy(t => t.Name);
+        }
+
+        /// <summary>Types whose readonly reference still lets contents drift between agents —
+        /// a <c>readonly List</c> is shared mutable state wearing a readonly modifier.</summary>
+        private static bool IsMutableCollection(Type t)
+        {
+            if (t.IsArray) return true;
+            if (!t.IsGenericType) return false;
+
+            var open = t.GetGenericTypeDefinition();
+            return open == typeof(List<>) || open == typeof(Dictionary<,>) ||
+                   open == typeof(HashSet<>) || open == typeof(Queue<>) || open == typeof(Stack<>);
+        }
+
+        private static List<string> PerAgentStateOffenders(Type type)
         {
             var offenders = new List<string>();
 
@@ -54,14 +77,35 @@ namespace Rokkan.Prophecy.Tests
             foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public |
                                                  BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
-                if (field.IsInitOnly) continue;                                  // readonly: cannot drift
-                if (field.IsDefined(typeof(SerializeField), inherit: true)) continue;  // authored config
-                if (field.IsPublic) continue;                                    // authored config
+                // readonly cannot be re-pointed — but a readonly collection's CONTENTS drift
+                // exactly like a plain field, which is how the original bug would come back
+                // wearing a modifier.
+                if (field.IsInitOnly)
+                {
+                    if (IsMutableCollection(field.FieldType))
+                        offenders.Add($"{field.Name} (readonly {field.FieldType.Name} — its contents are still shared)");
+                    continue;
+                }
+
+                // Public and [SerializeField] fields are AUTHORED CONFIG by convention — the
+                // inspector writes them, runtime code must not. Nothing enforces that second
+                // half; it is the one exemption this gate takes on trust.
+                if (field.IsDefined(typeof(SerializeField), inherit: true)) continue;
+                if (field.IsPublic) continue;
                 if (field.IsDefined(typeof(NonSerializedAttribute), inherit: true) &&
                     field.Name.StartsWith("<")) continue;                        // compiler backing
 
                 offenders.Add(field.Name);
             }
+
+            return offenders;
+        }
+
+        [Test]
+        public void NoSharedGoapAssetCarriesPerAgentState(
+            [ValueSource(nameof(SharedAssetTypes))] Type type)
+        {
+            var offenders = PerAgentStateOffenders(type);
 
             Assert.IsEmpty(offenders,
                 $"{type.Name} keeps mutable state in {string.Join(", ", offenders)}. It is a " +
@@ -69,6 +113,42 @@ namespace Rokkan.Prophecy.Tests
                 "to all of them: one enemy's attack would drive another's, and a cooldown started " +
                 "by one would be observed by the next. Move it to EnemyBrainHost.ActionScratch, " +
                 "which exists once per enemy.");
+        }
+
+        [Test]
+        public void NoSharedSettingsClassCarriesPerAgentState(
+            [ValueSource(nameof(SharedSettingsTypes))] Type type)
+        {
+            var offenders = PerAgentStateOffenders(type);
+
+            Assert.IsEmpty(offenders,
+                $"{type.Name} keeps mutable state in {string.Join(", ", offenders)}. Settings " +
+                "ride the shared brain asset — one instance per authored brain, run by every " +
+                "enemy of its kind — so per-agent state here is the same trap as on the strategy.");
+        }
+
+        [Test]
+        public void NoSharedGoapAssetKeepsStaticState(
+            [ValueSource(nameof(SharedAssetTypes))] Type type)
+        {
+            // Statics were not scanned at all — and a static is MORE global than the instance
+            // field that caused the original caster-never-fired bug, with no authored-config
+            // excuse available: config lives on the instance the inspector serializes.
+            var offenders = new List<string>();
+
+            foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.Public |
+                                                 BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                if (field.IsLiteral) continue;
+                if (field.IsInitOnly && !IsMutableCollection(field.FieldType)) continue;
+
+                offenders.Add($"{field.Name} : {field.FieldType.Name}");
+            }
+
+            Assert.IsEmpty(offenders,
+                $"{type.Name} keeps static state in {string.Join(", ", offenders)} — shared " +
+                "across every agent AND every brain. There is no authored-config excuse for a " +
+                "static; whatever this is, it belongs on the host.");
         }
 
         [Test]

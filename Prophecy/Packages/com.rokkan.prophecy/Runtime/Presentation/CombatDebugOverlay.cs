@@ -63,8 +63,6 @@ namespace Rokkan.Prophecy.Presentation
         private Block _block;
         private DodgeStep _dodge;
         private HitReact _hitReact;
-        private DownThrust _downThrust;
-        private UpThrust _upThrust;
         private TrainingAttacker[] _attackers;
         private CharacterAnimator _animator;
         private ArenaStations _stations;
@@ -72,6 +70,7 @@ namespace Rokkan.Prophecy.Presentation
 
         private readonly StringBuilder _text = new StringBuilder(512);
         private readonly List<int> _candidates = new List<int>();
+        private readonly List<DebugVolume> _volumes = new List<DebugVolume>();
 
         // Phase and window colours, shared by the strip and the volume drawing so the same thing
         // is never two colours in two places.
@@ -123,8 +122,6 @@ namespace Rokkan.Prophecy.Presentation
             _block = _host.Sim.Get<Block>();
             _dodge = _host.Sim.Get<DodgeStep>();
             _hitReact = _host.Sim.Get<HitReact>();
-            _downThrust = _host.Sim.Get<DownThrust>();
-            _upThrust = _host.Sim.Get<UpThrust>();
         }
 
         private void OnDestroy()
@@ -459,10 +456,8 @@ namespace Rokkan.Prophecy.Presentation
                             _hurtboxColour, space, depth);
             }
 
-            DrawAttackVolumes(space, depth);
-            DrawThrustVolumes(space, depth);
+            DrawSimVolumes(space, depth);
             DrawIncomingVolumes(space, depth);
-            DrawSimulatedAttackerVolumes(space, depth);
             DrawProjectiles(space, depth);
 
             GL.End();
@@ -508,17 +503,22 @@ namespace Rokkan.Prophecy.Presentation
         }
 
         /// <summary>
-        /// The attacks of every <i>simulated</i> body other than the one being inspected.
+        /// Every simulated body's volumes — the player's and every planning enemy's — through
+        /// one seam.
         ///
-        /// <para><b>Separate from <see cref="DrawIncomingVolumes"/> because they find their
-        /// attackers differently.</b> That one walks <see cref="TrainingAttacker"/>s, which run
-        /// scripted swings and are the only thing this overlay knew about when it was written. A
-        /// planning enemy attacks through the ordinary <c>AttackModule</c>, so it appeared nowhere
-        /// — the volume that actually reaches the player was the one volume the viewer could not
-        /// draw, and an attack that connected looked identical to one that should have missed.</para>
+        /// <para><b>Each private draw path this replaces was written only after its attack
+        /// shipped invisible.</b> The thrusts run no timeline, so the dive's box was undrawable
+        /// for two milestones; a planning enemy attacks through the ordinary
+        /// <c>AttackModule</c> but was found through no path at all, so the volume that
+        /// actually reached the player was the one volume the viewer could not draw. The lesson
+        /// is the same each time: the overlay must not KNOW the modules, or the next one is
+        /// invisible until someone notices. A box-owning module implements
+        /// <see cref="IDebugVolumeSource"/> and appears here with no overlay edit.</para>
         /// </summary>
-        private void DrawSimulatedAttackerVolumes(MovementSpace space, float depth)
+        private void DrawSimVolumes(MovementSpace space, float depth)
         {
+            DrawVolumesOf(_host.Sim, space, depth);
+
             if (_director == null) return;
 
             var combatants = _director.Combatants;
@@ -528,92 +528,51 @@ namespace Rokkan.Prophecy.Presentation
                 if (combatant == null || !combatant.IsSimulated) continue;
 
                 var sim = combatant.SimHost.Sim;
-                if (sim == _host.Sim) continue;          // drawn by DrawAttackVolumes, in its own colours
+                if (sim == _host.Sim) continue;          // already drawn, rays and all
 
-                var attack = sim.Get<AttackModule>();
-                if (attack == null || !attack.IsAttacking) continue;
-
-                var definition = attack.Current;
-                if (definition?.HitBoxes == null) continue;
-
-                var timeline = attack.Runner.Timeline;
-                var state = sim.State;
-
-                for (int i = 0; i < definition.HitBoxes.Length; i++)
-                {
-                    var box = definition.HitBoxes[i];
-
-                    DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
-                            box.ResolveRotation(state.Facing),
-                            timeline.IsHitBoxLive(i) ? _liveBoxColour : _armedBoxColour,
-                            space, depth);
-                }
+                DrawVolumesOf(sim, space, depth);
             }
         }
 
-        private void DrawAttackVolumes(MovementSpace space, float depth)
+        private void DrawVolumesOf(CharacterSim sim, MovementSpace space, float depth)
         {
-            if (_attack == null || !_attack.IsAttacking) return;
+            if (sim == null) return;
 
-            var definition = _attack.Current;
-            var timeline = _attack.Runner.Timeline;
-            if (definition?.HitBoxes == null) return;
+            _volumes.Clear();
 
-            var state = _host.Sim.State;
+            var modules = sim.Modules;
+            for (int m = 0; m < modules.Count; m++)
+                if (modules[m] is IDebugVolumeSource source)
+                    source.CollectDebugVolumes(sim.State, _volumes);
 
-            for (int i = 0; i < definition.HitBoxes.Length; i++)
+            var state = sim.State;
+
+            for (int i = 0; i < _volumes.Count; i++)
             {
-                var box = definition.HitBoxes[i];
-                bool live = timeline.IsHitBoxLive(i);
+                var volume = _volumes[i];
 
-                var centre = box.ResolveCentre(state.Position, state.Facing);
-                float rotation = box.ResolveRotation(state.Facing);
-
-                DrawBox(centre, box.HalfExtents, rotation,
-                        live ? _liveBoxColour : _armedBoxColour, space, depth);
+                DrawBox(volume.Centre, volume.HalfExtents, volume.RotationDegrees,
+                        volume.Live ? _liveBoxColour : _armedBoxColour, space, depth);
 
                 // The cover ray is traced from the body, not the box — seeing that line start at
                 // the chest is what makes the rule obvious rather than something to be told.
                 //
                 // Only to targets the swing could actually reach. Drawing one to every hurtbox in
                 // the level was a line per body per frame, and past a dozen of them the picture it
-                // produced was a fan of noise rather than the one ray being explained.
-                if (live && box.StoppedByGeometry && _director != null)
+                // produced was a fan of noise rather than the one ray being explained — which is
+                // also why only the inspected body's swings get rays at all.
+                if (volume.Live && volume.StoppedByGeometry &&
+                    sim == _host.Sim && _director != null)
                 {
                     var origin = new Vector2(state.Position.x, state.Position.y + state.BodySize.y * 0.5f);
                     var targets = _director.Hurtboxes;
 
-                    var reach = HitResolver.BoundingHalfExtents(box.HalfExtents, rotation);
-                    int found = targets.Query(centre.x - reach.x, centre.x + reach.x, _candidates);
+                    var reach = HitResolver.BoundingHalfExtents(volume.HalfExtents, volume.RotationDegrees);
+                    int found = targets.Query(volume.Centre.x - reach.x, volume.Centre.x + reach.x, _candidates);
 
                     for (int t = 0; t < found; t++)
                         DrawLine(origin, targets[_candidates[t]].Centre, _coverRayColour, space, depth);
                 }
-            }
-        }
-
-        /// <summary>
-        /// The thrusts' blades. Neither runs on the attack timeline — each swings its own box
-        /// through the shared sweep — so <see cref="DrawAttackVolumes"/> never sees them, and
-        /// for two milestones the dive's box was the one volume the overlay could not show.
-        /// Live colour for the same reason projectiles get it: live for their whole existence.
-        /// </summary>
-        private void DrawThrustVolumes(MovementSpace space, float depth)
-        {
-            var state = _host.Sim.State;
-
-            if (_downThrust != null && _downThrust.IsActive && !_downThrust.IsRising)
-            {
-                var box = _downThrust.Volume;
-                DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
-                        box.ResolveRotation(state.Facing), _liveBoxColour, space, depth);
-            }
-
-            if (_upThrust != null && _upThrust.IsActive)
-            {
-                var box = _upThrust.Volume;
-                DrawBox(box.ResolveCentre(state.Position, state.Facing), box.HalfExtents,
-                        box.ResolveRotation(state.Facing), _liveBoxColour, space, depth);
             }
         }
 

@@ -21,16 +21,19 @@ namespace Rokkan.Prophecy.Tests
     /// <para>These assert the brain the generator produces, so a regression in
     /// <c>EnemyBuilder</c> fails here rather than in a play session.</para>
     /// </summary>
+    [Category(GeneratedEnemyAssets.Category)]
     public sealed class EnemyBrainPlanningTests
     {
+        [SetUp]
+        public void RequireTheGeneratorToHaveRun() => GeneratedEnemyAssets.IgnoreIfAbsent();
+
         /// <summary>
         /// Every archetype's brain. Named rather than globbed so a brain that stops being generated
         /// fails here instead of quietly reducing the suite's coverage to whatever still exists.
         /// </summary>
-        private static readonly string[] Archetypes = { "Grunt", "Chaser", "Ambusher", "Caster", "Wanderer" };
+        private static readonly string[] Archetypes = GeneratedEnemyAssets.Archetypes;
 
-        private static string PathFor(string archetype) =>
-            $"Assets/_Prophecy/Data/Enemies/Brain_{archetype}.asset";
+        private static string PathFor(string archetype) => GeneratedEnemyAssets.BrainPath(archetype);
 
         private static GoapBrainSO LoadBrain(string archetype = "Grunt")
         {
@@ -186,7 +189,7 @@ namespace Rokkan.Prophecy.Tests
         public void TheCastersProjectilesCanActuallyExist()
         {
             var tuning = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Core.CombatTuning>(
-                "Assets/_Prophecy/Data/CombatTuning_Caster.asset");
+                GeneratedEnemyAssets.CasterTuningPath);
 
             Assert.IsNotNull(tuning, "No caster tuning. Run Prophecy → Build → Generate Enemies.");
 
@@ -272,6 +275,47 @@ namespace Rokkan.Prophecy.Tests
             {
                 if (actions.IsCreated) actions.Dispose();
             }
+        }
+    }
+
+    /// <summary>
+    /// The gate for the <c>GeneratedAssetAudit</c> fixtures. They read what
+    /// <c>Prophecy → Build → Generate Enemies</c> writes, so on a tree where the generator has
+    /// never run every one of them is red for the same uninteresting reason — and the wall of
+    /// failures says nothing about what to do. Absent assets therefore skip with instructions;
+    /// assets that are PRESENT but miswired stay hard failures, because that is the regression
+    /// these fixtures exist to catch.
+    /// </summary>
+    internal static class GeneratedEnemyAssets
+    {
+        public const string Category = "GeneratedAssetAudit";
+
+        /// <summary>Every archetype the generator emits. Named rather than globbed so a brain
+        /// that stops being generated fails loudly instead of quietly shrinking coverage.</summary>
+        public static readonly string[] Archetypes = { "Grunt", "Chaser", "Ambusher", "Caster", "Wanderer" };
+
+        public const string CasterTuningPath = "Assets/_Prophecy/Data/CombatTuning_Caster.asset";
+
+        public static string BrainPath(string archetype) =>
+            $"Assets/_Prophecy/Data/Enemies/Brain_{archetype}.asset";
+
+        /// <summary>
+        /// Skip the calling test when NONE of the generated assets exist — the generator simply
+        /// has not run on this tree. Any single asset present means it has, and from there a
+        /// missing sibling is a generator regression the named assertions must report.
+        /// </summary>
+        public static void IgnoreIfAbsent()
+        {
+            foreach (var archetype in Archetypes)
+                if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(BrainPath(archetype)) != null)
+                    return;
+
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(CasterTuningPath) != null)
+                return;
+
+            Assert.Ignore(
+                "Generated enemy assets are absent — run Prophecy > Build > Generate Enemies, " +
+                "then re-run.");
         }
     }
 }

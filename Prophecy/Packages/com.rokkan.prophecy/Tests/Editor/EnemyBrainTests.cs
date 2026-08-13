@@ -5,6 +5,7 @@ using Rokkan.Prophecy.Sim.AI;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -23,38 +24,32 @@ namespace Rokkan.Prophecy.Tests
 
         private static readonly Vector2 Body = new Vector2(0.9f, 1.8f);
 
-        private static CollisionWorld Ground(float from = -100f, float to = 100f)
+        /// <summary>A floor spanning exactly <paramref name="from"/>..<paramref name="to"/>, for
+        /// the ledge test — where the drop's edge is the entire point.</summary>
+        private static CollisionWorld FloorSpan(float from, float to)
         {
             var world = new CollisionWorld();
             world.Add(new Aabb(new Vector2(from, -2f), new Vector2(to, 0f)));
             return world;
         }
 
+        /// <summary>A body standing at <paramref name="feet"/>: the hurtbox centre rides half the
+        /// body height above them, like a real combatant's.</summary>
+        private static DummyCombatant BodyAt(int id, int team, Vector2 feet) =>
+            new DummyCombatant
+            {
+                CombatId = id, Team = team, Position = feet,
+                HurtboxOffset = new Vector2(0f, Body.y * 0.5f),
+            };
+
         /// <summary>A fight containing the enemy and one player-team target.</summary>
         private static CombatState FightWith(Vector2 selfAt, Vector2 targetAt)
         {
             var fight = new CombatState();
-            fight.Register(new Dummy { CombatId = Self, Team = SelfTeam, Position = selfAt });
-            fight.Register(new Dummy { CombatId = Player, Team = 1, Position = targetAt });
+            fight.Register(BodyAt(Self, SelfTeam, selfAt));
+            fight.Register(BodyAt(Player, 1, targetAt));
             fight.RebuildHurtboxes();
             return fight;
-        }
-
-        private sealed class Dummy : ICombatant
-        {
-            public int CombatId { get; set; }
-            public int Team { get; set; } = 2;
-            public bool IsAlive { get; set; } = true;
-            public int ContactDamage => 0;
-            public int ContactIntervalTicks => 45;
-            public DefensiveAnswer ContactDefeats => DefensiveAnswer.None;
-
-            public Vector2 Position;
-
-            public Hurtbox BuildHurtbox() =>
-                new Hurtbox(CombatId, Position + new Vector2(0f, 0.9f), Body * 0.5f, 0f, Team);
-
-            public HitResult ReceiveHit(in HitEvent hit) => HitResult.Ignored;
         }
 
         // ---------------------------------------------------------------- senses
@@ -65,7 +60,7 @@ namespace Rokkan.Prophecy.Tests
             var fight = FightWith(Vector2.zero, new Vector2(5f, 0f));
             var scratch = new List<int>();
 
-            var percept = EnemyPerception.Sense(fight, Ground(), scratch,
+            var percept = EnemyPerception.Sense(fight.Hurtboxes, Ground(), scratch,
                                                 Self, SelfTeam, new Vector2(0f, 0.9f), range: 12f);
 
             Assert.IsTrue(percept.HasTarget);
@@ -80,11 +75,11 @@ namespace Rokkan.Prophecy.Tests
             // Hostility is the combat rule, not an AI rule. An enemy must not reach a different
             // conclusion about who its enemies are than the hit resolver does.
             var fight = new CombatState();
-            fight.Register(new Dummy { CombatId = Self, Team = SelfTeam, Position = Vector2.zero });
-            fight.Register(new Dummy { CombatId = 2, Team = SelfTeam, Position = new Vector2(3f, 0f) });
+            fight.Register(BodyAt(Self, SelfTeam, Vector2.zero));
+            fight.Register(BodyAt(2, SelfTeam, new Vector2(3f, 0f)));
             fight.RebuildHurtboxes();
 
-            var percept = EnemyPerception.Sense(fight, Ground(), new List<int>(),
+            var percept = EnemyPerception.Sense(fight.Hurtboxes, Ground(), new List<int>(),
                                                 Self, SelfTeam, new Vector2(0f, 0.9f), 12f);
 
             Assert.IsFalse(percept.HasTarget, "same team is not prey");
@@ -95,7 +90,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var fight = FightWith(Vector2.zero, new Vector2(40f, 0f));
 
-            var percept = EnemyPerception.Sense(fight, Ground(), new List<int>(),
+            var percept = EnemyPerception.Sense(fight.Hurtboxes, Ground(), new List<int>(),
                                                 Self, SelfTeam, new Vector2(0f, 0.9f), range: 12f);
 
             Assert.IsFalse(percept.HasTarget);
@@ -112,7 +107,7 @@ namespace Rokkan.Prophecy.Tests
 
             var fight = FightWith(Vector2.zero, new Vector2(5f, 0f));
 
-            var percept = EnemyPerception.Sense(fight, world, new List<int>(),
+            var percept = EnemyPerception.Sense(fight.Hurtboxes, world, new List<int>(),
                                                 Self, SelfTeam, new Vector2(0f, 0.9f), 12f);
 
             Assert.IsTrue(percept.HasTarget, "it is still there");
@@ -122,7 +117,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void ALedgeAheadIsNoticedBeforeItIsWalkedOff()
         {
-            var world = Ground(-100f, 5f);   // floor stops at x = 5
+            var world = FloorSpan(-100f, 5f);   // floor stops at x = 5
 
             Assert.IsTrue(EnemyPerception.GroundAhead(world, new Vector2(0f, 0f), Body, 1),
                 "solid floor ahead");

@@ -175,9 +175,12 @@ namespace Rokkan.Prophecy.Overworld
 
         /// <summary>
         /// The height a cell's surface presents at the edge in direction (dx, dz), in 1/RampRun
-        /// level units; −1 is "no entry" (a ramp's side). Ground presents level×RampRun
-        /// everywhere; run cell i presents +i at its low edge and +i+1 at its high edge; an
-        /// overlay deck is flat and presents its level on every edge.
+        /// level units; −1 is "no entry" — <see cref="OverworldTileGrid.EdgeLevelAt"/> with the
+        /// seam's role calls layered on. Sea has no base surface at all, and a ramp's SIDE is a
+        /// refusal: you cannot board a stair from the side. The face planner's wrapper makes
+        /// the opposite calls (water presents its level, sides present their base); the
+        /// arithmetic between them lives once, on the grid. An overlay deck is flat and
+        /// presents its level on every edge.
         /// </summary>
         private int EdgeHeight(int x, int z, int surfaceLayer, int dx, int dz, out bool exists)
         {
@@ -198,19 +201,8 @@ namespace Rokkan.Prophecy.Overworld
             exists = _grid.KindAt(x, z) != TileCellKind.Sea;
             if (!exists) return -1;
 
-            int scaled = _grid.LevelAt(x, z) * Run;
-            if (_grid.KindAt(x, z) != TileCellKind.Ramp) return scaled;
-
-            var facing = _grid.FacingAt(x, z);
-            if (IsSide(facing, dx, dz)) return -1;
-
-            bool towardHigh =
-                (facing == RampFacing.PlusZ && dz > 0) ||
-                (facing == RampFacing.MinusZ && dz < 0) ||
-                (facing == RampFacing.PlusX && dx > 0) ||
-                (facing == RampFacing.MinusX && dx < 0);
-
-            return scaled + _grid.RampIndexAt(x, z) + (towardHigh ? 1 : 0);
+            int edge = _grid.EdgeLevelAt(x, z, dx, dz, out bool rampSide);
+            return rampSide ? -1 : edge;
         }
 
         private static bool IsSide(RampFacing facing, int dx, int dz) =>

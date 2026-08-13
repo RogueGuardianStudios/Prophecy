@@ -55,14 +55,16 @@ namespace Rokkan.Prophecy.Overworld
         }
 
         /// <summary>Every slot filled? The first empty one is named, because "some slot is null"
-        /// is a hunt and a named slot is a fix.</summary>
+        /// is a hunt and a named slot is a fix. The loop walks the ENUM, not a remembered last
+        /// member — a piece added to the vocabulary is validated the day it exists, instead of
+        /// slipping past a stale bound into Instantiate(null) at build time.</summary>
         public bool IsComplete(out string firstMissing)
         {
-            for (int i = 0; i <= (int)OverworldTilePiece.ShoreOuterPost; i++)
+            foreach (OverworldTilePiece piece in System.Enum.GetValues(typeof(OverworldTilePiece)))
             {
-                if (For((OverworldTilePiece)i) == null)
+                if (For(piece) == null)
                 {
-                    firstMissing = ((OverworldTilePiece)i).ToString();
+                    firstMissing = piece.ToString();
                     return false;
                 }
             }

@@ -124,8 +124,6 @@ namespace Rokkan.Prophecy.Presentation
         private float _fallLookVelocity;
 
         private bool _hasBounds;
-        private float _boundsFloorY;
-        private float _boundsCeilingY;
 
         [SerializeField, Tooltip("Seconds the clamp takes to SLIDE to a new room's bounds — " +
                                  "the Metroid pan, as smooth reframing rather than a cut.")]
@@ -133,10 +131,12 @@ namespace Rokkan.Prophecy.Presentation
 
         private float _baseFloorY;
         private float _baseCeilingY;
-        private int _lastRoom = int.MinValue;
-        private float _floorVelocity;
-        private float _ceilingVelocity;
         private RoomBounds[] _roomBounds = System.Array.Empty<RoomBounds>();
+
+        // The clamp and pan state itself. A separate, plain class because this exact logic has
+        // shipped two regressions (Matt's jar, the still-sliding respawn) that only a headless
+        // test can keep pinned — see LaneCameraClamp.
+        private readonly LaneCameraClamp _clamp = new LaneCameraClamp();
 
         /// <summary>
         /// Constrain the camera's vertical travel to the level's extent. Set by
@@ -151,21 +151,14 @@ namespace Rokkan.Prophecy.Presentation
         public void SetVerticalBounds(float floorY, float ceilingY)
         {
             _hasBounds = ceilingY > floorY;
-            _boundsFloorY = floorY;
-            _boundsCeilingY = ceilingY;
 
             // The descriptor's globals are the BASELINE every room without its own bounds
             // falls back to. An arrival re-learns the scene's rooms and snaps to whichever
             // one the player was seeded into — a load is not a place to watch a slide.
             _baseFloorY = floorY;
             _baseCeilingY = ceilingY;
-            _targetFloorY = floorY;
-            _targetCeilingY = ceilingY;
-            _boundsMinX = _targetMinX = -100000f;
-            _boundsMaxX = _targetMaxX = 100000f;
+            _clamp.SetBaseline(floorY, ceilingY);
             _roomBounds = FindObjectsByType<RoomBounds>(FindObjectsSortMode.None);
-            _lastRoom = int.MinValue;
-            _panActive = false;
             UpdateRoomBounds(snap: true);
         }
 
@@ -175,124 +168,44 @@ namespace Rokkan.Prophecy.Presentation
         public void ClearVerticalBounds()
         {
             _hasBounds = false;
-            _boundsMinX = _targetMinX = -100000f;
-            _boundsMaxX = _targetMaxX = 100000f;
+            _clamp.Clear();
             _roomBounds = System.Array.Empty<RoomBounds>();
-            _lastRoom = int.MinValue;
-            _panActive = false;
         }
 
         /// <summary>
         /// Slide the clamp to the current room's bounds. Rooms are the sim's fact (graph
         /// state, changed only at doors); this is its presentation — the frame's limits
         /// reframe smoothly as the body walks through, which IS the Metroid room slide in a
-        /// camera that otherwise just follows.
+        /// camera that otherwise just follows. The rules live in <see cref="LaneCameraClamp"/>
+        /// where the tests can reach them; this only gathers what one update needs.
         /// </summary>
         private void UpdateRoomBounds(bool snap = false)
         {
             if (_host == null || _host.Sim == null) return;
 
-            // Mid-crossing, the slide is SYNCED to the walk (Matt): the clamps blend by the
-            // transit's own progress, so the frame arrives exactly when the feet do — no
-            // separate clock to drift against. On completion the room change lands with the
-            // clamps already at the destination, and the ordinary path below has nothing
-            // left to move.
             var transit = _host.Sim.Get<Rokkan.Prophecy.Sim.Abilities.DoorTransit>();
-            if (!snap && transit != null && transit.IsTransiting)
+            bool transiting = transit != null && transit.IsTransiting;
+
+            var frame = new LaneCameraClamp.Frame
             {
-                var from = BoundsFor(_host.Sim.State.Room);
-                var to = BoundsFor(transit.TargetRoom);
-                float t = Mathf.SmoothStep(0f, 1f, transit.Progress);
+                Room = _host.Sim.State.Room,
+                Transiting = transiting,
+                TargetRoom = transiting ? transit.TargetRoom : 0,
+                TransitProgress = transiting ? transit.Progress : 0f,
+                TransitAxisX = transiting && transit.TransitAxisX,
+                DeliveryAxis = transiting ? transit.DeliveryAxis : 0f,
+                RoomRect = BoundsFor(_host.Sim.State.Room),
+                TargetRect = transiting ? BoundsFor(transit.TargetRoom) : default,
+                CameraX = _followTarget != null ? _followTarget.position.x : 0f,
+                CameraY = _followTarget != null ? _followTarget.position.y : 0f,
+                HalfVisibleWidth = HalfVisibleWidth(),
+                HalfVisibleHeight = VisibleHeight * 0.5f,
+                FocusOffsetY = FocusOffsetY,
+                SlideSeconds = _roomSlideSeconds,
+                DeltaSeconds = Time.deltaTime,
+            };
 
-                // The PAN, aimed once at the step-in: from wherever the camera actually is
-                // to exactly where the delivery point sits under the destination room's
-                // clamps. Blending only the RECTS released the pinned camera mid-walk and it
-                // lurched after the player — Matt's jar. The pan owns the crossing axis
-                // outright; ResolveTargetPosition rides it by the walk's own progress.
-                if (!_panActive)
-                {
-                    _panActive = true;
-                    _panAxisX = transit.TransitAxisX;
-
-                    if (_panAxisX)
-                    {
-                        float half = HalfVisibleWidth();
-                        _panFrom = _followTarget != null ? _followTarget.position.x : 0f;
-                        _panTo = to.minX + half > to.maxX - half
-                            ? (to.minX + to.maxX) * 0.5f
-                            : Mathf.Clamp(transit.DeliveryAxis, to.minX + half, to.maxX - half);
-                    }
-                    else
-                    {
-                        float half = VisibleHeight * 0.5f;
-                        _panFrom = _followTarget != null ? _followTarget.position.y : 0f;
-                        _panTo = to.floor + half > to.ceiling - half
-                            ? (to.floor + to.ceiling) * 0.5f
-                            : Mathf.Clamp(transit.DeliveryAxis + FocusOffsetY,
-                                          to.floor + half, to.ceiling - half);
-                    }
-                }
-
-                _panBlend = t;
-
-                _boundsFloorY = Mathf.Lerp(from.floor, to.floor, t);
-                _boundsCeilingY = Mathf.Lerp(from.ceiling, to.ceiling, t);
-                _boundsMinX = Mathf.Lerp(from.minX, to.minX, t);
-                _boundsMaxX = Mathf.Lerp(from.maxX, to.maxX, t);
-
-                _targetFloorY = to.floor;
-                _targetCeilingY = to.ceiling;
-                _targetMinX = to.minX;
-                _targetMaxX = to.maxX;
-                _floorVelocity = _ceilingVelocity = _minXVelocity = _maxXVelocity = 0f;
-                _lastRoom = transit.TargetRoom;
-                return;
-            }
-
-            _panActive = false;
-
-            int room = _host.Sim.State.Room;
-            if (room != _lastRoom)
-            {
-                _lastRoom = room;
-
-                _targetFloorY = _baseFloorY;
-                _targetCeilingY = _baseCeilingY;
-                _targetMinX = -100000f;
-                _targetMaxX = 100000f;
-
-                for (int i = 0; i < _roomBounds.Length; i++)
-                {
-                    if (_roomBounds[i] == null || _roomBounds[i].Room != room) continue;
-                    _targetFloorY = _roomBounds[i].FloorY;
-                    _targetCeilingY = _roomBounds[i].CeilingY;
-                    _targetMinX = _roomBounds[i].MinX;
-                    _targetMaxX = _roomBounds[i].MaxX;
-                    break;
-                }
-            }
-
-            // A snap lands the clamps outright even when the ROOM did not change — a body can
-            // be re-placed while the previous room slide is still in flight, and a snap that
-            // only finished on room changes would reveal a camera still settling.
-            if (snap)
-            {
-                _boundsFloorY = _targetFloorY;
-                _boundsCeilingY = _targetCeilingY;
-                _boundsMinX = _targetMinX;
-                _boundsMaxX = _targetMaxX;
-                _floorVelocity = _ceilingVelocity = _minXVelocity = _maxXVelocity = 0f;
-                return;
-            }
-
-            _boundsFloorY = Mathf.SmoothDamp(_boundsFloorY, _targetFloorY,
-                                             ref _floorVelocity, _roomSlideSeconds);
-            _boundsCeilingY = Mathf.SmoothDamp(_boundsCeilingY, _targetCeilingY,
-                                               ref _ceilingVelocity, _roomSlideSeconds);
-            _boundsMinX = Mathf.SmoothDamp(_boundsMinX, _targetMinX,
-                                           ref _minXVelocity, _roomSlideSeconds);
-            _boundsMaxX = Mathf.SmoothDamp(_boundsMaxX, _targetMaxX,
-                                           ref _maxXVelocity, _roomSlideSeconds);
+            _clamp.Drive(in frame, snap);
         }
 
         /// <summary>One room's clamp rect, with the descriptor baseline for rooms that never
@@ -306,23 +219,8 @@ namespace Rokkan.Prophecy.Presentation
                         _roomBounds[i].MinX, _roomBounds[i].MaxX);
             }
 
-            return (_baseFloorY, _baseCeilingY, -100000f, 100000f);
+            return (_baseFloorY, _baseCeilingY, -LaneCameraClamp.Unbounded, LaneCameraClamp.Unbounded);
         }
-
-        private float _targetFloorY;
-        private float _targetCeilingY;
-        private float _boundsMinX = -100000f;
-        private float _boundsMaxX = 100000f;
-        private float _targetMinX = -100000f;
-        private float _targetMaxX = 100000f;
-        private float _minXVelocity;
-        private float _maxXVelocity;
-
-        private bool _panActive;
-        private bool _panAxisX;
-        private float _panFrom;
-        private float _panTo;
-        private float _panBlend;
 
         private float HalfVisibleWidth() =>
             VisibleHeight * 0.5f *
@@ -337,10 +235,10 @@ namespace Rokkan.Prophecy.Presentation
         {
             float halfWidth = HalfVisibleWidth();
 
-            float lowest = _boundsMinX + halfWidth;
-            float highest = _boundsMaxX - halfWidth;
+            float lowest = _clamp.MinX + halfWidth;
+            float highest = _clamp.MaxX - halfWidth;
 
-            if (lowest > highest) return (_boundsMinX + _boundsMaxX) * 0.5f;
+            if (lowest > highest) return (_clamp.MinX + _clamp.MaxX) * 0.5f;
 
             return Mathf.Clamp(centreX, lowest, highest);
         }
@@ -506,10 +404,10 @@ namespace Rokkan.Prophecy.Presentation
             // Mid-crossing the pan owns its axis: a fixed glide from where the camera stood
             // at the step-in to the destination frame, ridden on the walk's own progress —
             // the other axis keeps following normally.
-            if (_panActive)
+            if (_clamp.PanActive)
             {
-                if (_panAxisX) targetX = Mathf.Lerp(_panFrom, _panTo, _panBlend);
-                else targetY = Mathf.Lerp(_panFrom, _panTo, _panBlend);
+                if (_clamp.PanAxisX) targetX = _clamp.PanPosition;
+                else targetY = _clamp.PanPosition;
             }
 
             return new Vector3(targetX, targetY, feet.z);
@@ -589,10 +487,10 @@ namespace Rokkan.Prophecy.Presentation
             if (!_hasBounds) return centreY;
 
             float half = VisibleHeight * 0.5f;
-            float lowest = _boundsFloorY + half;
-            float highest = _boundsCeilingY - half;
+            float lowest = _clamp.FloorY + half;
+            float highest = _clamp.CeilingY - half;
 
-            if (lowest > highest) return (_boundsFloorY + _boundsCeilingY) * 0.5f;
+            if (lowest > highest) return (_clamp.FloorY + _clamp.CeilingY) * 0.5f;
 
             return Mathf.Clamp(centreY, lowest, highest);
         }

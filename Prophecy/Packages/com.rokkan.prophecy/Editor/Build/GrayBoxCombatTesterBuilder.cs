@@ -4,8 +4,8 @@ using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.World;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
+using static Rokkan.Prophecy.Editor.Build.GrayBoxSceneScaffold;
 
 namespace Rokkan.Prophecy.Editor.Build
 {
@@ -33,11 +33,7 @@ namespace Rokkan.Prophecy.Editor.Build
         /// <summary>The one arrival spawn, west of the respawn post.</summary>
         public const string DefaultSpawnId = "default";
 
-        private const string GruntPrefabPath = "Assets/_Prophecy/Prefabs/Enemy_Capsule.prefab";
-
         private const float FloorWidth = 46f;
-        private const float Depth = 3f;
-        private const float GroundThickness = 2f;
 
         // Three rooms on one flat floor (Matt: split the arena into rooms with doors). West
         // to east: the ANTECHAMBER (exit portal, up-thrust dummy — the quiet room), the
@@ -49,29 +45,17 @@ namespace Rokkan.Prophecy.Editor.Build
         [MenuItem("Prophecy/Build/Generate GrayBox_CombatTester", priority = 42)]
         public static void Generate()
         {
-            if (HasUnsavedChanges()) return;
+            var tuning = LoadMovementTuning();
+            if (tuning == null) return;
 
-            var setup = EditorSceneManager.GetSceneManagerSetup();
-            bool canRestore = false;
-            for (int i = 0; setup != null && i < setup.Length; i++)
-                if (!string.IsNullOrEmpty(setup[i].path)) canRestore = true;
+            var combat = LoadCombatTuning();
+            if (combat == null) return;
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            BuildContents();
-
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath).Replace('\\', '/'));
-            EditorSceneManager.SaveScene(scene, ScenePath);
-
-            AssetDatabase.Refresh();
-            BuildSettings.EnsureInBuildSettings(ScenePath);
-
-            if (canRestore) EditorSceneManager.RestoreSceneManagerSetup(setup);
-
-            Debug.Log($"[Prophecy] Generated {ScenePath} — the sparring floor.");
+            if (GenerateScene(ScenePath, () => { BuildContents(tuning, combat); return true; }))
+                Debug.Log($"[Prophecy] Generated {ScenePath} — the sparring floor.");
         }
 
-        private static void BuildContents()
+        private static void BuildContents(MovementTuning tuning, CombatTuning combat)
         {
             var geometry = new GameObject("Geometry").transform;
             var markers = new GameObject("Markers").transform;
@@ -79,37 +63,44 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateLighting();
             CreateFloor(geometry);
             CreateCombatDirector();
-            CreateDescriptorAndSpawn(markers);
+            CreateDescriptorAndSpawn(markers, tuning);
             CreateRespawner(markers);
             CreateExitPortal(geometry);
-            CreateUpThrustTarget(geometry);
-            CreateRooms(geometry, markers);
+            CreateUpThrustTarget(geometry, tuning, combat);
+            CreateRooms(geometry, markers, tuning);
         }
 
-        private static void CreateRooms(Transform geometry, Transform markers)
+        private static void CreateRooms(Transform geometry, Transform markers,
+                                        MovementTuning tuning)
         {
             float west = -FloorWidth * 0.5f;
             float east = FloorWidth * 0.5f;
+            float cameraFloor = -tuning.Data.LaneHeight;
 
             GrayBoxDoors.Doorway(geometry, "Door_Antechamber", DoorWestX, 1, 2, Depth);
             GrayBoxDoors.Doorway(geometry, "Door_Duel", DoorEastX, 2, 3, Depth);
 
-            GrayBoxDoors.Bounds(markers, 1, -3.6f, 40f, west - 4f, DoorWestX);
-            GrayBoxDoors.Bounds(markers, 2, -3.6f, 40f, DoorWestX, DoorEastX);
-            GrayBoxDoors.Bounds(markers, 3, -3.6f, 40f, DoorEastX, east + 4f);
+            GrayBoxDoors.Bounds(markers, 1, cameraFloor, 40f, west - 4f, DoorWestX);
+            GrayBoxDoors.Bounds(markers, 2, cameraFloor, 40f, DoorWestX, DoorEastX);
+            GrayBoxDoors.Bounds(markers, 3, cameraFloor, 40f, DoorEastX, east + 4f);
         }
 
         /// <summary>
         /// The up-thrust's proof: a dummy hung over the floor, placed by arithmetic where only
-        /// the rising blade reaches. The blade spans feet+1.65..feet+2.35 and a jump lifts the
-        /// feet 2.4, so a body centred at 3.2 (spanning 2.75..3.65) connects mid-rise, sits
-        /// above every grounded swing, and no jump puts feet above it to dive on — whatever
-        /// hits this was an up-thrust. Away from the respawn post so the duel stays a duel.
+        /// the rising blade reaches. The blade rides <c>UpThrustBox</c> above the feet and a
+        /// jump lifts the feet <c>JumpHeight</c>, so the body is centred where the blade's
+        /// centre passes at mid-rise — high enough to sit above every grounded swing, low
+        /// enough that no jump puts feet above it to dive on: whatever hits this was an
+        /// up-thrust. Derived, so retuning the jump or the blade moves the dummy instead of
+        /// stranding it. Away from the respawn post so the duel stays a duel.
         /// </summary>
-        private static void CreateUpThrustTarget(Transform parent)
+        private static void CreateUpThrustTarget(Transform parent, MovementTuning tuning,
+                                                 CombatTuning combat)
         {
             const float x = -17f;   // the antechamber: practice hangs in the quiet room
-            const float centreY = 3.2f;
+
+            var blade = combat.Data.UpThrustBox;
+            float centreY = blade.Offset.y + tuning.Data.JumpHeight * 0.5f;
             var size = new Vector2(0.9f, 0.9f);
 
             var root = new GameObject("Dummy_UpThrust");
@@ -147,33 +138,10 @@ namespace Rokkan.Prophecy.Editor.Build
         /// duel. It targets the overworld's <see cref="SceneDirector.ReturnSpawnId"/>: you
         /// stand back up exactly where you left the map, Zelda II's encounter rule.
         /// </summary>
-        private static void CreateExitPortal(Transform parent)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = "Portal_Overworld";
-            cube.transform.SetParent(parent, false);
-            cube.transform.localScale = new Vector3(1.6f, 1.6f, 1.6f);
-            cube.transform.position = new Vector3(-FloorWidth * 0.5f + 2f, 0.8f, 0f);
-
-            Object.DestroyImmediate(cube.GetComponent<Collider>());
-            cube.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
-
-            var portal = cube.AddComponent<Portal>();
-            SetPrivate(portal, "_targetScene", GrayBoxOverworldBuilder.SceneName);
-            SetPrivate(portal, "_targetSpawnId", SceneDirector.ReturnSpawnId);
-            SetPrivate(portal, "_halfExtents", new Vector3(1.3f, 1.5f, 1.3f));
-        }
-
-        private static void CreateLighting()
-        {
-            var light = new GameObject("Directional Light");
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
-            var component = light.AddComponent<Light>();
-            component.type = LightType.Directional;
-            component.intensity = 1.1f;
-            component.shadows = LightShadows.Soft;
-        }
+        private static void CreateExitPortal(Transform parent) =>
+            PortalSlab(parent, "Portal_Overworld",
+                       new Vector3(-FloorWidth * 0.5f + 2f, 0f, 0f),
+                       GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
 
         private static void CreateFloor(Transform geometry)
         {
@@ -192,7 +160,7 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(component, "_space", MovementSpace.SideScroll);
         }
 
-        private static void CreateDescriptorAndSpawn(Transform markers)
+        private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning)
         {
             // The arrival room, between the doors.
             var spawnObject = new GameObject("Spawn_default");
@@ -211,17 +179,17 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // Camera bounds ON: the arriving rig learns the scene's rooms in
             // SetVerticalBounds, and the room clamps hang off that path. One lane below
-            // the floor, the project constant.
+            // the floor, same as every side-scroll scene.
             SetPrivate(descriptor, "_useCameraBounds", true);
-            SetPrivate(descriptor, "_cameraFloorY", -3.6f);
+            SetPrivate(descriptor, "_cameraFloorY", -tuning.Data.LaneHeight);
             SetPrivate(descriptor, "_cameraCeilingY", 40f);
         }
 
         private static void CreateRespawner(Transform markers)
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GruntPrefabPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyBuilder.GruntPrefabPath);
             if (prefab == null)
-                Debug.LogWarning($"[Prophecy] No grunt prefab at {GruntPrefabPath} — run " +
+                Debug.LogWarning($"[Prophecy] No grunt prefab at {EnemyBuilder.GruntPrefabPath} — run " +
                                  "Prophecy > Build > Generate Enemies first, then regenerate. " +
                                  "The respawner was created unarmed.");
 
@@ -232,52 +200,6 @@ namespace Rokkan.Prophecy.Editor.Build
 
             var respawner = post.AddComponent<CombatTesterRespawner>();
             SetPrivate(respawner, "_prefab", prefab);
-        }
-
-        // ------------------------------------------------------------------ helpers
-
-        private static bool HasUnsavedChanges()
-        {
-            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
-            {
-                var scene = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
-                if (!scene.isDirty) continue;
-
-                Debug.LogError($"[Prophecy] '{(string.IsNullOrEmpty(scene.name) ? "Untitled" : scene.name)}' " +
-                               "has unsaved changes. Save or discard them, then run this again — " +
-                               "generating replaces the open scene.");
-                return true;
-            }
-
-            return false;
-        }
-
-        private static void SetPrivate(Object target, string field, object value)
-        {
-            var serialized = new SerializedObject(target);
-            var property = serialized.FindProperty(field);
-            if (property == null)
-            {
-                Debug.LogError($"[Prophecy] No serialized field '{field}' on {target.GetType().Name}.");
-                return;
-            }
-
-            switch (value)
-            {
-                case UnityEngine.Object o: property.objectReferenceValue = o; break;
-                case string s: property.stringValue = s; break;
-                case float f: property.floatValue = f; break;
-                case int i: property.intValue = i; break;
-                case bool b: property.boolValue = b; break;
-                case Vector2 v2: property.vector2Value = v2; break;
-                case Vector3 v: property.vector3Value = v; break;
-                case MovementSpace space: property.enumValueIndex = (int)space; break;
-                default:
-                    Debug.LogError($"[Prophecy] Unhandled type for '{field}'.");
-                    return;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

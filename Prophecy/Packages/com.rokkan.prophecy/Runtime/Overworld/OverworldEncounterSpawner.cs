@@ -102,9 +102,11 @@ namespace Rokkan.Prophecy.Overworld
 
         private void Update()
         {
+            // The player from the locator; the director keeps only the question that is
+            // genuinely scene-flow's — whether a transition is in flight.
+            var player = Presentation.PlayerLocator.Current;
             var director = SceneDirector.Instance;
-            var player = director != null ? director.Player : null;
-            if (player == null || director.IsTransitioning) return;
+            if (player == null || (director != null && director.IsTransitioning)) return;
 
             var grid = Grid();
             if (grid == null) return;
@@ -139,8 +141,7 @@ namespace Rokkan.Prophecy.Overworld
 
         private float CadenceHere()
         {
-            var director = SceneDirector.Instance;
-            var player = director != null ? director.Player : null;
+            var player = Presentation.PlayerLocator.Current;
             var grid = Grid();
             if (player == null || grid == null) return WildernessRecheckSeconds;
 
@@ -218,15 +219,9 @@ namespace Rokkan.Prophecy.Overworld
                 var wanderer = Instantiate(prefab, position, Quaternion.identity);
                 wanderer.name = prefab.name;
 
-                // The prefab is authored for side-scroll, because every other scene is. The
-                // spawner is the thing that knows which space this world plays in.
-                var host = wanderer.GetComponent<PlayerCharacterHost>();
-                if (host != null) host.ConfigureSpace(MovementSpace.TopDown);
-
-                // …and it is the thing that knows this world has a baked mesh: the oracle
-                // bends the wanderer's roam headings along it (side-scroll bodies never get
-                // one, and the strategies degrade to their raw headings without it).
-                wanderer.AddComponent<NavSteeringOracle>();
+                // The composition — top-down space, the steering oracle — is the overworld's
+                // knowledge, not this spawner's, so it lives where every spawn path finds it.
+                OverworldWandererSetup.Apply(wanderer);
 
                 _alive.Add(wanderer);
                 return;

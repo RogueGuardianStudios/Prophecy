@@ -59,7 +59,7 @@ namespace Rokkan.Prophecy.Goap
             int lunge = config?.LungeTicks ?? 20;
             bool leap = config?.Leap ?? true;
 
-            long tick = CurrentTick(host);
+            long tick = host.CurrentTick;
 
             if (host.Scratch.StartedTick == long.MinValue)
             {
@@ -81,12 +81,6 @@ namespace Rokkan.Prophecy.Goap
         {
             var host = HostOf(context);
             if (host != null) host.Intent.MoveX = 0f;
-        }
-
-        private static long CurrentTick(EnemyBrainHost host)
-        {
-            var body = host.GetComponent<PlayerCharacterHost>();
-            return body?.Sim?.CurrentTick ?? 0L;
         }
     }
 }

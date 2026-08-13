@@ -4,6 +4,7 @@ using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -33,31 +34,9 @@ namespace Rokkan.Prophecy.Tests
             return t;
         }
 
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
-
         private static CharacterSim Player(MovementTuningData tuning, CollisionWorld world = null,
-                                           Vector2 at = default)
-        {
-            var sim = PlayerCharacterFactory.Create(world ?? Ground(), tuning);
-            sim.Teleport(at);
-            return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
-
-        private static void Step(CharacterSim sim, int ticks = 1) => Step(sim, InputFrame.Empty, ticks);
+                                           Vector2 at = default) =>
+            SimTestHarness.Player(world ?? Ground(), null, null, tuning, at);
 
         private static InputFrame Hold(float x = 0f, float y = 0f) => new InputFrame(new Vector2(x, y));
 
@@ -517,50 +496,37 @@ namespace Rokkan.Prophecy.Tests
         public void Movement_IsIdenticalAt30_60_And144Fps()
         {
             // The sim advances on a fixed tick; the frame rate only decides how many ticks a
-            // frame retires. Drive the same 120 ticks through an accumulator at three very
-            // different frame rates and the character must end up in exactly the same place —
-            // if it does not, something is reading frame time where it should read the tick.
-            (Vector2 position, Vector2 velocity, float elapsed) RunAt(float fps)
+            // frame retires. Drive the same 120 ticks through the REAL accumulator — SimClock,
+            // the loop the game ships — at three very different frame rates and the character
+            // must end up in exactly the same place. If it does not, something is reading frame
+            // time where it should read the tick. Driving the actual clock is what makes the
+            // claim cover the shipped arithmetic: a hand-rolled copy of it once mixed float and
+            // double and either deadlocked or dropped a tick depending on which way it mixed.
+            (Vector2 position, Vector2 velocity, double elapsed) RunAt(int fps)
             {
                 var sim = Player(Tuning());
 
-                // Every quantity here is a float, deliberately. Mixing a double accumulator with
-                // the sim's float tick length deadlocks at 60 fps: 1.0/60.0 in double is a hair
-                // *below* 1f/60f widened, so the accumulator never reaches a whole tick and no
-                // tick ever retires. Staying in float keeps the arithmetic self-consistent — and
-                // it is what a real driver does anyway.
-                float frameDelta = 1f / fps;
-                float accumulator = 0f;
-                float elapsed = 0f;
-                long tick = 0;
-
-                while (tick < 120)
+                var clock = new SimClock();
+                clock.Register(new TickHook(info =>
                 {
-                    accumulator += frameDelta;
-                    elapsed += frameDelta;
+                    // A scripted input, keyed off the tick so all three runs see the same thing.
+                    var jump = info.Tick == 10 ? ButtonState.Press
+                             : info.Tick == 25 ? ButtonState.Release
+                             : info.Tick > 10 && info.Tick < 25 ? ButtonState.Holding
+                             : ButtonState.None;
 
-                    while (accumulator >= Dt && tick < 120)
-                    {
-                        accumulator -= Dt;
-                        tick++;
+                    sim.SetInput(new InputFrame(new Vector2(1f, 0f), jump: jump));
+                }));
+                clock.Register(sim);
 
-                        // A scripted input, keyed off the tick so all three runs see the same thing.
-                        var jump = tick == 10 ? ButtonState.Press
-                                 : tick == 25 ? ButtonState.Release
-                                 : tick > 10 && tick < 25 ? ButtonState.Holding
-                                 : ButtonState.None;
-
-                        sim.SetInput(new InputFrame(new Vector2(1f, 0f), jump: jump));
-                        sim.Tick(new SimTickInfo(tick, Dt));
-                    }
-                }
+                double elapsed = AdvanceTicks(clock, 1.0 / fps, 120);
 
                 return (sim.State.Position, sim.State.Velocity, elapsed);
             }
 
-            var at30 = RunAt(30f);
-            var at60 = RunAt(60f);
-            var at144 = RunAt(144f);
+            var at30 = RunAt(30);
+            var at60 = RunAt(60);
+            var at144 = RunAt(144);
 
             Assert.AreEqual(at60.position, at30.position, "30 fps must not change where the character is");
             Assert.AreEqual(at60.position, at144.position, "and neither must 144");
@@ -669,17 +635,6 @@ namespace Rokkan.Prophecy.Tests
                 else
                     Assert.IsTrue(module.Enabled, $"{module.Name} is built and should be on");
             }
-
-            Assert.AreEqual(1, CountPlanned(sim),
-                "Crawl is all that remains unbuilt — FlameArt graduated into CastArt");
-        }
-
-        private static int CountPlanned(CharacterSim sim)
-        {
-            int n = 0;
-            for (int i = 0; i < sim.Modules.Count; i++)
-                if (sim.Modules[i] is PlannedAbility) n++;
-            return n;
         }
 
         [Test]

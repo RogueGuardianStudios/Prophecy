@@ -39,6 +39,10 @@ namespace Rokkan.Prophecy.Presentation
                                  "mid-play — which is how combat numbers get authored at all.")]
         private CombatTuning _combatTuning;
 
+        [SerializeField, Tooltip("The art table: costs, dispatch facts, page feel. Leave empty " +
+                                 "to run the code defaults — the shipped eight arts.")]
+        private ArtTuning _artTuning;
+
         [SerializeField, Tooltip("Leave empty to find one in the scene.")]
         private SimClockDriver _clockDriver;
 
@@ -133,7 +137,8 @@ namespace Rokkan.Prophecy.Presentation
                 _space,
                 _loadout != null ? _loadout.Data : null,
                 _combatTuning != null ? _combatTuning.Data : null,
-                CombatDirector.Instance != null ? CombatDirector.Instance.State : null);
+                CombatDirector.Instance != null ? CombatDirector.Instance.State : null,
+                _artTuning != null ? _artTuning.Data : null);
         }
 
         private void Start()

@@ -25,7 +25,10 @@ namespace Rokkan.Prophecy.Sim.Combat
     /// </summary>
     public sealed class Equipment
     {
-        public const int SlotCount = 9;
+        /// <summary>Derived from the enum, the way <c>StatBlock.Count</c> is — a hand-kept
+        /// number here compiles cleanly while a new slot silently overflows past it.</summary>
+        public static readonly int SlotCount =
+            System.Enum.GetValues(typeof(EquipSlot)).Length;
 
         private readonly ItemData[] _worn = new ItemData[SlotCount];
 
@@ -55,7 +58,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                 return true;
             }
 
-            var target = SlotFor(item.Slot);
+            if (!TrySlotFor(item.Slot, out var target)) return false;
             if (this[target] != null) return false;
 
             this[target] = item;
@@ -71,17 +74,23 @@ namespace Rokkan.Prophecy.Sim.Combat
             return item;
         }
 
-        private static EquipSlot SlotFor(ItemSlotType type)
+        /// <summary>
+        /// The body slot a slot TYPE maps to. False for anything unmapped — a new slot type
+        /// must refuse to equip until someone maps it, rather than quietly landing in a slot
+        /// it does not belong to and surfacing as wrong gear in a playtest.
+        /// </summary>
+        public static bool TrySlotFor(ItemSlotType type, out EquipSlot slot)
         {
             switch (type)
             {
-                case ItemSlotType.Sword: return EquipSlot.Sword;
-                case ItemSlotType.Shield: return EquipSlot.Shield;
-                case ItemSlotType.Pants: return EquipSlot.Pants;
-                case ItemSlotType.Boots: return EquipSlot.Boots;
-                case ItemSlotType.Shirt: return EquipSlot.Shirt;
-                case ItemSlotType.Gloves: return EquipSlot.Gloves;
-                default: return EquipSlot.Necklace;
+                case ItemSlotType.Sword: slot = EquipSlot.Sword; return true;
+                case ItemSlotType.Shield: slot = EquipSlot.Shield; return true;
+                case ItemSlotType.Pants: slot = EquipSlot.Pants; return true;
+                case ItemSlotType.Boots: slot = EquipSlot.Boots; return true;
+                case ItemSlotType.Shirt: slot = EquipSlot.Shirt; return true;
+                case ItemSlotType.Gloves: slot = EquipSlot.Gloves; return true;
+                case ItemSlotType.Necklace: slot = EquipSlot.Necklace; return true;
+                default: slot = default; return false;
             }
         }
     }

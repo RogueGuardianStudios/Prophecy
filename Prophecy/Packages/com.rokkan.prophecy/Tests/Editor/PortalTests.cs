@@ -1,11 +1,10 @@
 using NUnit.Framework;
 using Rokkan.Prophecy.World;
-using UnityEngine;
 
 namespace Rokkan.Prophecy.Tests
 {
     /// <summary>
-    /// The portal's arming rule, exercised without a scene load.
+    /// The portal's arming rule, exercised as the plain struct it is — no GameObject, no scene.
     ///
     /// <para>The rule exists for one failure: a portal pair points at each other's spawns, and an
     /// arrival spawn inside a portal volume would otherwise bounce the player back the frame they
@@ -14,23 +13,10 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public sealed class PortalTests
     {
-        private GameObject _gameObject;
-        private Portal _portal;
-
-        // Comfortably inside / outside the default half extents (0.9, 1.3, 1.5) of a portal at
-        // the origin. Points, not boxes: the portal tests the player's feet.
-        private static readonly Vector3 Inside = new Vector3(0.2f, 0f, 0f);
-        private static readonly Vector3 Outside = new Vector3(5f, 0f, 0f);
+        private PortalArming _arming;
 
         [SetUp]
-        public void CreatePortal()
-        {
-            _gameObject = new GameObject("Portal_UnderTest");
-            _portal = _gameObject.AddComponent<Portal>();
-        }
-
-        [TearDown]
-        public void DestroyPortal() => Object.DestroyImmediate(_gameObject);
+        public void FreshPortal() => _arming = default;
 
         [Test]
         public void ArrivingInsideNeverFires()
@@ -38,30 +24,30 @@ namespace Rokkan.Prophecy.Tests
             // The ping-pong case: the player materialises inside the volume. However long they
             // stand there, nothing happens until they have genuinely left and come back.
             for (int frame = 0; frame < 10; frame++)
-                Assert.IsFalse(_portal.Evaluate(Inside, transitioning: false),
+                Assert.IsFalse(_arming.Evaluate(inside: true, transitioning: false),
                                $"Fired on frame {frame} against a player who was never outside.");
         }
 
         [Test]
         public void WalkingInFiresExactlyOnce()
         {
-            Assert.IsFalse(_portal.Evaluate(Outside, transitioning: false), "Fired while outside.");
-            Assert.IsTrue(_portal.Evaluate(Inside, transitioning: false), "Walking in did not fire.");
+            Assert.IsFalse(_arming.Evaluate(inside: false, transitioning: false), "Fired while outside.");
+            Assert.IsTrue(_arming.Evaluate(inside: true, transitioning: false), "Walking in did not fire.");
 
             // Standing in the volume is one entry, not an entry per frame.
             for (int frame = 0; frame < 10; frame++)
-                Assert.IsFalse(_portal.Evaluate(Inside, transitioning: false),
+                Assert.IsFalse(_arming.Evaluate(inside: true, transitioning: false),
                                $"Refired on frame {frame} without the player ever leaving.");
         }
 
         [Test]
         public void LeavingRearmsIt()
         {
-            _portal.Evaluate(Outside, transitioning: false);
-            Assert.IsTrue(_portal.Evaluate(Inside, transitioning: false));
+            _arming.Evaluate(inside: false, transitioning: false);
+            Assert.IsTrue(_arming.Evaluate(inside: true, transitioning: false));
 
-            Assert.IsFalse(_portal.Evaluate(Outside, transitioning: false), "Fired while outside.");
-            Assert.IsTrue(_portal.Evaluate(Inside, transitioning: false),
+            Assert.IsFalse(_arming.Evaluate(inside: false, transitioning: false), "Fired while outside.");
+            Assert.IsTrue(_arming.Evaluate(inside: true, transitioning: false),
                           "A portal used once should work again after stepping away.");
         }
 
@@ -70,22 +56,22 @@ namespace Rokkan.Prophecy.Tests
         {
             // Wherever the player briefly is while a load is in flight, it is not a position they
             // chose — being "outside" during the swap must not bank an arming for the arrival.
-            Assert.IsFalse(_portal.Evaluate(Outside, transitioning: true));
-            Assert.IsFalse(_portal.Evaluate(Inside, transitioning: false),
+            Assert.IsFalse(_arming.Evaluate(inside: false, transitioning: true));
+            Assert.IsFalse(_arming.Evaluate(inside: true, transitioning: false),
                            "An arming banked during a transition let the arrival fire instantly.");
         }
 
         [Test]
         public void AnArmedPortalHoldsItsFireDuringATransition()
         {
-            _portal.Evaluate(Outside, transitioning: false);   // genuinely armed
+            _arming.Evaluate(inside: false, transitioning: false);   // genuinely armed
 
-            Assert.IsFalse(_portal.Evaluate(Inside, transitioning: true),
+            Assert.IsFalse(_arming.Evaluate(inside: true, transitioning: true),
                            "Fired while another transition was already in flight.");
 
             // The arming itself survives — the player did earn it — so once the world settles,
             // standing in the volume counts.
-            Assert.IsTrue(_portal.Evaluate(Inside, transitioning: false));
+            Assert.IsTrue(_arming.Evaluate(inside: true, transitioning: false));
         }
     }
 }

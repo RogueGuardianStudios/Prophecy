@@ -118,6 +118,16 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// <summary>An id no authored combatant can have. See <see cref="FirstRuntimeId"/>.</summary>
         public int AllocateId() => _nextRuntimeId++;
 
+        /// <summary>
+        /// Where this fight reports a wiring mistake — a duplicate id, and whatever joins it.
+        ///
+        /// <para>A sink rather than a log call, because how a mistake surfaces belongs to whoever
+        /// owns the fight: the game's director logs to the console, a headless harness asserts on
+        /// it, and a future server routes it wherever servers route things. Null swallows nothing —
+        /// the refusal itself still happens either way.</para>
+        /// </summary>
+        public System.Action<string> OnProblem;
+
         // ------------------------------------------------------------- attack observation
 
         /// <summary>Ids that never requested pacing — the player — pass through harmlessly:
@@ -142,8 +152,8 @@ namespace Rokkan.Prophecy.Sim.Combat
             {
                 if (ReferenceEquals(existing, combatant)) return true;
 
-                Debug.LogError($"[Prophecy] Two combatants share id {combatant.CombatId}. Hits will " +
-                               "route to whichever registered first — give one of them a distinct id.");
+                OnProblem?.Invoke($"Two combatants share id {combatant.CombatId}. Hits will " +
+                                  "route to whichever registered first — give one of them a distinct id.");
                 return false;
             }
 

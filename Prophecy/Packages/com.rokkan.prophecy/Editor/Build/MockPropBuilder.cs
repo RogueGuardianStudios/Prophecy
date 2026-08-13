@@ -17,7 +17,7 @@ namespace Rokkan.Prophecy.Editor.Build
     internal static class MockPropBuilder
     {
         private const string PropsFolder = "Assets/_Prophecy/Prefabs/Props";
-        private const string PalettePath = "Assets/_Prophecy/Data/OverworldPropPalette.asset";
+        public const string PalettePath = "Assets/_Prophecy/Data/OverworldPropPalette.asset";
 
         [MenuItem("Prophecy/Build/Generate Mock Props", priority = 46)]
         public static void Generate()

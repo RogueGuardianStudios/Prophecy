@@ -37,7 +37,7 @@ namespace Rokkan.Prophecy.World
                                  "as entering it.")]
         private Vector3 _halfExtents = new Vector3(0.9f, 1.3f, 1.5f);
 
-        private bool _armed;
+        private PortalArming _arming;
 
         public string TargetScene => _targetScene;
 
@@ -48,7 +48,9 @@ namespace Rokkan.Prophecy.World
             var director = SceneDirector.Instance;
             if (director == null) return;
 
-            var player = director.Player;
+            // The locator, not the director: where the player is and who swaps scenes are
+            // different questions, and a portal being tested needs only the first answered.
+            var player = Presentation.PlayerLocator.Current;
             if (player == null) return;
 
             // The sim's position mapped to world, not the transform: the transform is written by
@@ -62,27 +64,11 @@ namespace Rokkan.Prophecy.World
         }
 
         /// <summary>
-        /// One frame of the portal's decision: arm when the player is outside, fire when an armed
-        /// portal sees them inside. Separated from <c>Update</c> so the arming rule is testable
-        /// without a scene load.
+        /// One frame of the portal's decision: this component's only contributions are the box
+        /// test and the scene names — the rule itself lives in <see cref="PortalArming"/>.
         /// </summary>
-        internal bool Evaluate(Vector3 feetWorld, bool transitioning)
-        {
-            // While a load is in flight nothing arms and nothing fires — the player is mid-move,
-            // and whatever position they briefly hold is not a decision they made.
-            if (transitioning) return false;
-
-            if (!Contains(feetWorld))
-            {
-                _armed = true;
-                return false;
-            }
-
-            if (!_armed) return false;
-
-            _armed = false;
-            return true;
-        }
+        internal bool Evaluate(Vector3 feetWorld, bool transitioning) =>
+            _arming.Evaluate(Contains(feetWorld), transitioning);
 
         private bool Contains(Vector3 point)
         {
@@ -99,6 +85,39 @@ namespace Rokkan.Prophecy.World
             // trap as an invisible kill plane, and this one moves you somewhere confusing.
             Gizmos.color = new Color(0.3f, 0.9f, 1f, 0.6f);
             Gizmos.DrawWireCube(transform.position, _halfExtents * 2f);
+        }
+    }
+
+    /// <summary>
+    /// The portal's arming rule: arm when the player is seen outside, fire when an armed portal
+    /// sees them inside, and hold everything while a load is in flight.
+    ///
+    /// <para>A plain struct, deliberately: the rule is two booleans of state machine and none of
+    /// it needs a transform, so it can be exercised in a test with no GameObject and no scene
+    /// load — which is exactly how the ping-pong case is kept impossible rather than merely
+    /// avoided.</para>
+    /// </summary>
+    public struct PortalArming
+    {
+        private bool _armed;
+
+        /// <summary>One frame of the decision. True means fire.</summary>
+        public bool Evaluate(bool inside, bool transitioning)
+        {
+            // While a load is in flight nothing arms and nothing fires — the player is mid-move,
+            // and whatever position they briefly hold is not a decision they made.
+            if (transitioning) return false;
+
+            if (!inside)
+            {
+                _armed = true;
+                return false;
+            }
+
+            if (!_armed) return false;
+
+            _armed = false;
+            return true;
         }
     }
 }

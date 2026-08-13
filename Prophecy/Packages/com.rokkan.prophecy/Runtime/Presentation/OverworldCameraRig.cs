@@ -33,7 +33,7 @@ namespace Rokkan.Prophecy.Presentation
     /// </summary>
     [DefaultExecutionOrder(150)]
     [RequireComponent(typeof(CinemachineCamera))]
-    public sealed class OverworldCameraRig : MonoBehaviour
+    public sealed class OverworldCameraRig : MonoBehaviour, IArrivalSnap
     {
         [Header("Wiring")]
         [SerializeField, Tooltip("Supplies the stand height the framing is derived from.")]
@@ -67,11 +67,16 @@ namespace Rokkan.Prophecy.Presentation
                                                   "the look.")]
         private float _fieldOfView = 22f;
 
+        /// <summary>The follow tier every rig sits on. Anything that must out-prioritise the
+        /// follow cameras — a cut zone's shot — boosts from here rather than restating the
+        /// number, so retiering the rigs cannot silently leave a boost underneath them.</summary>
+        public const int DefaultPriority = 50;
+
         [Header("Follow")]
         [SerializeField, Tooltip("Cinemachine priority. Above the Bootstrap lane rig's, which is " +
                                  "the entire handover: this camera wins while its scene is loaded " +
                                  "and stops existing when it unloads.")]
-        private int _priority = 50;
+        private int _priority = DefaultPriority;
 
         [SerializeField, Tooltip("Seconds to close a gap. Gentle but present — 0.7 read as the " +
                                  "camera towing behind once the walk speed came up to match the " +
@@ -95,6 +100,10 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Distance needed to frame <see cref="VisibleHeight"/> at the authored lens.</summary>
         public float CameraDistance =>
             VisibleHeight / (2f * Mathf.Tan(_fieldOfView * 0.5f * Mathf.Deg2Rad));
+
+        private void OnEnable() => ArrivalCameras.Register(this);
+
+        private void OnDisable() => ArrivalCameras.Unregister(this);
 
         private void Awake()
         {

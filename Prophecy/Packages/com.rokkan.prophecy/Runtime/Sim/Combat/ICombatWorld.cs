@@ -102,5 +102,19 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// common.</para>
         /// </summary>
         HitResult OnHit(in HitEvent hit);
+
+        /// <summary>
+        /// An attack REALLY began — the lock was taken and the timeline armed, not merely a
+        /// button pressed. The attack director's pacing spends its token on this.
+        ///
+        /// <para>On the world itself, defaulted to nothing, rather than on a side interface the
+        /// world may or may not also implement: a combat world that forgot an optional interface
+        /// lost these signals silently, and the budget that never spent read as an AI tuning
+        /// mystery rather than as the missing wiring it was.</para>
+        /// </summary>
+        void OnAttackStarted(int attackerId, long tick, int totalTicks) { }
+
+        /// <summary>The attack ended — completed, interrupted, or abandoned. Frees pacing.</summary>
+        void OnAttackEnded(int attackerId, long tick) { }
     }
 }

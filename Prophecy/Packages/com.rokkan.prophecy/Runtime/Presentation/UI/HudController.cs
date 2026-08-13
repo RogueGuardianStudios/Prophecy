@@ -184,8 +184,8 @@ namespace Rokkan.Prophecy.Presentation.UI
         {
             if (_sim == null)
             {
-                var director = SceneDirector.Instance;
-                _sim = director != null && director.Player != null ? director.Player.Sim : null;
+                var player = PlayerLocator.Current;
+                _sim = player != null ? player.Sim : null;
                 if (_sim == null) return;
             }
 
@@ -197,19 +197,23 @@ namespace Rokkan.Prophecy.Presentation.UI
             DrawDanger();
         }
 
+        /// <summary>
+        /// The seam rule, in one place for every surface that draws it: a banked level shows
+        /// FULL — it sits full until the rite spends it, and it does not flash, prompt or
+        /// otherwise nudge (spec §2.3). The HUD's seam and the pack's bar both call this, so
+        /// the two can never disagree on screen about the same sim.
+        /// </summary>
+        public static float SeamFraction(Sim.Stats.StatBlock stats)
+        {
+            if (stats.UnspentLevels > 0) return 1f;
+
+            int cost = stats.Tuning.ResolveForNextLevel(stats.TotalLevels);
+            return Mathf.Clamp01(stats.Resolve / (float)Mathf.Max(1, cost));
+        }
+
         private void DrawSeam()
         {
-            var stats = _sim.Stats;
-            int cost = stats.Tuning.ResolveForNextLevel(stats.TotalLevels);
-
-            // A banked level shows as a full seam — it sits full until spent, and it does not
-            // flash, prompt or otherwise nudge (spec §2.3). The gain animation arrives with
-            // the Resolve economy.
-            float fraction = stats.UnspentLevels > 0
-                ? 1f
-                : Mathf.Clamp01(stats.Resolve / (float)Mathf.Max(1, cost));
-
-            _seamFill.style.width = _seamWidth * fraction;
+            _seamFill.style.width = _seamWidth * SeamFraction(_sim.Stats);
         }
 
         private void DrawHearts()
@@ -252,11 +256,8 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         private void DrawFlame()
         {
-            float cost = _sim.EquippedArt == ArtId.None
-                ? 0f
-                : ArtCatalog.Find(_sim.EquippedArt).Cost;
-
-            _flameBar.Set(_sim.Reserve.Current, _sim.Reserve.Max, cost);
+            _flameBar.Set(_sim.Reserve.Current, _sim.Reserve.Max,
+                          _sim.ArtTuning.CostOf(_sim.EquippedArt));
         }
 
         private void DrawFlasks()
@@ -302,18 +303,17 @@ namespace Rokkan.Prophecy.Presentation.UI
                 return;
             }
 
-            var entry = ArtCatalog.Find(art);
-            bool running = _sim.ActiveArts.Contains(art);
-
-            // Buoyancy's running state lives in its module — the armed toggle is the art
-            // being "on", wet or dry.
-            if (art == ArtId.Buoyancy)
+            var entry = _sim.ArtTuning.Find(art);
+            if (entry == null)
             {
-                var buoyancy = _sim.Get<Buoyancy>();
-                running = buoyancy != null && buoyancy.FloatOn;
+                _emblemShape.style.display = DisplayStyle.None;
+                _emblemLetter.text = "";
+                _costPips.text = "";
+                return;
             }
 
-            bool locked = _sim.ActiveArts.Contains(ArtId.GluttonForPunishment);
+            bool running = _sim.IsArtRunning(art);
+            bool locked = _sim.IsArtRunning(ArtId.GluttonForPunishment);
             bool affordable = _sim.Reserve.CanAfford(entry.Cost);
 
             _emblemShape.style.display = DisplayStyle.Flex;

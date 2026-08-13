@@ -60,7 +60,16 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>True once the action map resolved. False means every frame reports neutral.</summary>
         public bool IsReady => _resolved;
 
-        private void Awake() => Resolve();
+        private void Awake()
+        {
+            Resolve();
+
+            // This component exists only on the body a human drives — an enemy's host runs an
+            // AI brain instead — which makes it the honest publisher of "where the player is".
+            PlayerLocator.Publish(GetComponent<PlayerCharacterHost>());
+        }
+
+        private void OnDestroy() => PlayerLocator.Withdraw(GetComponent<PlayerCharacterHost>());
 
         private void OnEnable()
         {

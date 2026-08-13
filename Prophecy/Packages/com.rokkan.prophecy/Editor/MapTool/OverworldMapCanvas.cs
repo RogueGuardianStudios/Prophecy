@@ -219,18 +219,18 @@ namespace Rokkan.Prophecy.Editor.MapTool
             // of the console — they land in LastNotes for the window to show.
             var saved = map.CellOverrides;
             map.CellOverrides = ToArray();
-            OverworldTileGridCompiler.LogToConsole = false;
             try
             {
-                _grid = OverworldTileGridCompiler.Compile(map, worldOrigin);
+                var compiled = OverworldTileGridCompiler.CompileWithReport(
+                    map, worldOrigin, logAuditsToConsole: false);
+                _grid = compiled.Grid;
+                LastNotes.Clear();
+                LastNotes.AddRange(compiled.Notes);
             }
             finally
             {
-                OverworldTileGridCompiler.LogToConsole = true;
                 map.CellOverrides = saved;
             }
-            LastNotes.Clear();
-            LastNotes.AddRange(OverworldTileGridCompiler.Notes);
             _gridDirty = false;
         }
 
@@ -368,6 +368,16 @@ namespace Rokkan.Prophecy.Editor.MapTool
             _textureDirty = false;
         }
 
+        // The minimap's ink, public like BiomeTint so the window's legend swatches ARE the
+        // paint — a key that re-types its colours drifts the first time one is retuned.
+        public static readonly Color GroundLowColour = new Color(0.2f, 0.42f, 0.22f);
+        public static readonly Color GroundHighColour = new Color(0.75f, 0.9f, 0.55f);
+        public static readonly Color WaterColour = new Color(0.16f, 0.32f, 0.62f);
+        public static readonly Color StairsColour = new Color(0.85f, 0.62f, 0.25f);
+        public static readonly Color CoverColour = new Color(0.65f, 0.4f, 0.9f);
+        public static readonly Color RoadColour = new Color(0.78f, 0.66f, 0.45f);
+        public static readonly Color PaintedColour = new Color(1f, 0.35f, 0.75f);
+
         private Color32 CellColour(int x, int z)
         {
             Color colour;
@@ -375,19 +385,17 @@ namespace Rokkan.Prophecy.Editor.MapTool
             int level = _grid.LevelAt(x, z);
 
             if (kind == TileCellKind.Sea)
-                colour = Color.Lerp(new Color(0.16f, 0.32f, 0.62f), new Color(0.45f, 0.7f, 0.95f),
-                                    level / 4f);
+                colour = Color.Lerp(WaterColour, new Color(0.45f, 0.7f, 0.95f), level / 4f);
             else if (kind == TileCellKind.Ramp)
-                colour = new Color(0.85f, 0.62f, 0.25f);
+                colour = StairsColour;
             else
-                colour = Color.Lerp(new Color(0.2f, 0.42f, 0.22f), new Color(0.75f, 0.9f, 0.55f),
-                                    level / 4f);
+                colour = Color.Lerp(GroundLowColour, GroundHighColour, level / 4f);
 
             if (_grid.TryOverlayAt(x, z, out _))
-                colour = Color.Lerp(colour, new Color(0.65f, 0.4f, 0.9f), 0.45f);
+                colour = Color.Lerp(colour, CoverColour, 0.45f);
 
             if (_grid.RoadAt(x, z))
-                colour = Color.Lerp(colour, new Color(0.78f, 0.66f, 0.45f), 0.6f);
+                colour = Color.Lerp(colour, RoadColour, 0.6f);
 
             int biome = _grid.DominantBiomeAt(x, z);
             if (biome >= 0)
@@ -406,7 +414,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
             }
 
             if (_mirror.ContainsKey(new Vector2Int(x, z)))
-                colour = Color.Lerp(colour, new Color(1f, 0.35f, 0.75f), 0.22f);
+                colour = Color.Lerp(colour, PaintedColour, 0.22f);
 
             return colour;
         }

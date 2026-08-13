@@ -6,6 +6,7 @@ using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -19,17 +20,10 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class WaterTests
     {
-        private const float Dt = 1f / 60f;
-
         // ---------------------------------------------------------------- harness
 
         /// <summary>Dry land everywhere: one long floor with its top at 0.</summary>
-        private static CollisionWorld DryGround()
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
-            return world;
-        }
+        private static CollisionWorld DryGround() => Ground();
 
         /// <summary>
         /// A deck at 0 for x&lt;0, then a pool: floor at -depth for 0..30, a far wall, and
@@ -48,24 +42,12 @@ namespace Rokkan.Prophecy.Tests
         private static CharacterSim Player(CollisionWorld collision, MovementTuningData tuning,
                                            Vector2 at)
         {
-            var sim = PlayerCharacterFactory.Create(
-                collision, tuning, MovementSpace.SideScroll, null, new CombatTuningData(), null);
+            var sim = SimTestHarness.Player(collision, new CombatTuningData(), null, tuning, at);
 
             // Ascent gates the double jump now; the water tests that jump out of pools
             // light it as part of the rig.
             sim.ActiveArts.Add(ArtId.Ascent);
-
-            sim.Teleport(at, facing: 1);
             return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
         }
 
         private static InputFrame Hold(float x = 0f, float y = 0f) =>

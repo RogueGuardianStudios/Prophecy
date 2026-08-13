@@ -51,8 +51,23 @@ namespace Rokkan.Prophecy.Presentation
         private PlayerCharacterHost _host;
         private bool _active;
         private bool _held;
-        private CinemachineBlendDefinition _originalBlend;
-        private bool _blendStored;
+        private bool _touchedBlend;
+
+        // The brain's default blend is one object and every zone writes it, so the ORIGINAL is
+        // held once, game-wide, and restored only when the last zone that touched it goes away.
+        // Per-zone save/restore was the GOAP-strategy bug wearing camera clothes: with two zones,
+        // the second stored the first's modified blend as its "original" and restored that —
+        // permanently re-tempoing every camera transition, with nothing pointing at the culprit.
+        private static CinemachineBlendDefinition OriginalBlend;
+        private static bool OriginalStored;
+        private static int TouchingZones;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedBlendState()
+        {
+            OriginalStored = false;
+            TouchingZones = 0;
+        }
 
         /// <summary>Future interaction hook: hold the shot regardless of the volume.</summary>
         public void SetHeld(bool held) => _held = held;
@@ -103,10 +118,15 @@ namespace Rokkan.Prophecy.Presentation
             var brain = CinemachineBrain.GetActiveBrain(0);
             if (brain != null)
             {
-                if (!_blendStored)
+                if (!OriginalStored)
                 {
-                    _originalBlend = brain.DefaultBlend;
-                    _blendStored = true;
+                    OriginalBlend = brain.DefaultBlend;
+                    OriginalStored = true;
+                }
+                if (!_touchedBlend)
+                {
+                    _touchedBlend = true;
+                    TouchingZones++;
                 }
                 brain.DefaultBlend = new CinemachineBlendDefinition(
                     _blendSeconds <= 0.001f
@@ -115,17 +135,23 @@ namespace Rokkan.Prophecy.Presentation
                     _blendSeconds);
             }
 
-            _shot.Priority = _active ? 50 + _priorityBoost : 0;
+            _shot.Priority = _active ? OverworldCameraRig.DefaultPriority + _priorityBoost : 0;
         }
 
         private void OnDisable()
         {
             if (_shot != null) _shot.Priority = 0;
-            if (_blendStored)
+            if (_touchedBlend)
             {
-                var brain = CinemachineBrain.GetActiveBrain(0);
-                if (brain != null) brain.DefaultBlend = _originalBlend;
-                _blendStored = false;
+                _touchedBlend = false;
+                TouchingZones--;
+
+                if (TouchingZones <= 0 && OriginalStored)
+                {
+                    var brain = CinemachineBrain.GetActiveBrain(0);
+                    if (brain != null) brain.DefaultBlend = OriginalBlend;
+                    OriginalStored = false;
+                }
             }
             _active = false;
         }

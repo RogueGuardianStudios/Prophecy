@@ -5,9 +5,8 @@ using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.World;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using static Rokkan.Prophecy.Editor.Build.GrayBoxSceneScaffold;
 
 namespace Rokkan.Prophecy.Editor.Build
 {
@@ -42,9 +41,6 @@ namespace Rokkan.Prophecy.Editor.Build
         /// this builder agree by construction rather than by convention.</summary>
         public const string CentreSpawnId = "centre";
 
-        private const float Depth = 3f;      // Z thickness, so the side-on camera sees solid boxes
-        private const float GroundThickness = 2f;
-
         /// <summary>Walkable ground-level floor spans, recorded as they are built. What the centre
         /// spawn and the portals stand on — placing either by eye instead would put it over a gap
         /// the moment the course's proportions retune.</summary>
@@ -57,38 +53,13 @@ namespace Rokkan.Prophecy.Editor.Build
         [MenuItem("Prophecy/Build/Generate GrayBox_Traversal", priority = 40)]
         public static void Generate()
         {
-            var tuning = LoadTuning();
+            var tuning = LoadMovementTuning();
             if (tuning == null) return;
 
             var metrics = Metrics.From(tuning);
 
-            // Refuse rather than prompt. A modal "save your changes?" dialog would deadlock this
-            // when it is driven from the command line or a tool, and losing someone's unsaved
-            // scene to a generator is a far worse outcome than being told to save first.
-            if (HasUnsavedChanges()) return;
-
-            // Remember what was open so it can be put back. An untitled scene has no path and
-            // cannot be restored — but it also has nothing in it worth restoring.
-            var setup = EditorSceneManager.GetSceneManagerSetup();
-            bool canRestore = false;
-            for (int i = 0; setup != null && i < setup.Length; i++)
-                if (!string.IsNullOrEmpty(setup[i].path)) canRestore = true;
-
-            // Single, not Additive: Unity refuses to create an additive scene while an untitled
-            // one is open, which is the state a freshly opened editor is always in.
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            BuildContents(tuning, metrics);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath).Replace('\\', '/'));
-            EditorSceneManager.SaveScene(scene, ScenePath);
-
-            AssetDatabase.Refresh();
-            BuildSettings.EnsureInBuildSettings(ScenePath);
-
-            if (canRestore) EditorSceneManager.RestoreSceneManagerSetup(setup);
-
-            Debug.Log($"[Prophecy] Generated {ScenePath}\n{metrics}");
+            if (GenerateScene(ScenePath, () => { BuildContents(tuning, metrics); return true; }))
+                Debug.Log($"[Prophecy] Generated {ScenePath}\n{metrics}");
         }
 
         /// <summary><c>-executeMethod</c> target.</summary>
@@ -267,46 +238,12 @@ namespace Rokkan.Prophecy.Editor.Build
         /// </summary>
         private static void CreatePortals(Transform parent, float start, float end)
         {
-            PortalAt(parent, "Portal_West", start + 1.6f,
-                     GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
+            PortalSlab(parent, "Portal_West", new Vector3(start + 1.6f, 0f, 0f),
+                       GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
 
             // The end wall occupies the last two metres; the portal stands on the floor before it.
-            PortalAt(parent, "Portal_East", end - 4f,
-                     GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
-        }
-
-        /// <summary>
-        /// A portal the side-scroll camera can read: an upright slab in the portal colour, with
-        /// the volume sized a touch past it. No collider — the sim must not bake a wall across
-        /// the course, and the portal tests the player's feet itself.
-        /// </summary>
-        private static void PortalAt(Transform parent, string name, float x,
-                                     string targetScene, string targetSpawnId)
-        {
-            var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            slab.name = name;
-            slab.transform.SetParent(parent, false);
-            slab.transform.localScale = new Vector3(1.4f, 2.4f, 0.4f);
-            slab.transform.position = new Vector3(x, 1.2f, 0f);
-
-            Object.DestroyImmediate(slab.GetComponent<Collider>());
-            slab.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
-
-            var portal = slab.AddComponent<Portal>();
-            SetPrivate(portal, "_targetScene", targetScene);
-            SetPrivate(portal, "_targetSpawnId", targetSpawnId);
-            SetPrivate(portal, "_halfExtents", new Vector3(0.9f, 1.4f, 1.5f));
-        }
-
-        private static void CreateLighting()
-        {
-            var light = new GameObject("Directional Light");
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
-            var component = light.AddComponent<Light>();
-            component.type = LightType.Directional;
-            component.intensity = 1.1f;
-            component.shadows = LightShadows.Soft;
+            PortalSlab(parent, "Portal_East", new Vector3(end - 4f, 0f, 0f),
+                       GrayBoxOverworldBuilder.SceneName, SceneDirector.ReturnSpawnId);
         }
 
         /// <summary>
@@ -374,15 +311,13 @@ namespace Rokkan.Prophecy.Editor.Build
         private static float Ground(Transform parent, string name, float startX, float length,
                                     float topY = 0f)
         {
-            Box(parent, name,
-                new Vector2(startX, topY - GroundThickness),
-                new Vector2(startX + length, topY));
+            float endX = GrayBoxSceneScaffold.Ground(parent, name, startX, length, topY);
 
             // Only ground-level floor counts as somewhere to place a marker — a raised walkway is
             // walkable but arriving on one would skip the course it belongs to.
-            if (topY == 0f) FloorSpans.Add(new Vector2(startX, startX + length));
+            if (topY == 0f) FloorSpans.Add(new Vector2(startX, endX));
 
-            return startX + length;
+            return endX;
         }
 
         private static float Steps(Transform parent, Metrics m, float startX, float[] heightFractions)
@@ -726,86 +661,6 @@ namespace Rokkan.Prophecy.Editor.Build
                 new Vector2(startX + 10f, 6f));
 
             return startX + 10f;
-        }
-
-        /// <summary>An axis-aligned box spanning min..max in the XY play plane.</summary>
-        private static Transform Box(Transform parent, string name, Vector2 min, Vector2 max)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
-
-            var size = max - min;
-            cube.transform.localScale = new Vector3(size.x, size.y, Depth);
-            cube.transform.position = new Vector3((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, 0f);
-
-            return cube.transform;
-        }
-
-        // ------------------------------------------------------------------ helpers
-
-        /// <summary>True (and complains) if any open scene has unsaved edits.</summary>
-        private static bool HasUnsavedChanges()
-        {
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-            {
-                var scene = SceneManager.GetSceneAt(i);
-                if (!scene.isDirty) continue;
-
-                Debug.LogError($"[Prophecy] '{(string.IsNullOrEmpty(scene.name) ? "Untitled" : scene.name)}' " +
-                               "has unsaved changes. Save or discard them, then run this again — " +
-                               "generating replaces the open scene.");
-                return true;
-            }
-
-            return false;
-        }
-
-        private static MovementTuning LoadTuning()
-        {
-            var asset = AssetDatabase.LoadAssetAtPath<MovementTuning>(ProphecyAssetBootstrap.MovementTuningPath);
-
-            if (asset == null)
-                Debug.LogError($"[Prophecy] No MovementTuning at {ProphecyAssetBootstrap.MovementTuningPath}. " +
-                               "Run Prophecy > Build > Create Missing Data Assets first — the course " +
-                               "is derived from it and cannot be built without it.");
-
-            return asset;
-        }
-
-        /// <summary>
-        /// Writes a private <c>[SerializeField]</c>. The alternative is making every world
-        /// component's fields public purely so a generator can reach them, which would trade a
-        /// contained bit of editor reflection for a permanently looser runtime API.
-        /// </summary>
-        private static void SetPrivate(Object target, string fieldName, object value)
-        {
-            var serialized = new SerializedObject(target);
-            var property = serialized.FindProperty(fieldName);
-
-            if (property == null)
-            {
-                Debug.LogError($"[Prophecy] {target.GetType().Name} has no serialized field '{fieldName}'.");
-                return;
-            }
-
-            switch (value)
-            {
-                case string s: property.stringValue = s; break;
-                case int i: property.intValue = i; break;
-                case float f: property.floatValue = f; break;
-                case bool b: property.boolValue = b; break;
-                // enumValueFlag rather than enumValueIndex: it carries the declared value, which
-                // is what a [Flags] enum like MovementSpace needs and what a plain one still gets right.
-                case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
-                case Vector3 v: property.vector3Value = v; break;
-                case Object o: property.objectReferenceValue = o; break;
-                default:
-                    Debug.LogError($"[Prophecy] Unsupported field type for '{fieldName}'.");
-                    return;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

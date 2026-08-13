@@ -67,21 +67,14 @@ namespace Rokkan.Prophecy.World
         private TransitionVeil _veil;
         private SimClockDriver _worldClock;
 
-        // Where the player last left each departed scene: the feet (surface height included) and
-        // facing, keyed by the scene they were in. Keyed, not a single slot: every transition
-        // records a departure, so by the time a return arrival is resolved the "last" departure
-        // is the scene being left, not the one being returned to. That bug shipped for about a
-        // minute.
-        private readonly System.Collections.Generic.Dictionary<string, (Vector3 Feet, int Facing, int Room)>
-            _departures = new System.Collections.Generic.Dictionary<string, (Vector3, int, int)>();
-
-        // Where the player last ENTERED the current room — the scene arrival's placement, or
-        // the landing pad of the last door crossed (Matt's fall rule). This is Zelda II's
-        // screen-entrance checkpoint: a fall costs its toll and puts you back at this point,
-        // not at the scene's spawn half a level away.
-        private (Vector3 Feet, int Facing, int Room) _roomEntry;
-        private bool _hasRoomEntry;
+        // The checkpoint state itself lives in the ledger — plain data a save file can own one
+        // day, kept apart from this class's scene-swap choreography on purpose.
+        private readonly CheckpointLedger _checkpoints = new CheckpointLedger();
         private bool _wasTransiting;
+
+        /// <summary>Departures and room entries — the state "where may the player be put
+        /// back" lives in. Exposed for the save system this project will eventually grow.</summary>
+        public CheckpointLedger Checkpoints => _checkpoints;
 
         /// <summary>Times the player has fallen out of the world this session. Debug overlay —
         /// a gray box that keeps eating the player is a level design note, not just an annoyance.</summary>
@@ -110,11 +103,17 @@ namespace Rokkan.Prophecy.World
             }
 
             Instance = this;
+
+            // Belt to the input capture's braces: the Bootstrap flow knows its player by
+            // serialized reference, so publish it here too — direct-play scenes publish
+            // through the capture component instead, and both roads meet at the locator.
+            if (_player != null) PlayerLocator.Publish(_player);
         }
 
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            if (_player != null) PlayerLocator.Withdraw(_player);
         }
 
         private IEnumerator Start()
@@ -217,10 +216,10 @@ namespace Rokkan.Prophecy.World
             // a return into a cave or onto a bridge deck land on the right floor.
             if (_player != null && !string.IsNullOrEmpty(CurrentWorldScene))
             {
-                _departures[CurrentWorldScene] =
-                    (_player.FeetWorldPosition,
-                     _player.Sim != null ? _player.Sim.State.Facing : 0,
-                     _player.Sim != null ? _player.Sim.State.Room : 0);
+                _checkpoints.RecordDeparture(CurrentWorldScene,
+                    _player.FeetWorldPosition,
+                    _player.Sim != null ? _player.Sim.State.Facing : 0,
+                    _player.Sim != null ? _player.Sim.State.Room : 0);
             }
 
             // The world freezes the moment the transition begins — the wanderer that caught you
@@ -301,9 +300,9 @@ namespace Rokkan.Prophecy.World
             // and a player who left from a deck or a cave floor comes back onto it. Respawns
             // (falls, death) still use the resolved spawn below — dying in the fight should not
             // re-run the return.
-            var departure = default((Vector3 Feet, int Facing, int Room));
+            var departure = default(CheckpointLedger.Placement);
             bool returning = spawnId == ReturnSpawnId &&
-                             _departures.TryGetValue(scene.name, out departure);
+                             _checkpoints.TryGetDeparture(scene.name, out departure);
             _activeSpawn = descriptor.ResolveSpawn(spawnId == ReturnSpawnId ? null : spawnId);
 
             if (_player != null)
@@ -335,11 +334,11 @@ namespace Rokkan.Prophecy.World
                 _camera.SnapToTarget();
             }
 
-            // A scene that brought its own camera gets it put on its mark too — the arriving rig
-            // initialised against the player's PRE-teleport position, and letting damping walk it
-            // over would be the exact slide SnapToTarget exists to prevent.
-            var arrivingRig = FindAnyObjectByType<OverworldCameraRig>();
-            if (arrivingRig != null) arrivingRig.SnapToTarget();
+            // Every rig a scene brought with it gets put on its mark too — an arriving rig
+            // initialised against the player's PRE-teleport position, and letting damping walk
+            // it over would be the exact slide SnapToTarget exists to prevent. Through the
+            // registry, so a third kind of rig is a registration and never another branch here.
+            ArrivalCameras.SnapAll();
 
             // One more frame under the black, so the Cinemachine brain processes the snapped
             // cameras before the reveal can begin. The first visible frame is the final shot —
@@ -376,7 +375,10 @@ namespace Rokkan.Prophecy.World
             if (_wasTransiting && !transiting) RecordRoomEntry();
             _wasTransiting = transiting;
 
-            if (_descriptor.KillPlaneEnabled && _player.transform.position.y <= _descriptor.KillPlaneY)
+            // The sim's feet, never the transform: the transform is interpolated presentation,
+            // so a threshold read from it crosses on a tick that depends on frame rate — and the
+            // toll it charges is a combat outcome, which must land on the tick it happened.
+            if (_descriptor.KillPlaneEnabled && _player.FeetWorldPosition.y <= _descriptor.KillPlaneY)
             {
                 FallResetCount++;
                 StartCoroutine(RespawnSequence(fromFall: true));
@@ -390,32 +392,13 @@ namespace Rokkan.Prophecy.World
                 return;
             }
 
-            CullFallenEnemies();
-        }
-
-        /// <summary>
-        /// The same law for everyone else: below the kill plane, an enemy dies with its
-        /// object. The player gets a respawn because the player is the story continuing;
-        /// an enemy shoved off the world is simply gone — its unregister cleans the fight's
-        /// records behind it, and a tester's respawner sees the vacancy.
-        /// </summary>
-        private void CullFallenEnemies()
-        {
-            if (!_descriptor.KillPlaneEnabled) return;
-
-            var fight = Presentation.CombatDirector.Instance;
-            if (fight == null) return;
-
-            var combatants = fight.Combatants;
-            for (int i = combatants.Count - 1; i >= 0; i--)
-            {
-                var combatant = combatants[i];
-                if (combatant == null) continue;
-                if (_player != null && combatant.gameObject == _player.gameObject) continue;
-                if (combatant.transform.position.y > _descriptor.KillPlaneY) continue;
-
-                Destroy(combatant.gameObject);
-            }
+            // The same law for everyone else: below the kill plane, an enemy dies with its
+            // object. The player gets a respawn because the player is the story continuing.
+            // The WHEN and the threshold are this director's policy; the culling itself lives
+            // with the combat director, which owns combatant lifetime records.
+            if (_descriptor.KillPlaneEnabled && CombatDirector.Instance != null)
+                CombatDirector.Instance.CullBelow(_descriptor.KillPlaneY,
+                                                  _player != null ? _player.gameObject : null);
         }
 
         /// <summary>
@@ -462,7 +445,7 @@ namespace Rokkan.Prophecy.World
             _veil?.BeginCover();
             while (_veil != null && !_veil.IsOpaque) yield return null;
 
-            if (fromFall && !lethalFall && _hasRoomEntry)
+            if (fromFall && !lethalFall && _checkpoints.HasRoomEntry)
             {
                 // The toll path: placed, not restored — TeleportTo on purpose, so the half
                 // heart stays spent. The room reseed is load-bearing: rooms are graph state
@@ -470,8 +453,9 @@ namespace Rokkan.Prophecy.World
                 // player must also say which room the feet are in. Its omission here once
                 // left the camera staring at the room of the fall while the body stood
                 // alive and off-screen.
-                _player.TeleportTo(_roomEntry.Feet, _roomEntry.Facing);
-                _player.SetRoom(_roomEntry.Room);
+                var entry = _checkpoints.RoomEntry;
+                _player.TeleportTo(entry.Feet, entry.Facing);
+                _player.SetRoom(entry.Room);
             }
             else if (_activeSpawn != null)
             {
@@ -489,6 +473,7 @@ namespace Rokkan.Prophecy.World
             }
 
             if (_camera != null) _camera.SnapToTarget();
+            ArrivalCameras.SnapAll();
 
             // One frame under the black, so the Cinemachine brain processes the snapped
             // camera before the reveal begins — the first visible frame is the final shot
@@ -504,10 +489,9 @@ namespace Rokkan.Prophecy.World
         {
             if (_player == null) return;
 
-            _roomEntry = (_player.FeetWorldPosition,
-                          _player.Sim != null ? _player.Sim.State.Facing : 0,
-                          _player.Sim != null ? _player.Sim.State.Room : 0);
-            _hasRoomEntry = true;
+            _checkpoints.RecordRoomEntry(_player.FeetWorldPosition,
+                                         _player.Sim != null ? _player.Sim.State.Facing : 0,
+                                         _player.Sim != null ? _player.Sim.State.Room : 0);
             _wasTransiting = false;
         }
 

@@ -38,9 +38,17 @@ namespace Rokkan.Prophecy.Sim
     }
 
     /// <summary>
-    /// The complete input picture for one tick — the only channel by which presentation may
-    /// influence the sim. MonoBehaviours fill this from the Input System and hand it over;
-    /// they never call into gameplay directly.
+    /// The complete input picture for one tick — the channel by which presentation influences
+    /// the sim. MonoBehaviours fill this from the Input System and hand it over; they never
+    /// call into gameplay directly.
+    ///
+    /// <para><b>Two sanctioned menu exceptions, named so they stay exceptions.</b> Equipping —
+    /// an art into the slot, gear into a box — is a loadout edit and writes the slot directly,
+    /// the pack pages' whole job. A page CAST is not: it is parked via
+    /// <c>CharacterSim.RequestCast</c> and consumed at the top of the next tick, because the
+    /// pages run on render frames with the clock paused and a gameplay outcome applied between
+    /// ticks is one no headless replay could reproduce. Anything else a menu wants the sim to
+    /// DO takes the request shape, not a direct call.</para>
     ///
     /// <para>It carries the whole final moveset from day one, including abilities that ship
     /// disabled, so that unlocking one later is a flag flip rather than an input-plumbing change.</para>

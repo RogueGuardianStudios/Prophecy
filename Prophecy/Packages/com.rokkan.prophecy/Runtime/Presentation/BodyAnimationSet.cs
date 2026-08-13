@@ -35,12 +35,54 @@ namespace Rokkan.Prophecy.Presentation
             public float ReferenceSpeed;
         }
 
+        /// <summary>Which pose one authored attack shows — a row in the set's attack table.</summary>
+        [Serializable]
+        public struct AttackPose
+        {
+            [Tooltip("The authored attack id, exactly as CombatTuning spells it.")]
+            public string AttackId;
+
+            [Tooltip("The pose that swing shows.")]
+            public BodyState State;
+        }
+
         [SerializeField, Tooltip("One entry per BodyState. Anything unmapped falls back to Idle.")]
         private Entry[] _entries = Array.Empty<Entry>();
+
+        [SerializeField, Tooltip("Which pose each authored attack id shows. Authored data for the " +
+                                 "same reason the clips are: a new attack should be a table row " +
+                                 "beside the clip it plays, not a code edit. An id in neither this " +
+                                 "table nor the resolver's built-in defaults falls back to the " +
+                                 "stance's generic swing, so the character keeps swinging " +
+                                 "something rather than sliding about in idle.")]
+        private AttackPose[] _attackPoses = DefaultAttackPoses();
 
         [SerializeField, Tooltip("Default crossfade between states, in seconds. Per-state overrides " +
                                  "belong on the entry if any state ever needs one.")]
         private float _blendSeconds = 0.12f;
+
+        // ------------------------------------------------------------ the animator's numbers
+        //
+        // On the set, beside the clips they describe, rather than serialized per component: a
+        // per-prefab copy is how the run threshold silently disagrees with the walk/run
+        // handover on exactly one character, with nothing in any inspector looking wrong.
+
+        [SerializeField, Tooltip("Speed below which the character is treated as standing still, " +
+                                 "in m/s.")]
+        private float _moveThreshold = BodyStateResolver.DefaultMoveThreshold;
+
+        [SerializeField, Tooltip("Speed at or above which a walk becomes a run, in m/s. Keep in " +
+                                 "step with MovementTuning.RunSpeed — this is where the walk clip " +
+                                 "hands over to the run clip.")]
+        private float _runThreshold = BodyStateResolver.DefaultRunThreshold;
+
+        [SerializeField, Tooltip("How long the landing pose is held after touchdown, in seconds. " +
+                                 "The sim's LandedThisTick is true for exactly one tick — 16 ms — " +
+                                 "which is less than a single frame at 60 fps. Passed straight " +
+                                 "through, a half-second landing clip got one frame of screen time " +
+                                 "and read as a flicker rather than as a landing. Short enough " +
+                                 "that running out of a landing does not skate.")]
+        private float _landHoldSeconds = 0.18f;
 
         // CLAMPING IS FOOT DRIFT. The multiplier is what makes the stride match the travel, so
         // any speed at which it is clamped is a speed at which the feet slide — by exactly the
@@ -61,10 +103,61 @@ namespace Rokkan.Prophecy.Presentation
         private float _maxPlaybackSpeed = 4f;
 
         private Dictionary<BodyState, Entry> _byState;
+        private Dictionary<string, BodyState> _byAttackId;
 
         public float BlendSeconds => _blendSeconds;
 
+        /// <summary>Speed below which the character reads as standing still, in m/s.</summary>
+        public float MoveThreshold => _moveThreshold;
+
+        /// <summary>Speed at or above which the walk hands over to the run, in m/s.</summary>
+        public float RunThreshold => _runThreshold;
+
+        /// <summary>How long the landing pose is held after touchdown, in seconds.</summary>
+        public float LandHoldSeconds => _landHoldSeconds;
+
         public IReadOnlyList<Entry> Entries => _entries;
+
+        /// <summary>
+        /// The shipped moveset's poses — what a fresh set's table starts as, mirroring the
+        /// resolver's built-in defaults so an unedited asset behaves identically to no table
+        /// at all.
+        /// </summary>
+        private static AttackPose[] DefaultAttackPoses() => new[]
+        {
+            new AttackPose { AttackId = "slash_high",   State = BodyState.AttackStandA },
+            new AttackPose { AttackId = "slash_high_2", State = BodyState.AttackStandB },
+            new AttackPose { AttackId = "thrust_low",   State = BodyState.AttackCrouch },
+            new AttackPose { AttackId = "down_thrust",  State = BodyState.DownThrust },
+            new AttackPose { AttackId = "up_thrust",    State = BodyState.UpThrust },
+        };
+
+        /// <summary>The authored pose for an attack id, if the table maps it. The resolver's
+        /// built-in defaults and the stance fallback catch everything this misses.</summary>
+        public bool TryGetAttackPose(string attackId, out BodyState state)
+        {
+            if (string.IsNullOrEmpty(attackId))
+            {
+                state = default;
+                return false;
+            }
+
+            if (_byAttackId == null)
+            {
+                _byAttackId = new Dictionary<string, BodyState>(_attackPoses.Length);
+
+                for (int i = 0; i < _attackPoses.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(_attackPoses[i].AttackId)) continue;
+
+                    // Last wins, the clip entries' own law: a duplicate added while tuning
+                    // overrides the original instead of being silently ignored.
+                    _byAttackId[_attackPoses[i].AttackId] = _attackPoses[i].State;
+                }
+            }
+
+            return _byAttackId.TryGetValue(attackId, out state);
+        }
 
         /// <summary>
         /// The entry for a state, or the <see cref="BodyState.Idle"/> entry if it has none.
@@ -101,8 +194,12 @@ namespace Rokkan.Prophecy.Presentation
             return Mathf.Clamp(simSpeed / entry.ReferenceSpeed, _minPlaybackSpeed, _maxPlaybackSpeed);
         }
 
-        /// <summary>Drop the lookup so edits during play take effect on the next query.</summary>
-        public void Invalidate() => _byState = null;
+        /// <summary>Drop the lookups so edits during play take effect on the next query.</summary>
+        public void Invalidate()
+        {
+            _byState = null;
+            _byAttackId = null;
+        }
 
         private void Build()
         {
@@ -125,6 +222,9 @@ namespace Rokkan.Prophecy.Presentation
             _blendSeconds = Mathf.Max(0f, _blendSeconds);
             _minPlaybackSpeed = Mathf.Clamp(_minPlaybackSpeed, 0.001f, 1f);
             _maxPlaybackSpeed = Mathf.Max(1f, _maxPlaybackSpeed);
+            _moveThreshold = Mathf.Max(0f, _moveThreshold);
+            _runThreshold = Mathf.Max(0f, _runThreshold);
+            _landHoldSeconds = Mathf.Max(0f, _landHoldSeconds);
 
             Invalidate();
         }

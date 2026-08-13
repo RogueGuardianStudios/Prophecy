@@ -56,15 +56,11 @@ namespace Rokkan.Prophecy.Sim.Stats
         }
 
         /// <summary>
-        /// Authored damage plus what the scales add, floored at one so a scaled hit that lands is
-        /// never free. The shape combat actually wants.
+        /// Authored damage plus what the scales add, under the one damage-rounding law. The
+        /// shape combat actually wants.
         /// </summary>
         public static int ApplyToDamage(this IReadOnlyList<StatScale> scales, IStatSource source,
-                                        int authoredDamage)
-        {
-            if (authoredDamage <= 0) return authoredDamage;
-
-            return Mathf.Max(1, Mathf.RoundToInt(authoredDamage + scales.Evaluate(source)));
-        }
+                                        int authoredDamage) =>
+            Combat.DamageMath.Add(authoredDamage, scales.Evaluate(source));
     }
 }

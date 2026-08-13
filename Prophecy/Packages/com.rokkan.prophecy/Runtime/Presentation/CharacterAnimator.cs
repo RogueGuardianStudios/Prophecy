@@ -37,20 +37,16 @@ namespace Rokkan.Prophecy.Presentation
                                  "one in the children.")]
         private AnimationSystem _animation;
 
-        [SerializeField, Tooltip("Speed below which the character is treated as standing still, " +
-                                 "in m/s. Matches BodyStateResolver's default.")]
-        private float _moveThreshold = BodyStateResolver.DefaultMoveThreshold;
+        // The thresholds and the land hold live on the SET, beside the clips they describe — a
+        // per-component copy is how the run threshold silently disagrees with the walk/run
+        // handover on exactly one prefab. The constants are only the no-set fallback.
+        private float MoveThreshold =>
+            _set != null ? _set.MoveThreshold : BodyStateResolver.DefaultMoveThreshold;
 
-        [SerializeField, Tooltip("Speed at or above which a walk becomes a run, in m/s.")]
-        private float _runThreshold = BodyStateResolver.DefaultRunThreshold;
+        private float RunThreshold =>
+            _set != null ? _set.RunThreshold : BodyStateResolver.DefaultRunThreshold;
 
-        [SerializeField, Tooltip("How long the landing pose is held after touchdown, in seconds. " +
-                                 "The sim's LandedThisTick is true for exactly one tick — 16 ms — " +
-                                 "which is less than a single frame at 60 fps. Passed straight " +
-                                 "through, a half-second landing clip got one frame of screen time " +
-                                 "and read as a flicker rather than as a landing. Short enough that " +
-                                 "running out of a landing does not skate.")]
-        private float _landHoldSeconds = 0.18f;
+        private float LandHoldSeconds => _set != null ? _set.LandHoldSeconds : 0.18f;
 
         private BodyState _current = BodyState.Idle;
         private bool _started;
@@ -91,11 +87,11 @@ namespace Rokkan.Prophecy.Presentation
 
             // Latch the landing here rather than in the resolver, which stays a pure function of
             // its inputs. How long a pose lingers is a presentation question anyway.
-            if (_host.Sim.State.LandedThisTick) _landHold = _landHoldSeconds;
+            if (_host.Sim.State.LandedThisTick) _landHold = LandHoldSeconds;
             else _landHold = Mathf.Max(0f, _landHold - Time.deltaTime);
 
             var inputs = Gather(_host.Sim);
-            var next = BodyStateResolver.Resolve(in inputs);
+            var next = BodyStateResolver.Resolve(in inputs, _set);
 
             if (!_set.TryGet(next, out var entry) || entry.Clip == null) return;
 
@@ -285,8 +281,8 @@ namespace Rokkan.Prophecy.Presentation
                     : null,
 
                 LandedThisTick = _landHold > 0f,
-                RunThreshold = _runThreshold,
-                MoveThreshold = _moveThreshold,
+                RunThreshold = RunThreshold,
+                MoveThreshold = MoveThreshold,
             };
         }
     }

@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
+using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Tests
@@ -346,19 +347,34 @@ namespace Rokkan.Prophecy.Tests
         {
             // The combo is the case worth pinning: a follow-up that replays the opener's clip
             // reads as a stutter rather than a chain, and nothing about it looks like a bug in
-            // code.
+            // code. The expectations are read off the authored moveset itself, so renaming an
+            // attack or growing the roster is content work rather than a test edit — the rule
+            // being pinned is about the SHAPE of the mapping, not yesterday's ids.
+            var combat = new CombatTuningData();
             var input = Standing();
 
-            input.AttackId = "slash_high";
-            Assert.AreEqual(BodyState.AttackStandA, Resolve(input));
+            BodyState StateOf(string id)
+            {
+                input.Stance = combat.Moveset[id].RequiredStance;
+                input.AttackId = id;
+                return Resolve(input);
+            }
 
-            input.AttackId = "slash_high_2";
-            Assert.AreEqual(BodyState.AttackStandB, Resolve(input));
-            Assert.AreNotEqual(Resolve(input), BodyState.AttackStandA,
-                "the chain link must not reuse the opener's clip");
+            int chains = 0;
+            foreach (var attack in combat.Attacks)
+            {
+                if (string.IsNullOrEmpty(attack.ChainsInto)) continue;
 
-            input.AttackId = "thrust_low";
-            Assert.AreEqual(BodyState.AttackCrouch, Resolve(input));
+                chains++;
+                Assert.AreNotEqual(StateOf(attack.Id), StateOf(attack.ChainsInto),
+                    $"'{attack.ChainsInto}' replays '{attack.Id}''s clip — the chain link must " +
+                    "not reuse the opener's");
+            }
+
+            Assert.Greater(chains, 0, "the moveset must author a combo for this to pin anything");
+
+            Assert.AreNotEqual(StateOf(combat.StandingAttackId), StateOf(combat.CrouchingAttackId),
+                "the low stab must not share the standing slash's pose");
         }
 
         [Test]

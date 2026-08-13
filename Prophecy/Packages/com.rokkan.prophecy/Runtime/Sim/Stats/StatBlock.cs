@@ -386,13 +386,7 @@ namespace Rokkan.Prophecy.Sim.Stats
         public float DamageScale => _tuning.DamageScaleFor(Effective(StatKind.Might));
 
         /// <summary>Scale an authored damage number by Might, never below one point.</summary>
-        public int ScaleDamage(int authored)
-        {
-            if (authored <= 0) return authored;
-
-            // Rounded, then floored at one: a heavy debuff should make a hit feeble, not free.
-            return Mathf.Max(1, Mathf.RoundToInt(authored * DamageScale));
-        }
+        public int ScaleDamage(int authored) => Combat.DamageMath.Scale(authored, DamageScale);
 
         /// <summary>Reset to a fresh hero. Used by respawn and by tests.</summary>
         public void Reset()

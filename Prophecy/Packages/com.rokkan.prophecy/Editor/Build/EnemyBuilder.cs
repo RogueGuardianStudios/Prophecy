@@ -1,6 +1,7 @@
 using RGS.GOAP.Core;
 using GoapGuid = RGS.GOAP.Core.Internal.SerializableGuid;
 using Rokkan.Prophecy.Core;
+using Rokkan.Prophecy.Editor.Build;
 using Rokkan.Prophecy.Goap;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
@@ -27,7 +28,10 @@ namespace Rokkan.Prophecy.Editor
     {
         private const string Folder = "Assets/_Prophecy/Data/Enemies";
         private const string SlotFolder = Folder + "/Slots";
-        private const string PrefabPath = "Assets/_Prophecy/Prefabs/Enemy_Capsule.prefab";
+
+        /// <summary>The grunt keeps the capsule's original name — the arena, the combat tester
+        /// and the model installer all reference the prefab through this one constant.</summary>
+        public const string GruntPrefabPath = "Assets/_Prophecy/Prefabs/Enemy_Capsule.prefab";
 
         // Blackboard key names. Sensors write these; beliefs read them.
         private const string KeyHasTarget = ProphecyTargetSensor.HasTarget;
@@ -70,6 +74,11 @@ namespace Rokkan.Prophecy.Editor
         {
             EnsureFolder();
 
+            // The grunt's moveset first: the brains measure the planner's reach off the same
+            // authored hit boxes the sim will swing, so the tuning must exist before any brain
+            // does.
+            float swingReach = MeasureSwingReach(EnemyTuningBuilder.Generate());
+
             var boolCheck = CreateOrReplace<GoapBeliefBoolCheck>($"{Folder}/Belief_BoolCheck.asset");
             var compare = CreateOrReplace<GoapBeliefSimpleCompare>($"{Folder}/Belief_Compare.asset");
 
@@ -94,7 +103,7 @@ namespace Rokkan.Prophecy.Editor
             {
                 var brain = BuildBrain(archetype, $"{Folder}/Brain_{archetype}.asset",
                                        boolCheck, compare, targetSensor, terrainSensor,
-                                       tokenSensor, kit);
+                                       tokenSensor, kit, swingReach);
 
                 BuildPrefab(archetype, brain);
                 built.Append($"\n  {archetype,-9} {PrefabPathFor(archetype)}");
@@ -123,7 +132,7 @@ namespace Rokkan.Prophecy.Editor
         {
             const float EnemySpeedScale = 0.8f;
 
-            var player = Load<MovementTuning>("Assets/_Prophecy/Data/MovementTuning.asset");
+            var player = Load<MovementTuning>(ProphecyAssetBootstrap.MovementTuningPath);
             if (player == null)
             {
                 Debug.LogWarning("[Prophecy] No player MovementTuning to derive enemy legs from.");
@@ -155,12 +164,11 @@ namespace Rokkan.Prophecy.Editor
         /// </summary>
         private static void WarnIfTheBeatCannotOutlastTheSwing()
         {
-            var tuning = AssetDatabase.LoadAssetAtPath<CombatTuning>(
-                "Assets/_Prophecy/Data/CombatTuning_Grunt.asset");
+            var tuning = AssetDatabase.LoadAssetAtPath<CombatTuning>(EnemyTuningBuilder.GruntTuningPath);
             if (tuning == null) return;
 
-            int beat = new EnemyBrainTuning().AttackCooldownTicks;
-            int neutral = new AttackDirectorTuning().MinNeutralGapTicks;
+            int beat = AuthoredBeatTicks();
+            int neutral = AuthoredNeutralGapTicks();
 
             foreach (var attack in tuning.Data.Attacks)
             {
@@ -171,6 +179,61 @@ namespace Rokkan.Prophecy.Editor
                                  $"{neutral}). The attack director will floor it, but the " +
                                  "authored number is now dead weight — raise it.");
             }
+        }
+
+        /// <summary>
+        /// The beat as the grunt prefab actually carries it: the serialized
+        /// <c>EnemyBrainHost._tuning</c>, which is the surface anyone retuning the enemy
+        /// edits. A <c>new EnemyBrainTuning()</c> here would read the code default instead
+        /// and vouch for a number nobody plays against; it survives only as the fallback for
+        /// a prefab that has not been generated yet.
+        /// </summary>
+        private static int AuthoredBeatTicks()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GruntPrefabPath);
+            var host = prefab == null ? null : prefab.GetComponent<EnemyBrainHost>();
+            var beat = host == null
+                ? null
+                : new SerializedObject(host).FindProperty("_tuning.AttackCooldownTicks");
+
+            return beat != null ? beat.intValue : new EnemyBrainTuning().AttackCooldownTicks;
+        }
+
+        /// <summary>
+        /// The neutral gap as authored where it lives: on the scene's <see cref="CombatDirector"/>,
+        /// whose serialized pacing is the live tuning surface. An open combat scene supplies its
+        /// value; with none loaded, the code default stands in — which is exactly what the scene
+        /// generators stamp into a fresh director anyway.
+        /// </summary>
+        private static int AuthoredNeutralGapTicks()
+        {
+            var director = Object.FindAnyObjectByType<CombatDirector>(FindObjectsInactive.Include);
+            var gap = director == null
+                ? null
+                : new SerializedObject(director).FindProperty("_attackPacing.MinNeutralGapTicks");
+
+            return gap != null ? gap.intValue : new AttackDirectorTuning().MinNeutralGapTicks;
+        }
+
+        /// <summary>
+        /// The planner's arm, measured off the grunt's stance attack (furthest hit-box edge)
+        /// rather than authored beside it. The 1.4 that used to live here was invented, and an
+        /// invented reach drifts from the sim's the first time the moveset retunes — leaving a
+        /// planner that promises swings the strategy refuses, or stops short of ones it could
+        /// make.
+        /// </summary>
+        private static float MeasureSwingReach(CombatTuning gruntTuning)
+        {
+            if (gruntTuning != null)
+            {
+                AttackReach.Measure(gruntTuning.Data.ForStance(Stance.Stand),
+                                    out float reach, out _, out _, out _);
+                if (reach > 0f) return reach;
+            }
+
+            Debug.LogWarning("[Prophecy] No grunt stance attack to measure a swing reach from — " +
+                             "falling back to 1.4 m.");
+            return 1.4f;
         }
 
         /// <summary>The shared strategy assets, passed round rather than reloaded per archetype.</summary>
@@ -185,9 +248,12 @@ namespace Rokkan.Prophecy.Editor
             public RoamStrategy Roam;
         }
 
-        private static string PrefabPathFor(Archetype archetype) =>
+        /// <summary>Where an archetype's prefab lives. Public because the arena instantiates
+        /// the roster by archetype — reassembling these paths elsewhere is how a rename here
+        /// becomes a silently empty station there.</summary>
+        public static string PrefabPathFor(Archetype archetype) =>
             archetype == Archetype.Grunt
-                ? PrefabPath                                            // the name the arena already uses
+                ? GruntPrefabPath                                       // the name the arena already uses
                 : $"Assets/_Prophecy/Prefabs/Enemy_{archetype}.prefab";
 
         // ---------------------------------------------------------------- brain
@@ -198,7 +264,7 @@ namespace Rokkan.Prophecy.Editor
                                               ProphecyTargetSensor targetSensor,
                                               ProphecyTerrainSensor terrainSensor,
                                               ProphecyAttackTokenSensor tokenSensor,
-                                              StrategyKit kit)
+                                              StrategyKit kit, float swingReach)
         {
             var patrol = kit.Patrol;
             var pursue = kit.Pursue;
@@ -239,10 +305,11 @@ namespace Rokkan.Prophecy.Editor
             // a tick of separation — fails the swing before it starts. The planner then replans,
             // closes, and fails again: an enemy that walks up to you and never attacks.
             //
-            // SwingReach is used twice on purpose: once as the planner's precondition (the
+            // swingReach is used twice on purpose: once as the planner's precondition (the
             // WithinReach belief) and once as the strategy's own check. They must agree, or the
-            // planner commits to a swing the strategy then refuses.
-            const float SwingReach = 1.4f;
+            // planner commits to a swing the strategy then refuses. The number itself is measured
+            // off the grunt's authored stance attack — see MeasureSwingReach — so a retuned
+            // moveset moves the belief with it.
             const float CloseTo = 0.9f;
 
             // An ambusher's trigger. Wide enough that walking past sets it off, short enough that
@@ -256,7 +323,7 @@ namespace Rokkan.Prophecy.Editor
             // ---- beliefs
             var seesTarget = Bool(boolCheck, canSee, "SeesTarget");
             var hasAnyTarget = Bool(boolCheck, hasTarget, "HasTarget");
-            var withinReach = Compare(compare, distanceX, ComparisonType.LessThanOrEqual, SwingReach, "WithinReach");
+            var withinReach = Compare(compare, distanceX, ComparisonType.LessThanOrEqual, swingReach, "WithinReach");
             var wasStruck = Bool(boolCheck, struck, "TargetStruck");
             var isPatrolling = Bool(boolCheck, patrolled, "Patrolling");
             var hasRammed = Bool(boolCheck, rammedKey, "Rammed");
@@ -291,7 +358,7 @@ namespace Rokkan.Prophecy.Editor
             var swingAction = Action("Swing", swing, cost: 1f,
                 preconditions: new[] { On(withinReach), On(holdsToken) },
                 effects: new[] { On(wasStruck) },
-                settings: new SwingSettings { Reach = SwingReach });
+                settings: new SwingSettings { Reach = swingReach });
 
             // Springing range is wider than a swing's, and NOTHING can make it true — deliberately.
             // An ambusher is defined by only being dangerous when something has already come close,
@@ -773,32 +840,11 @@ namespace Rokkan.Prophecy.Editor
             return created;
         }
 
-        /// <summary>Set a private serialized field by name, so generators need no public setters.</summary>
-        private static void Wire(Object target, string field, object value)
-        {
-            var serialized = new SerializedObject(target);
-            var property = serialized.FindProperty(field);
-
-            if (property == null)
-            {
-                Debug.LogWarning($"[Prophecy] {target.GetType().Name} has no field '{field}'.");
-                return;
-            }
-
-            switch (value)
-            {
-                case null: property.objectReferenceValue = null; break;
-                case bool b: property.boolValue = b; break;
-                case int i: property.intValue = i; break;
-                case float f: property.floatValue = f; break;
-                case Object o: property.objectReferenceValue = o; break;
-                default:
-                    Debug.LogWarning($"[Prophecy] cannot wire '{field}': unsupported type " +
-                                     $"{value.GetType().Name}.");
-                    break;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
+        /// <summary>Set a private serialized field by name, so generators need no public
+        /// setters. Forwards to the one shared setter — a per-builder copy with a missing
+        /// case is the recorded trap, and this one's cost was a warning quiet enough to
+        /// scroll past while a prefab shipped unwired.</summary>
+        private static void Wire(Object target, string field, object value) =>
+            GrayBoxSceneScaffold.SetPrivate(target, field, value);
     }
 }

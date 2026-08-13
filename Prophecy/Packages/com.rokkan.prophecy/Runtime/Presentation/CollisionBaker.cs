@@ -59,70 +59,62 @@ namespace Rokkan.Prophecy.Presentation
                 if ((mask.value & (1 << collider.gameObject.layer)) == 0) continue;
                 if (ignoreRoot != null && collider.transform.IsChildOf(ignoreRoot)) continue;
 
+                // This loop only GATHERS: bounds to plane numbers, marker components to their
+                // data. What those facts become in the world is CollisionClassifier's decision,
+                // which is what lets a plain test pin every SolidKind without a scene.
                 var bounds = collider.bounds;
                 var min = SpaceMapping.ToPlane(bounds.min, space);
                 var max = SpaceMapping.ToPlane(bounds.max, space);
 
-                // A zero-thickness volume cannot be swept against meaningfully — the strict-overlap
-                // test would never fire on it. Skip rather than add something that silently is not there.
-                if (max.x - min.x <= 0f || max.y - min.y <= 0f) continue;
+                ColliderFacts facts;
 
                 // Doorways are read from triggers, same as ladders: a door you collide with
                 // is a wall wearing a costume — unless this bake is FOR a body that cannot
                 // use doors, in which case a wall is exactly what it is.
                 var door = collider.GetComponentInParent<RoomDoor>();
+                var waterVolume = door == null ? collider.GetComponentInParent<WaterVolume>() : null;
+                var climbable = door == null && waterVolume == null
+                    ? collider.GetComponentInParent<LadderVolume>()
+                    : null;
+
                 if (door != null)
                 {
                     if (!door.IsProperlyAuthored(out string doorProblem))
                         Debug.LogWarning($"{door.name}: {doorProblem}.", door);
 
-                    if (doorsAreWalls)
-                    {
-                        world.Add(new Aabb(min, max), SolidKind.Solid);
-                        added++;
-                    }
-                    else
-                    {
-                        world.AddDoor(new Aabb(min, max), door.RoomMinSide, door.RoomMaxSide);
-                        world.Add(new Aabb(min, max), SolidKind.DoorBarrier);
-                    }
-
-                    continue;
+                    facts = new ColliderFacts(min, max, collider.isTrigger,
+                                              isDoor: true,
+                                              doorRoomMinSide: door.RoomMinSide,
+                                              doorRoomMaxSide: door.RoomMaxSide);
                 }
-
-                // Water is read from triggers, same as ladders: water that blocks is a wall.
-                var waterVolume = collider.GetComponentInParent<WaterVolume>();
-                if (waterVolume != null)
+                else if (waterVolume != null)
                 {
+                    // Water is read from triggers, same as ladders: water that blocks is a wall.
                     if (!waterVolume.IsProperlyAuthored(out string waterProblem))
                         Debug.LogWarning($"{waterVolume.name}: {waterProblem}.", waterVolume);
 
-                    world.AddWater(new Aabb(min, max));
-                    continue;
+                    facts = new ColliderFacts(min, max, collider.isTrigger, isWater: true);
                 }
-
-                // Climbables are read from triggers, because a ladder must not block walking past.
-                var climbable = collider.GetComponentInParent<LadderVolume>();
-                if (climbable != null)
+                else if (climbable != null)
                 {
+                    // Climbables are read from triggers, because a ladder must not block walking past.
                     if (!climbable.IsProperlyAnchored(out string problem))
                         Debug.LogWarning($"{climbable.name}: {problem}. It will still be climbable, " +
                                          "which is why this is worth saying out loud.", climbable);
 
-                    world.AddClimbable(new Aabb(min, max), climbable.Kind);
-                    continue;
+                    facts = new ColliderFacts(min, max, collider.isTrigger,
+                                              isClimbable: true, climbableKind: climbable.Kind);
+                }
+                else
+                {
+                    var platform = collider.GetComponentInParent<OneWayPlatform>();
+                    facts = new ColliderFacts(min, max, collider.isTrigger,
+                                              isOneWay: platform != null,
+                                              oneWayAllowsDropThrough: platform == null ||
+                                                                       platform.AllowDropThrough);
                 }
 
-                if (collider.isTrigger) continue;
-
-                var platform = collider.GetComponentInParent<OneWayPlatform>();
-
-                if (platform != null)
-                    world.Add(new Aabb(min, max), SolidKind.OneWay, platform.AllowDropThrough);
-                else
-                    world.Add(new Aabb(min, max), SolidKind.Solid);
-
-                added++;
+                if (CollisionClassifier.Apply(world, in facts, doorsAreWalls)) added++;
             }
 
             return added;

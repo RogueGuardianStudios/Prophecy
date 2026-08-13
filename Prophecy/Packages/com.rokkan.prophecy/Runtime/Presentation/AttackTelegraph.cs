@@ -22,7 +22,8 @@ namespace Rokkan.Prophecy.Presentation
     ///
     /// <para>Colours match <see cref="TrainingAttacker"/> on purpose: the arena's scripted
     /// attackers and a real planning enemy should read the same way, or the training does not
-    /// transfer.</para>
+    /// transfer. Both read the ramp and their default colours from <see cref="TelegraphTint"/>,
+    /// so the two cannot drift apart.</para>
     /// </summary>
     [RequireComponent(typeof(Combatant))]
     public sealed class AttackTelegraph : MonoBehaviour
@@ -34,11 +35,14 @@ namespace Rokkan.Prophecy.Presentation
         [SerializeField, Tooltip("Whose tint to drive. Found on this object when empty.")]
         private Combatant _combatant;
 
-        [SerializeField, Tooltip("Wind-up. The window where a block or parry can still be timed.")]
-        private Color _windUpColour = new Color(1f, 0.78f, 0.25f);
+        [SerializeField, Tooltip("Wind-up. The window where a block or parry can still be timed. " +
+                                 "Defaults from TelegraphTint and must stay in step with " +
+                                 "TrainingAttacker's, or the arena's training does not transfer.")]
+        private Color _windUpColour = TelegraphTint.DefaultWindUp;
 
-        [SerializeField, Tooltip("Committed. Hit boxes are live this frame.")]
-        private Color _activeColour = new Color(1f, 0.2f, 0.12f);
+        [SerializeField, Tooltip("Committed. Hit boxes are live this frame. Defaults from " +
+                                 "TelegraphTint and must stay in step with TrainingAttacker's.")]
+        private Color _activeColour = TelegraphTint.DefaultActive;
 
         private AttackModule _attack;
 
@@ -61,28 +65,11 @@ namespace Rokkan.Prophecy.Presentation
                 return;
             }
 
-            switch (timeline.CurrentPhase)
-            {
-                case AttackTimeline.Phase.Startup:
-                    // Ramps toward the active colour rather than holding flat, so the wind-up reads
-                    // as time running out instead of as a state that might last forever.
-                    var definition = timeline.Definition;
-                    int startup = Mathf.Max(1, definition.StartupRange.Duration);
-                    float through = Mathf.Clamp01(timeline.ElapsedTicks / (float)startup);
-
-                    _combatant.TelegraphTint = Color.Lerp(_windUpColour, _activeColour,
-                                                          through * through);
-                    break;
-
-                case AttackTimeline.Phase.Active:
-                    _combatant.TelegraphTint = _activeColour;
-                    break;
-
-                default:
-                    // Recovery is the punish window, and colouring it would suggest otherwise.
-                    _combatant.TelegraphTint = null;
-                    break;
-            }
+            // The ramp itself lives in TelegraphTint — the one copy the dummies also read.
+            _combatant.TelegraphTint = TelegraphTint.For(
+                timeline.CurrentPhase, timeline.ElapsedTicks,
+                timeline.Definition.StartupRange.Duration,
+                _windUpColour, _activeColour);
         }
 
         /// <summary>

@@ -67,17 +67,6 @@ namespace Rokkan.Prophecy.Sim.Combat
         /// a sword swing and an area attack both want; a piercing shot with a limit of one has to
         /// stop <i>inside</i> the sweep, because the people it would have hit are all standing in
         /// the same volume on the same tick.</param>
-        /// <summary>
-        /// Authored damage after the attacker's Might. Floored at one so a heavy debuff makes a
-        /// hit feeble rather than free, and rounded rather than truncated so a 1.5x scale on a
-        /// 3-damage jab is 5 and not 4.
-        /// </summary>
-        private static int ScaleDamage(int authored, float scale)
-        {
-            if (authored <= 0) return authored;
-            return Mathf.Max(1, Mathf.RoundToInt(authored * scale));
-        }
-
         public SweepResult Sweep(int boxIndex, in AttackHitBox box, in Attacker attacker,
                                  ICombatWorld world, CollisionWorld level,
                                  long tick, string attackId, int maxTargets = 0)
@@ -100,7 +89,7 @@ namespace Rokkan.Prophecy.Sim.Combat
                 if (!_spent.Add(SpendKey(boxIndex, target.OwnerId))) continue;
 
                 var answer = world.OnHit(new HitEvent(
-                    attacker.Id, target.OwnerId, ScaleDamage(box.Damage, attacker.DamageScale),
+                    attacker.Id, target.OwnerId, DamageMath.Scale(box.Damage, attacker.DamageScale),
                     attacker.Facing,
                     tick, attackId, boxIndex, box.Height, box.Defeats));
 

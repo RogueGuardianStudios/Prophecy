@@ -77,7 +77,7 @@ namespace Rokkan.Prophecy.Presentation
         private float _knockback = 0.25f;
         [SerializeField] private float _knockbackRecoverySeconds = 0.35f;
 
-        private readonly Vitals _dummyVitals = new Vitals();
+        private readonly SimpleDefender _dummy = new SimpleDefender();
 
         private Renderer[] _renderers;
         private MaterialPropertyBlock _block;
@@ -108,7 +108,7 @@ namespace Rokkan.Prophecy.Presentation
         /// </summary>
         public PlayerCharacterHost SimHost => _simHost;
 
-        private Vitals Vitals => IsSimulated ? _simHost.Sim.Vitals : _dummyVitals;
+        private Vitals Vitals => IsSimulated ? _simHost.Sim.Vitals : _dummy.Vitals;
 
         public int Health => Vitals.Health;
 
@@ -121,6 +121,20 @@ namespace Rokkan.Prophecy.Presentation
         public int ContactIntervalTicks => _contactIntervalTicks;
 
         public DefensiveAnswer ContactDefeats => _contactDefeats;
+
+        /// <summary>
+        /// Where this body IS, for combat purposes — the anchor its hurtbox is built from.
+        ///
+        /// <para>A dummy's transform is presentation: the knockback shove moves it on frame time
+        /// while the hurtbox stays planted at the rest position. Anything resolving combat from
+        /// this body — an attack origin, a projectile spawn, a facing decision — must read this
+        /// anchor, never the transform, or the point it attacks from diverges from the point it
+        /// is hit at for exactly as long as a shove is decaying, by an amount that depends on
+        /// frame rate.</para>
+        /// </summary>
+        public Vector3 AnchorPosition => IsSimulated ? _simHost.FeetWorldPosition
+                                       : Application.isPlaying ? _restPosition
+                                       : transform.position;
 
         /// <summary>Sim tick of the most recent hit taken. <c>long.MinValue</c> if never.</summary>
         public long LastHitTick { get; private set; } = long.MinValue;
@@ -149,8 +163,8 @@ namespace Rokkan.Prophecy.Presentation
             // nothing downstream can tell the two apart.
             if (_simHost == null) _simHost = GetComponent<PlayerCharacterHost>();
 
-            _dummyVitals.MaxHealth = _maxHealth;
-            _dummyVitals.Reset();
+            _dummy.Vitals.MaxHealth = _maxHealth;
+            _dummy.Vitals.Reset();
 
             _restPosition = transform.position;
             _renderers = GetComponentsInChildren<Renderer>();
@@ -233,8 +247,10 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>
         /// Take a hit, and say what it turned into.
         ///
-        /// <para>A simulated character's answer comes from its damage gates, which is where every
-        /// defensive rule lives. A dummy has no gates and no opinion, so it simply takes it.</para>
+        /// <para>Both kinds of target answer through the sim's damage pipeline — the character
+        /// through its own gates, the dummy through a <see cref="SimpleDefender"/> walking the
+        /// same chain — so what a hit MEANS is decided in exactly one place, and none of it
+        /// here. This component keeps only the reactions a camera can see.</para>
         /// </summary>
         public HitResult ReceiveHit(in HitEvent hit)
         {
@@ -251,11 +267,13 @@ namespace Rokkan.Prophecy.Presentation
             }
             else
             {
-                int applied = _dummyVitals.ApplyDamage(hit.Damage, hit.Tick);
-                result = new HitResult(HitOutcome.Landed, applied);
+                result = _dummy.ReceiveHit(in hit);
 
-                _shove = _knockback;
-                _shoveDirection = hit.Facing < 0 ? -1 : 1;
+                if (result.Outcome == HitOutcome.Landed)
+                {
+                    _shove = _knockback;
+                    _shoveDirection = hit.Facing < 0 ? -1 : 1;
+                }
 
                 if (!IsAlive) _reviveRemaining = _reviveSeconds;
             }

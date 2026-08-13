@@ -14,22 +14,31 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public sealed class OverworldAuthoringTests
     {
-        private readonly List<GameObject> _cleanup = new List<GameObject>();
+        // Objects, not GameObjects: the fixture creates ScriptableObjects too — tile sets, maps,
+        // biomes, provinces — and a CreateInstance with no matching destroy is a leak that
+        // outlives the test run.
+        private readonly List<Object> _cleanup = new List<Object>();
 
         [TearDown]
         public void TearDown()
         {
-            foreach (var go in _cleanup)
-                if (go != null) Object.DestroyImmediate(go);
+            foreach (var obj in _cleanup)
+                if (obj != null) Object.DestroyImmediate(obj);
             _cleanup.Clear();
+        }
+
+        /// <summary>Register anything created for one test so teardown reclaims it.</summary>
+        private T Track<T>(T created) where T : Object
+        {
+            _cleanup.Add(created);
+            return created;
         }
 
         private OverworldTileSet DummyTiles()
         {
-            var prefab = new GameObject("DummyTile");
-            _cleanup.Add(prefab);
+            var prefab = Track(new GameObject("DummyTile"));
 
-            var tiles = ScriptableObject.CreateInstance<OverworldTileSet>();
+            var tiles = Track(ScriptableObject.CreateInstance<OverworldTileSet>());
             tiles.Cap = tiles.Ramp = tiles.Stairs = tiles.Water = prefab;
             tiles.Face1 = tiles.Face2 = tiles.Face3 = prefab;
             tiles.OuterPost1 = tiles.OuterPost2 = tiles.OuterPost3 = prefab;
@@ -39,9 +48,9 @@ namespace Rokkan.Prophecy.Tests
             return tiles;
         }
 
-        private static OverworldMap PlainMap(float size)
+        private OverworldMap PlainMap(float size)
         {
-            var map = ScriptableObject.CreateInstance<OverworldMap>();
+            var map = Track(ScriptableObject.CreateInstance<OverworldMap>());
             map.BoundsSize = new Vector2(size, size);
             map.Regions = new[]
             {
@@ -53,10 +62,8 @@ namespace Rokkan.Prophecy.Tests
 
         private OverworldBuildOutput Build(OverworldMap map)
         {
-            var walkable = new GameObject("Walkable").transform;
-            var scenery = new GameObject("Scenery").transform;
-            _cleanup.Add(walkable.gameObject);
-            _cleanup.Add(scenery.gameObject);
+            var walkable = Track(new GameObject("Walkable")).transform;
+            var scenery = Track(new GameObject("Scenery")).transform;
 
             return OverworldWorldBuilder.Build(map, DummyTiles(), walkable, scenery,
                                                Vector3.zero, true);
@@ -381,13 +388,13 @@ namespace Rokkan.Prophecy.Tests
             var v2 = new GameObject("V2");
             _cleanup.Add(fallback); _cleanup.Add(v1); _cleanup.Add(v2);
 
-            var biome = ScriptableObject.CreateInstance<OverworldBiome>();
+            var biome = Track(ScriptableObject.CreateInstance<OverworldBiome>());
             biome.Cap = new[]
             {
                 new OverworldBiomeVariant { Prefab = v1, Weight = 1f },
                 new OverworldBiomeVariant { Prefab = v2, Weight = 1f },
             };
-            var palette = ScriptableObject.CreateInstance<OverworldBiomePalette>();
+            var palette = Track(ScriptableObject.CreateInstance<OverworldBiomePalette>());
             palette.Biomes = new[] { biome };
 
             var cell = new Vector2Int(4, 4);
@@ -415,7 +422,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void TheHighCellOwnsItsWallsAndLandOwnsItsShore()
         {
-            var map = ScriptableObject.CreateInstance<OverworldMap>();
+            var map = Track(ScriptableObject.CreateInstance<OverworldMap>());
             map.BoundsSize = new Vector2(8f, 8f);
             map.Regions = new[]
             {
@@ -501,9 +508,8 @@ namespace Rokkan.Prophecy.Tests
                                       Size = new Vector2(3f, 3f) },
             };
 
-            var tree = new GameObject("TreePrefab");
-            _cleanup.Add(tree);
-            var palette = ScriptableObject.CreateInstance<OverworldBiomePalette>();
+            var tree = Track(new GameObject("TreePrefab"));
+            var palette = Track(ScriptableObject.CreateInstance<OverworldBiomePalette>());
             palette.DefaultScatter = new[]
             {
                 new OverworldBiomeVariant { Prefab = tree, Weight = 1f },
@@ -541,9 +547,9 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void TheNamedShapesAreTheProvinces()
         {
-            var heartland = ScriptableObject.CreateInstance<OverworldProvince>();
+            var heartland = Track(ScriptableObject.CreateInstance<OverworldProvince>());
             heartland.DisplayName = "Heartland";
-            var westwood = ScriptableObject.CreateInstance<OverworldProvince>();
+            var westwood = Track(ScriptableObject.CreateInstance<OverworldProvince>());
             westwood.DisplayName = "Westwood";
 
             var map = PlainMap(8f);
@@ -668,7 +674,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void TheContactCellDecidesWhereTheFightHappens()
         {
-            var moor = ScriptableObject.CreateInstance<OverworldProvince>();
+            var moor = Track(ScriptableObject.CreateInstance<OverworldProvince>());
             moor.DisplayName = "Moor";
             moor.EncounterScene = "Moor_Section";
             moor.EncounterSpawnId = "east";

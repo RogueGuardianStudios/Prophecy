@@ -43,8 +43,7 @@ namespace Rokkan.Prophecy.Overworld
 
         private void Update()
         {
-            var director = SceneDirector.Instance;
-            var player = director != null ? director.Player : null;
+            var player = Presentation.PlayerLocator.Current;
             var camera = Camera.main;
 
             var chest = player != null

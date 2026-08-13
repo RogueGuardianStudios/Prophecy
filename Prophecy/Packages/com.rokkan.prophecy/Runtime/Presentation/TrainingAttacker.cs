@@ -54,11 +54,16 @@ namespace Rokkan.Prophecy.Presentation
 
         [Header("Telegraph")]
         [SerializeField, Tooltip("Body colour during the wind-up. Ramps toward the active colour " +
-                                 "as the swing approaches, so the tell is a build rather than a flick.")]
-        private Color _windUpColour = new Color(1f, 0.78f, 0.25f);
+                                 "as the swing approaches, so the tell is a build rather than a " +
+                                 "flick. Defaults from TelegraphTint and must stay in step with " +
+                                 "AttackTelegraph's, or the training does not transfer to real " +
+                                 "enemies.")]
+        private Color _windUpColour = TelegraphTint.DefaultWindUp;
 
-        [SerializeField, Tooltip("Body colour on the ticks the attack is actually dangerous.")]
-        private Color _activeColour = new Color(1f, 0.2f, 0.12f);
+        [SerializeField, Tooltip("Body colour on the ticks the attack is actually dangerous. " +
+                                 "Defaults from TelegraphTint and must stay in step with " +
+                                 "AttackTelegraph's.")]
+        private Color _activeColour = TelegraphTint.DefaultActive;
 
         [Header("The swing")]
         [SerializeField]
@@ -175,23 +180,11 @@ namespace Rokkan.Prophecy.Presentation
         {
             if (_self == null) return;
 
-            switch (_timeline.CurrentPhase)
-            {
-                case AttackTimeline.Phase.Startup:
-                    float through = _attack.StartupTicks > 0
-                        ? Mathf.Clamp01(_timeline.ElapsedTicks / (float)_attack.StartupTicks)
-                        : 1f;
-                    _self.TelegraphTint = Color.Lerp(_windUpColour, _activeColour, through * through);
-                    break;
-
-                case AttackTimeline.Phase.Active:
-                    _self.TelegraphTint = _activeColour;
-                    break;
-
-                default:
-                    _self.TelegraphTint = null;
-                    break;
-            }
+            // The ramp itself lives in TelegraphTint — the one copy real enemies also read,
+            // which is what makes the dummy's tell worth learning.
+            _self.TelegraphTint = TelegraphTint.For(_timeline.CurrentPhase, _timeline.ElapsedTicks,
+                                                    _attack.StartupTicks,
+                                                    _windUpColour, _activeColour);
         }
 
         /// <summary>
@@ -208,7 +201,7 @@ namespace Rokkan.Prophecy.Presentation
         private void FaceNearest(CombatDirector director)
         {
             var targets = director.Hurtboxes;
-            var here = SpaceMapping.ToPlane(transform.position, director.Space);
+            var here = SpaceMapping.ToPlane(_self.AnchorPosition, director.Space);
 
             float reach = Mathf.Max(0.5f, _targetSearchRadius);
             int found = targets.Query(here.x - reach, here.x + reach, _candidates);
@@ -245,7 +238,7 @@ namespace Rokkan.Prophecy.Presentation
             if (_attack?.Spawns == null || _attack.Spawns.Length == 0) return;
 
             int elapsed = _timeline.ElapsedTicks;
-            var here = SpaceMapping.ToPlane(transform.position, director.Space);
+            var here = SpaceMapping.ToPlane(_self.AnchorPosition, director.Space);
 
             for (int i = 0; i < _attack.Spawns.Length; i++)
             {
@@ -266,7 +259,10 @@ namespace Rokkan.Prophecy.Presentation
 
             if (director.Hurtboxes.Count == 0) return;
 
-            var here = SpaceMapping.ToPlane(transform.position, director.Space);
+            // The Combatant's anchor, not the transform: a shove is decaying the transform on
+            // frame time while the hurtbox holds still, and a swing must come from where the
+            // body can be hit or the tick-exact system resolves from a frame-rate-dependent point.
+            var here = SpaceMapping.ToPlane(_self.AnchorPosition, director.Space);
             var attacker = Attacker.FromBody(_self.CombatId, here, new Vector2(0.9f, 1.8f),
                                              _resolvedFacing, _self.Team);
 

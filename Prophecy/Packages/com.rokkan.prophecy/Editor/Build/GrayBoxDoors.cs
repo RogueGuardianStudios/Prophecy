@@ -1,5 +1,4 @@
 using Rokkan.Prophecy.Presentation;
-using UnityEditor;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Editor.Build
@@ -35,8 +34,8 @@ namespace Rokkan.Prophecy.Editor.Build
             trigger.size = new Vector3(0.4f, OpeningHeight, laneDepth);
 
             var marker = door.AddComponent<RoomDoor>();
-            SetInt(marker, "_roomMinSide", roomMinSide);
-            SetInt(marker, "_roomMaxSide", roomMaxSide);
+            GrayBoxSceneScaffold.SetPrivate(marker, "_roomMinSide", roomMinSide);
+            GrayBoxSceneScaffold.SetPrivate(marker, "_roomMaxSide", roomMaxSide);
 
             // The seal: solid from the lintel to the ceiling, so the opening is the ONLY way.
             var seal = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -63,11 +62,11 @@ namespace Rokkan.Prophecy.Editor.Build
             bounds.transform.SetParent(parent, false);
 
             var component = bounds.AddComponent<RoomBounds>();
-            SetInt(component, "_room", room);
-            SetFloat(component, "_floorY", floorY);
-            SetFloat(component, "_ceilingY", ceilingY);
-            SetFloat(component, "_minX", minX);
-            SetFloat(component, "_maxX", maxX);
+            GrayBoxSceneScaffold.SetPrivate(component, "_room", room);
+            GrayBoxSceneScaffold.SetPrivate(component, "_floorY", floorY);
+            GrayBoxSceneScaffold.SetPrivate(component, "_ceilingY", ceilingY);
+            GrayBoxSceneScaffold.SetPrivate(component, "_minX", minX);
+            GrayBoxSceneScaffold.SetPrivate(component, "_maxX", maxX);
         }
 
         private static void FramePiece(Transform parent, string name, Vector3 position,
@@ -80,22 +79,6 @@ namespace Rokkan.Prophecy.Editor.Build
             piece.transform.localScale = scale;
             Object.DestroyImmediate(piece.GetComponent<Collider>());
             piece.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Doorway();
-        }
-
-        // Typed setters, not a switch: a switch with a missing case is the recorded trap.
-
-        private static void SetInt(Object target, string field, int value)
-        {
-            var serialized = new SerializedObject(target);
-            serialized.FindProperty(field).intValue = value;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static void SetFloat(Object target, string field, float value)
-        {
-            var serialized = new SerializedObject(target);
-            serialized.FindProperty(field).floatValue = value;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

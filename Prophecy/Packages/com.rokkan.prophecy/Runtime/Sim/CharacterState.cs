@@ -92,7 +92,14 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public long JumpConsumedTick = long.MinValue;
 
-        /// <summary>True while the player is deliberately dropping through a one-way platform.</summary>
+        /// <summary>
+        /// True while the player is deliberately dropping through a one-way platform.
+        ///
+        /// <para>Current writers: <c>DropThroughPlatform</c> (owns it in free movement) and
+        /// <c>LadderClimb</c> (owns it while <see cref="Attachment"/> is a ladder — the platform
+        /// module stands down whenever an attachment holds). A third writer must join that
+        /// protocol, not assume the flag is free.</para>
+        /// </summary>
         public bool DropThrough;
 
         /// <summary>
@@ -113,6 +120,12 @@ namespace Rokkan.Prophecy.Sim
         ///
         /// <para>Same shape as <see cref="AirRefreshTick"/>, and the same reason: the modules
         /// stay ignorant of each other and the fact travels through state.</para>
+        ///
+        /// <para><b>A singular slot, currently Buoyancy's alone.</b> There is one floor, not a
+        /// list: a second ability maintaining a temporary surface — a summoned platform, a
+        /// frozen ledge — would overwrite this one silently, last writer per tick winning. That
+        /// second ability is the moment this becomes a small collection with owners, not the
+        /// moment to share the slot.</para>
         /// </summary>
         public bool HasFloatFloor;
         public float FloatFloorY;

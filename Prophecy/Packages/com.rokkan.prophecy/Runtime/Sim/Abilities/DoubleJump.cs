@@ -72,7 +72,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             if (!input.Jump.Pressed) return;
 
             // No wings without the art (see the class note).
-            if (!sim.ActiveArts.Contains(Arts.ArtId.Ascent)) return;
+            if (!sim.IsArtRunning(Arts.ArtId.Ascent)) return;
 
             if (_used >= _tuning.AirJumps) return;
             if (info.Tick - _airborneSinceTick < _tuning.AirJumpArmTicks) return;

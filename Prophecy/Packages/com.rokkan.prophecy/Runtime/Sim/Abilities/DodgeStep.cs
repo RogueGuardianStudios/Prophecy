@@ -163,7 +163,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         // ---------------------------------------------------------------- the gate
 
-        public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
+        public HitResult Evaluate(IDefendable owner, in HitEvent hit)
         {
             if (!_timeline.IsInvulnerable) return HitResult.Continue;
             if (!hit.CanBe(DefensiveAnswer.IFrames)) return HitResult.Continue;

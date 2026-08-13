@@ -321,12 +321,20 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         public override void Opened(CharacterSim sim)
         {
-            bool film = sim != null;
+            bool film = false;
 
-            if (film)
+            if (sim != null)
             {
                 _rig = PlayerPortrait.Acquire();
-                _portrait.image = _rig.Open();
+                var texture = _rig.Open();
+
+                // Filming only counts when a double actually stood on the stage. A body the
+                // portrait could not resolve films empty parchment, and hiding the gray-box
+                // figure behind THAT is a blank sheet, not a portrait — the figure is the
+                // fallback for every failure, not just a missing player.
+                film = _rig.HasDouble;
+                if (film) _portrait.image = texture;
+                else _rig.Close();
             }
 
             _portrait.style.display = film ? DisplayStyle.Flex : DisplayStyle.None;
@@ -361,17 +369,14 @@ namespace Rokkan.Prophecy.Presentation.UI
             _flame.text = "Rank " + UiBuild.Roman(stats.LevelOf(StatKind.Flame));
             _heart.text = "Rank " + UiBuild.Roman(stats.LevelOf(StatKind.Heart));
 
-            // The seam: progress toward the next rite. A banked level shows full — the bar
-            // has nothing left to ask for until the rite spends it.
+            // The seam: progress toward the next rite. The FILL rule lives in one place —
+            // HudController.SeamFraction — so this bar and the HUD's seam can never disagree
+            // on screen about the same sim; only the label is this page's own.
             int cost = stats.Tuning.ResolveForNextLevel(stats.TotalLevels);
             bool owed = stats.UnspentLevels > 0;
 
             _resolve.text = owed ? "a rite is owed" : $"{stats.Resolve} of {cost}";
-
-            float fraction = owed
-                ? 1f
-                : cost > 0 ? Mathf.Clamp01((float)stats.Resolve / cost) : 0f;
-            _resolveFill.style.width = fraction * 422f;
+            _resolveFill.style.width = HudController.SeamFraction(stats) * 422f;
 
             int filled = sim.Flasks.Filled;
 

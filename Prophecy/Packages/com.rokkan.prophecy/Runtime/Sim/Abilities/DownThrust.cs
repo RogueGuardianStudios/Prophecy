@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim.Combat;
 
@@ -30,7 +31,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// opens and a higher-priority reaction — a parry, a hit-react — can take over, which is
     /// exactly the arrangement the single-lock arbiter was built for.</para>
     /// </summary>
-    public sealed class DownThrust : AbilityModule
+    public sealed class DownThrust : AbilityModule, IDebugVolumeSource
     {
         private const LockFlags DiveLock = LockFlags.Move | LockFlags.Turn | LockFlags.Jump | LockFlags.Attack;
 
@@ -61,6 +62,27 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <summary>The box this dive swings, for the overlay. Neither thrust runs on the attack
         /// timeline, so without this the overlay would draw every volume except theirs.</summary>
         public AttackHitBox Volume => _combat != null ? _combat.DownThrustBox : default;
+
+        /// <summary>
+        /// The dive's blade, exactly as <see cref="Strike"/> swings it: live for the whole
+        /// descent — it has no window to be armed in — and sheathed while riding a bounce,
+        /// when nothing is being asked of the world.
+        /// </summary>
+        public void CollectDebugVolumes(CharacterState state, List<DebugVolume> into)
+        {
+            if (!_active || _rising) return;
+
+            var box = Volume;
+            into.Add(new DebugVolume
+            {
+                Centre = box.ResolveCentre(state.Position, state.Facing),
+                HalfExtents = box.HalfExtents,
+                RotationDegrees = box.ResolveRotation(state.Facing),
+                Kind = DebugVolumeKind.Blade,
+                Live = true,
+                StoppedByGeometry = box.StoppedByGeometry,
+            });
+        }
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {

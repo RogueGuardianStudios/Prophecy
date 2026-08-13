@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim.Combat;
 
@@ -24,7 +25,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// window stays shut, then a higher-priority reaction can take over — the dive's
     /// arrangement, unchanged.</para>
     /// </summary>
-    public sealed class UpThrust : AbilityModule
+    public sealed class UpThrust : AbilityModule, IDebugVolumeSource
     {
         private const LockFlags ThrustLock = LockFlags.Move | LockFlags.Turn | LockFlags.Jump | LockFlags.Attack;
 
@@ -51,6 +52,24 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// <summary>The box this thrust swings, for the overlay — live for the whole rise, so
         /// it is drawn the way projectiles are: dangerous for its entire existence.</summary>
         public AttackHitBox Volume => _combat != null ? _combat.UpThrustBox : default;
+
+        /// <summary>The rising blade, exactly as <see cref="Strike"/> swings it: live from the
+        /// press to the apex, which is the move's whole lifetime.</summary>
+        public void CollectDebugVolumes(CharacterState state, List<DebugVolume> into)
+        {
+            if (!_active) return;
+
+            var box = Volume;
+            into.Add(new DebugVolume
+            {
+                Centre = box.ResolveCentre(state.Position, state.Facing),
+                HalfExtents = box.HalfExtents,
+                RotationDegrees = box.ResolveRotation(state.Facing),
+                Kind = DebugVolumeKind.Blade,
+                Live = true,
+                StoppedByGeometry = box.StoppedByGeometry,
+            });
+        }
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {

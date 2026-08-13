@@ -50,8 +50,7 @@ namespace Rokkan.Prophecy.Goap
             var host = HostOf(context);
             if (host == null) return GoapActionStatus.Failure;
 
-            var body = host.GetComponent<PlayerCharacterHost>();
-            var sim = body != null ? body.Sim : null;
+            var sim = host.Sim;
             if (sim == null) return GoapActionStatus.Failure;
 
             var config = settings as RoamSettings;
@@ -69,10 +68,9 @@ namespace Rokkan.Prophecy.Goap
 
             // Routing through the agent, actuation through the buttons: a body carrying a
             // steering oracle gets its rolled heading bent along the walkable mesh before it
-            // becomes intent. No oracle — headless tests, bodies in worlds without a bake —
-            // and the raw heading flows exactly as it always did.
-            var oracle = host.GetComponent<NavSteeringOracle>();
-            if (oracle != null) heading = oracle.Route(heading);
+            // becomes intent. The host answers for the oracle, so this shared asset never
+            // learns which component carries it.
+            heading = host.RouteHeading(heading);
 
             host.Intent.MoveX = heading.x * scale;
             host.Intent.MoveY = heading.y * scale;

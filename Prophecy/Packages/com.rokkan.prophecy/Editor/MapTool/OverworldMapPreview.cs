@@ -84,32 +84,25 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
             double started = EditorApplication.timeSinceStartup;
 
-            // The tool compiles on every edit — its audits belong in the window, not repeated
-            // into the console per stroke. Scene loads keep the console channel.
-            OverworldTileGridCompiler.LogToConsole = false;
-            try
+            if (!Active || _fullRebuildQueued || _built == null)
             {
-                if (!Active || _fullRebuildQueued || _built == null)
-                {
-                    Teardown();
+                Teardown();
 
-                    _root = new GameObject(RootName) { hideFlags = HideFlags.HideAndDontSave };
-                    var walkable = new GameObject("Ground_Walkable").transform;
-                    walkable.SetParent(_root.transform, false);
-                    var scenery = new GameObject("Ground_Scenery").transform;
-                    scenery.SetParent(_root.transform, false);
+                _root = new GameObject(RootName) { hideFlags = HideFlags.HideAndDontSave };
+                var walkable = new GameObject("Ground_Walkable").transform;
+                walkable.SetParent(_root.transform, false);
+                var scenery = new GameObject("Ground_Scenery").transform;
+                scenery.SetParent(_root.transform, false);
 
-                    _built = OverworldWorldBuilder.Build(_map, _tiles, walkable, scenery,
-                                                         _origin, _stairs, _biomes);
-                }
-                else if (_dirtyChunks.Count > 0)
-                {
-                    OverworldWorldBuilder.RebuildChunks(_built, _dirtyChunks);
-                }
+                // The tool compiles on every edit — its audits belong in the window, not
+                // repeated into the console per stroke. Scene loads keep the console channel.
+                _built = OverworldWorldBuilder.Build(_map, _tiles, walkable, scenery,
+                                                     _origin, _stairs, _biomes,
+                                                     logAuditsToConsole: false);
             }
-            finally
+            else if (_dirtyChunks.Count > 0)
             {
-                OverworldTileGridCompiler.LogToConsole = true;
+                OverworldWorldBuilder.RebuildChunks(_built, _dirtyChunks);
             }
 
             _fullRebuildQueued = false;

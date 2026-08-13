@@ -1,6 +1,5 @@
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim.Arts;
-using Rokkan.Prophecy.Sim.Combat;
 
 namespace Rokkan.Prophecy.Sim.Abilities
 {
@@ -14,47 +13,51 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// Stacking is free — a second cast never cancels the first (§3.3); the economy is the
     /// only brake. The room is the timer: the marks and the modifiers both die at a door.</para>
     ///
-    /// <para>Buoyancy is the exception that proves the module rule: its cast IS the water
-    /// toggle Matt tuned, handled by its own module — this one stands aside when Buoyancy is
-    /// equipped, and Buoyancy stands aside when it is not. Chalice is the other special: it
-    /// converts reserve into a flask, bottom-right to bottom-left.</para>
+    /// <para><b>Nothing here names an art.</b> The rules that used to be id checks — the
+    /// module that owns its own cast, the vow that cannot be recalled, the conversion that
+    /// ends at the flask — are authored facts on <see cref="ArtEntry"/>, so a new art with
+    /// bespoke rules is a table row and this file does not change.</para>
+    ///
+    /// <para>Page casts arrive as requests parked on the sim by the arts volume and are
+    /// consumed here, at the top of the tick — so a cast from the page and a cast from the
+    /// button are the same act, on a tick, either way.</para>
     /// </summary>
     public sealed class CastArt : AbilityModule
     {
-        private readonly CombatTuningData _combat;
-
-        public CastArt(CombatTuningData combat)
-        {
-            _combat = combat;
-        }
-
         public override AbilityId Id => AbilityId.FlameArt;
         public override int Order => ModuleOrder.FlameArt;
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
+            // The page's parked casts land first, gated exactly as a button cast is. A tick
+            // that cannot cast (hit-stun) leaves them parked for the tick that can.
+            while (sim.Can(LockFlags.Attack) && sim.TryDequeueCastRequest(out var requested))
+                Cast(sim, requested, info.Tick);
+
             if (!input.FlameArt.Pressed) return;
-            if (sim.EquippedArt == ArtId.None) return;
-            if (sim.EquippedArt == ArtId.Buoyancy) return;   // the water module owns that cast
-            if (!sim.Can(LockFlags.Attack)) return;          // no casting out of a hit-react
+
+            var equipped = sim.ArtTuning.Find(sim.EquippedArt);
+            if (equipped == null) return;
+            if (equipped.ModuleOwned) return;        // that art's module owns the whole verb
+            if (!sim.Can(LockFlags.Attack)) return;  // no casting out of a hit-react
 
             Cast(sim, sim.EquippedArt, info.Tick);
         }
 
-        /// <summary>The one cast path — the arts volume calls this too, so playing a cast
-        /// from the page and from the button are the same act. An art the Order has not
-        /// taught refuses here, whatever asked.</summary>
+        /// <summary>The one cast path — button presses and the volume's parked requests both
+        /// resolve here. An art the Order has not taught refuses, whatever asked.</summary>
         public static bool Cast(CharacterSim sim, ArtId id, long tick)
         {
-            var entry = ArtCatalog.Find(id);
-            if (entry.Id == ArtId.None) return false;
+            var entry = sim.ArtTuning.Find(id);
+            if (entry == null || entry.Id == ArtId.None) return false;
             if (!sim.KnownArts.Contains(id)) return false;
+            if (entry.ModuleOwned) return false;
 
             // Recasting a RUNNING art is the DROP, and dropping is FREE — the rule (Matt).
-            // The one exception is the vow: GfP cannot be recalled until the room is done.
+            // The one exception is the vow, which stays until the room is done.
             if (sim.ActiveArts.Contains(id))
             {
-                if (id == ArtId.GluttonForPunishment) return false;
+                if (entry.NoRecall) return false;
 
                 sim.ActiveArts.Remove(id);
                 sim.Stats.RemoveSource(ArtSource(id));
@@ -63,7 +66,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             if (!sim.Reserve.TrySpend(entry.Cost)) return false;
 
-            if (id == ArtId.Chalice)
+            if (entry.ConvertsReserveToFlask)
             {
                 // Reserve becomes a flask: the conversion the HUD shows moving corner to
                 // corner. A full row wastes the cast — the silence is the lesson, same as
@@ -76,10 +79,12 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             if (entry.HasEffect)
             {
-                var effect = entry.Effect;
+                // Room-scoping is the arts RULE, not per-art authoring: the room is the
+                // timer, so the effect is applied room-scoped whatever its spec says.
+                var effect = entry.Effect.Resolve(tick, ArtSource(id));
                 effect.ExpiresOnTick = Stats.StatModifier.Permanent;
-                effect.SourceId = ArtSource(id);   // what the free drop removes by
-                sim.Stats.Add(effect);   // RoomScoped on the modifier is the whole duration
+                effect.RoomScoped = true;
+                sim.Stats.Add(effect);
             }
 
             return true;

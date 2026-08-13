@@ -31,17 +31,19 @@ namespace Rokkan.Prophecy.Goap
 
         private void Awake() => _agent = GetComponent<GoapAgent>();
 
+        // ONE subscription however many probes exist, counted rather than remove-then-added.
+        // The old dance kept a single delegate but meant any single probe's OnDisable tore the
+        // capture down for every survivor — five enemies, one dies, four go silent. The count
+        // subscribes on the first probe in and unsubscribes on the last one out.
+        private static int _activeProbes;
+
         // The planner explains itself through Debug.Log, and this editor's log file is not where
         // the documentation says it is. Rather than hunt for it, take delivery of the messages
         // here and put them in the same file as everything else about this enemy.
         private void OnEnable()
         {
-            // Remove-then-add, because Capture is static and every probe in the scene subscribes
-            // the same delegate: five enemies meant five copies of every line, which read as one
-            // agent pressing five times on the same tick. A diagnostic that inflates what it
-            // measures is worse than none.
-            Application.logMessageReceived -= Capture;
-            Application.logMessageReceived += Capture;
+            if (_activeProbes == 0) Application.logMessageReceived += Capture;
+            _activeProbes++;
         }
 
         private static void Capture(string message, string stack, LogType type)
@@ -80,7 +82,13 @@ namespace Rokkan.Prophecy.Goap
 
         private void OnDisable()
         {
-            Application.logMessageReceived -= Capture;
+            _activeProbes--;
+            if (_activeProbes <= 0)
+            {
+                _activeProbes = 0;
+                Application.logMessageReceived -= Capture;
+            }
+
             Flush();
         }
 

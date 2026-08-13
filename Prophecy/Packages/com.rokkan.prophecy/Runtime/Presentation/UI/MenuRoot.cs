@@ -238,8 +238,8 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         private static CharacterSim PlayerSim()
         {
-            var director = SceneDirector.Instance;
-            return director != null && director.Player != null ? director.Player.Sim : null;
+            var player = PlayerLocator.Current;
+            return player != null ? player.Sim : null;
         }
 
         private bool Resolve()

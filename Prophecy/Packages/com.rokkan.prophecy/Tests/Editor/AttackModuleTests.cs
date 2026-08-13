@@ -7,6 +7,7 @@ using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using Rokkan.Prophecy.Presentation;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -24,89 +25,16 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class AttackModuleTests
     {
-        private const float Dt = 1f / 60f;
-
         private const int PlayerId = 1;
         private const int PlayerTeam = 1;
         private const int DummyId = 2;
         private const int DummyTeam = 2;
 
-        /// <summary>
-        /// A stand-in for whatever an encounter turns out to be: a list of hurtboxes and a log of
-        /// what connected. Recording rather than applying, because the module's job ends at
-        /// reporting the hit.
-        /// </summary>
-        private sealed class RecordingWorld : ICombatWorld
-        {
-            public readonly List<Hurtbox> Targets = new List<Hurtbox>();
-            public readonly List<HitEvent> Hits = new List<HitEvent>();
-
-            /// <summary>What every hit is answered with. Defaults to a clean landing; a test that
-            /// cares about the attacker's fate points it at something else.</summary>
-            public HitResult Answer = new HitResult(HitOutcome.Landed);
-
-
-            /// <summary>Everything this world was asked to launch.</summary>
-            public readonly List<ProjectileDefinition> Spawned = new List<ProjectileDefinition>();
-
-            public void Spawn(ProjectileDefinition definition, in Attacker owner) =>
-                Spawned.Add(definition);
-
-            private readonly HurtboxSet _set = new HurtboxSet();
-
-            /// <summary>Rebuilt on every read so a test can add a target mid-run and have it
-            /// counted. The real one is built once a tick; correctness is the same either way.</summary>
-            public HurtboxSet Hurtboxes
-            {
-                get
-                {
-                    _set.Clear();
-                    for (int i = 0; i < Targets.Count; i++) _set.Add(Targets[i]);
-                    _set.Build();
-                    return _set;
-                }
-            }
-
-            public HitResult OnHit(in HitEvent hit)
-            {
-                Hits.Add(hit);
-                return Answer;
-            }
-        }
-
         // ---------------------------------------------------------------- harness
-
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
-
-        private static CharacterSim Player(CollisionWorld world, CombatTuningData combat,
-                                           ICombatWorld combatWorld)
-        {
-            var sim = PlayerCharacterFactory.Create(
-                world, new MovementTuningData(), MovementSpace.SideScroll, null, combat, combatWorld);
-
-            sim.State.CombatId = PlayerId;
-            sim.State.Team = PlayerTeam;
-            sim.Teleport(Vector2.zero, facing: 1);
-            return sim;
-        }
 
         /// <summary>A body-sized target standing at <paramref name="x"/>.</summary>
         private static Hurtbox Dummy(float x, int team = DummyTeam, int id = DummyId) =>
             Hurtbox.ForBody(id, new Vector2(x, 0f), new Vector2(0.9f, 1.8f), team);
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
 
         private static InputFrame Attack(float x = 0f, float y = 0f) =>
             new InputFrame(new Vector2(x, y), attack: ButtonState.Press);
@@ -274,7 +202,7 @@ namespace Rokkan.Prophecy.Tests
         public void AHigherPriorityTakeoverInTheWindowEndsTheAttack()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var sim = Player(Ground(), combat, world);
@@ -305,7 +233,7 @@ namespace Rokkan.Prophecy.Tests
         public void AHitLandsOnceThoughTheBoxIsLiveForSeveralTicks()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var sim = Player(Ground(), combat, world);
@@ -327,7 +255,7 @@ namespace Rokkan.Prophecy.Tests
         public void TheHitLandsOnTheTickTheWindowOpens()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var sim = Player(Ground(), combat, world);
@@ -346,7 +274,7 @@ namespace Rokkan.Prophecy.Tests
         public void ATargetBehindTheAttackerIsNotHit()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(-1.2f));
 
             var sim = Player(Ground(), combat, world);
@@ -361,7 +289,7 @@ namespace Rokkan.Prophecy.Tests
         public void ATargetOnTheAttackersOwnTeamIsNotHit()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f, team: PlayerTeam));
 
             var sim = Player(Ground(), combat, world);
@@ -376,7 +304,7 @@ namespace Rokkan.Prophecy.Tests
         public void AWallBetweenAttackerAndTargetStopsTheHit()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var level = Ground();
@@ -397,7 +325,7 @@ namespace Rokkan.Prophecy.Tests
         public void ACrouchingAttackReachesLow()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.1f));
 
             var sim = Player(Ground(), combat, world);
@@ -438,7 +366,7 @@ namespace Rokkan.Prophecy.Tests
         public void TheChainLinkCanHitTheSameTargetAgain()
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var sim = Player(Ground(), combat, world);
@@ -570,7 +498,7 @@ namespace Rokkan.Prophecy.Tests
 
             Assert.IsNull(combat.Validate());
 
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
             var sim = Player(Ground(), combat, world);
 
@@ -616,21 +544,22 @@ namespace Rokkan.Prophecy.Tests
         private static List<HitEvent> RunAtFrameRate(int fps)
         {
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = new RecordingCombatWorld();
             world.Targets.Add(Dummy(1.2f));
 
             var sim = Player(Ground(), combat, world);
 
             var latch = new ButtonLatch();
 
-            // Both in double and both derived from the same integer rate. Comparing a double
-            // accumulator against the float constant would make 1/60 fall a hair short of the
-            // tick length, and the 60 fps run — the baseline everything is compared to — would
-            // quietly retire 89 ticks instead of 90.
-            double fixedDelta = 1.0 / SimConstants.TicksPerSecond;
-            double frameDelta = 1.0 / fps;
-            double accumulator = 0.0;
-            long tick = 0;
+            // The accumulator is the REAL one — SimClock, the loop the game ships — rather than
+            // a re-derivation of its arithmetic. A hand-rolled copy once mixed a double
+            // accumulator with the float tick constant, and the 60 fps baseline quietly retired
+            // 89 ticks instead of 90; driving the actual clock makes that class of drift
+            // impossible, because there is nothing here to drift.
+            var clock = new SimClock();
+            clock.Register(new TickHook(_ =>
+                sim.SetInput(new InputFrame(Vector2.zero, attack: latch.Consume()))));
+            clock.Register(sim);
 
             int frames = Mathf.CeilToInt(fps * 1.5f);
 
@@ -640,15 +569,14 @@ namespace Rokkan.Prophecy.Tests
                 // all, so the edge has to survive in the latch to be seen.
                 latch.Sample(frame == 0);
 
-                accumulator += frameDelta;
-                while (accumulator >= fixedDelta)
-                {
-                    accumulator -= fixedDelta;
-
-                    sim.SetInput(new InputFrame(Vector2.zero, attack: latch.Consume()));
-                    sim.Tick(new SimTickInfo(++tick, SimConstants.FixedDeltaSeconds));
-                }
+                clock.Advance(1.0 / fps);
             }
+
+            // 1.5 s of real time is 90 ticks at any rate, give or take the accumulator's tail
+            // residue — if the clamp had eaten a backlog the comparison above would be between
+            // runs of different lengths and mean nothing.
+            Assert.That(clock.CurrentTick, Is.EqualTo(90).Within(1),
+                "the clock must retire the same ticks however the time is sliced");
 
             return world.Hits;
         }

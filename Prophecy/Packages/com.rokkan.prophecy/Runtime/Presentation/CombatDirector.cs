@@ -63,6 +63,10 @@ namespace Rokkan.Prophecy.Presentation
             // Last one in wins rather than first: a director in an additively loaded arena should
             // take over from one left behind by a previous scene, not be silently ignored by it.
             Instance = this;
+
+            // The fight is headless and has no console; its owner does. Routed here so a
+            // headless harness can route the same reports into an assertion instead.
+            State.OnProblem = message => Debug.LogError($"[Prophecy] {message}", this);
         }
 
         private void Start()
@@ -74,6 +78,31 @@ namespace Rokkan.Prophecy.Presentation
 
             AdoptCombatantsAlreadyInTheWorld();
             State.RebuildHurtboxes();
+        }
+
+        /// <summary>
+        /// Destroy every combatant whose feet are at or below <paramref name="killPlaneY"/>,
+        /// except the one riding <paramref name="exempt"/>. The scene director decides WHEN a
+        /// kill plane applies and where it sits; the fight owns combatant lifetime, so the
+        /// removal — with the unregister that cleans its records — happens here.
+        /// </summary>
+        public void CullBelow(float killPlaneY, GameObject exempt = null)
+        {
+            for (int i = _presented.Count - 1; i >= 0; i--)
+            {
+                var combatant = _presented[i];
+                if (combatant == null) continue;
+                if (exempt != null && combatant.gameObject == exempt) continue;
+
+                // A simulated enemy's feet are sim state; only a dummy, which never moves,
+                // is honestly located by its transform.
+                float feetY = combatant.SimHost != null
+                    ? combatant.SimHost.FeetWorldPosition.y
+                    : combatant.transform.position.y;
+                if (feetY > killPlaneY) continue;
+
+                Destroy(combatant.gameObject);
+            }
         }
 
         /// <summary>

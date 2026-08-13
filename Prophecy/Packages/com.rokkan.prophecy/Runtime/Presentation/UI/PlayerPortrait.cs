@@ -59,8 +59,15 @@ namespace Rokkan.Prophecy.Presentation.UI
             return host.AddComponent<PlayerPortrait>();
         }
 
+        /// <summary>Whether the last <see cref="Open"/> actually built a double. False means
+        /// there was nothing safe to clone — no player, or a body that could not be resolved —
+        /// so the film is empty parchment and the sheet should show its gray-box figure
+        /// instead of hiding it behind a blank.</summary>
+        public bool HasDouble => _double != null;
+
         /// <summary>Clone the player as they stand right now, pose the double, start
-        /// filming, and hand back the film.</summary>
+        /// filming, and hand back the film. Check <see cref="HasDouble"/> — an open with
+        /// nothing on the stage films nothing.</summary>
         public RenderTexture Open()
         {
             if (_camera == null) Build();
@@ -209,10 +216,17 @@ namespace Rokkan.Prophecy.Presentation.UI
             return bounds;
         }
 
-        /// <summary>The visual the world is actually showing: the installed hero model,
-        /// else the capsule proxy, else the host itself (which is never cloned).</summary>
+        /// <summary>The visual the world is actually showing: the marked model root where one
+        /// exists, else the installed hero model or capsule proxy by name, else the host
+        /// itself (which is never cloned).</summary>
         private static Transform ResolveBody(Transform player)
         {
+            // The marker outranks the names — a rename cannot break a component lookup. The
+            // name lookup stays underneath, because bodies installed before the marker
+            // existed carry no marker and must keep filming.
+            var subject = player.GetComponentInChildren<PortraitSubject>();
+            if (subject != null) return subject.transform;
+
             var body = player.Find("HeroModel");
             if (body == null) body = player.Find("Body");
             return body != null ? body : player;

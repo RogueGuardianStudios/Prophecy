@@ -63,7 +63,15 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>Default standing-still threshold, in m/s.</summary>
         public const float DefaultMoveThreshold = 0.15f;
 
-        public static BodyState Resolve(in BodyStateInputs input)
+        public static BodyState Resolve(in BodyStateInputs input) => Resolve(in input, null);
+
+        /// <summary>
+        /// Resolve with a <see cref="BodyAnimationSet"/> whose authored attack table maps
+        /// attack ids to poses. The set is consulted as a data table only — the decision stays
+        /// a function of values, and passing null is the tableless default every headless test
+        /// uses.
+        /// </summary>
+        public static BodyState Resolve(in BodyStateInputs input, BodyAnimationSet set)
         {
             // 1. Terminal. Nothing overrides being dead, including being hit again.
             if (!input.Alive) return BodyState.Death;
@@ -78,7 +86,7 @@ namespace Rokkan.Prophecy.Presentation
             if (input.DownThrusting) return BodyState.DownThrust;
             if (input.UpThrusting) return BodyState.UpThrust;
 
-            if (!string.IsNullOrEmpty(input.AttackId)) return ForAttack(input.AttackId, input.Stance);
+            if (!string.IsNullOrEmpty(input.AttackId)) return ForAttack(input.AttackId, input.Stance, set);
 
             if (input.Dodging) return BodyState.Dodge;
 
@@ -142,9 +150,17 @@ namespace Rokkan.Prophecy.Presentation
         /// <summary>
         /// Which swing is on screen. Keyed off the authored attack id, so adding an attack to
         /// <c>CombatTuning</c> shows up here as an unmapped id rather than as silence.
+        ///
+        /// <para>The set's authored table answers first: a new attack's pose is a table row on
+        /// the <see cref="BodyAnimationSet"/>, beside the clip it will play, not a code edit
+        /// here. The switch is the in-code default for the shipped moveset — and for sets
+        /// serialized before the table existed — and the stance fallback is the final net
+        /// under both.</para>
         /// </summary>
-        private static BodyState ForAttack(string attackId, Stance stance)
+        private static BodyState ForAttack(string attackId, Stance stance, BodyAnimationSet set)
         {
+            if (set != null && set.TryGetAttackPose(attackId, out var authored)) return authored;
+
             switch (attackId)
             {
                 case "slash_high":   return BodyState.AttackStandA;

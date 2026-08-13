@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Rokkan.Prophecy.Sim;
+using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.AI;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
@@ -48,14 +49,12 @@ namespace Rokkan.Prophecy.Presentation
 
         private readonly EnemyIntent _intent = new EnemyIntent();
         private readonly List<int> _candidates = new List<int>();
-        private readonly PatrolPursueAttack _builtIn;
+        private PatrolPursueAttack _builtIn;
 
         private Percept _percept;
         private bool _blockedAhead;
         private bool _drivenExternally;
         private string _driverLabel;
-
-        public EnemyBrainHost() => _builtIn = new PatrolPursueAttack(_tuning);
 
         /// <summary>What the senses last found. Read by GOAP sensors and by the overlay.</summary>
         public Percept Percept => _percept;
@@ -95,10 +94,71 @@ namespace Rokkan.Prophecy.Presentation
 
         public ActionScratch Scratch { get; } = new ActionScratch();
 
-        /// <summary>The built-in loop, for comparison against a planner and for the overlay.</summary>
-        public PatrolPursueAttack BuiltIn => _builtIn;
+        /// <summary>
+        /// The built-in loop, for comparison against a planner and for the overlay.
+        ///
+        /// <para>Built on first use, never in a constructor: a MonoBehaviour's constructor runs
+        /// before Unity deserializes its fields, so a loop built there captures the field
+        /// initializer's <see cref="EnemyBrainTuning"/> — and every inspector edit to the ranges
+        /// silently tunes an object nobody is reading. By first access, the authored values are
+        /// in <see cref="_tuning"/>.</para>
+        /// </summary>
+        public PatrolPursueAttack BuiltIn => _builtIn ??= new PatrolPursueAttack(_tuning);
 
         public EnemyBrainTuning Tuning => _tuning;
+
+        // ---------------------------------------------------------------- the body, read-only
+        //
+        // Strategies ask the host, never the body's components: a strategy is a shared asset
+        // that runs for every enemy of its kind, and the one per-enemy object it holds is this
+        // host. What the body is doing travels through here so the strategies need to know
+        // neither which component hosts the sim nor what the attack module is called.
+
+        /// <summary>The tick the driven body is on. Zero before a body exists.</summary>
+        public long CurrentTick => _host != null && _host.Sim != null ? _host.Sim.CurrentTick : 0L;
+
+        /// <summary>Which way the body faces: -1 or +1.</summary>
+        public int Facing => _host != null && _host.Sim != null ? _host.Sim.State.Facing : 1;
+
+        /// <summary>True while the body's attack is actually running — the closed loop a
+        /// swing strategy watches, so success means "it swung", never "the timer ran out".</summary>
+        public bool IsAttacking
+        {
+            get
+            {
+                var attack = _host != null && _host.Sim != null
+                    ? _host.Sim.Get<AttackModule>()
+                    : null;
+                return attack != null && attack.IsAttacking;
+            }
+        }
+
+        /// <summary>The driven body's simulation, for the reads no facade member covers yet.
+        /// Strategies should prefer the named members above.</summary>
+        public CharacterSim Sim => _host != null ? _host.Sim : null;
+
+        /// <summary>Ticks the body's input buffer keeps a press alive — what a swing
+        /// strategy's patience must at least cover, read live so a buffer retune cannot
+        /// silently strand the patience below it.</summary>
+        public int AttackBufferTicks
+        {
+            get
+            {
+                var attack = _host != null && _host.Sim != null
+                    ? _host.Sim.Get<AttackModule>()
+                    : null;
+                return attack?.Runner != null ? attack.Runner.BufferTicks : 10;
+            }
+        }
+
+        /// <summary>Bend a rolled heading along the walkable mesh, when this body carries a
+        /// steering oracle. Without one — headless tests, bodies in worlds with no bake —
+        /// the raw heading flows untouched, exactly as it always did.</summary>
+        public Vector2 RouteHeading(Vector2 heading)
+        {
+            var oracle = GetComponent<NavSteeringOracle>();
+            return oracle != null ? oracle.Route(heading) : heading;
+        }
 
         /// <summary>
         /// Tell this host that something else is writing the intent, so the built-in loop stands
@@ -144,19 +204,27 @@ namespace Rokkan.Prophecy.Presentation
 
             // With a planner driving, the intent has already been written by its action strategies
             // and this only spends it.
-            if (!_drivenExternally && _fallbackWhenNoBrain)
-                _builtIn.Tick(in _percept, _intent, sim.CurrentTick, _blockedAhead);
+            bool builtInDeciding = !_drivenExternally && _fallbackWhenNoBrain;
+            if (builtInDeciding)
+                BuiltIn.Tick(in _percept, _intent, sim.CurrentTick, _blockedAhead);
 
             // The attack director's gate, between the decider and the sim: keep the standing
             // request alive, strip any press the fight has not licensed. Paces the planner
             // and the fallback with the same rule.
             var fight = CombatDirector.Instance != null ? CombatDirector.Instance.State : null;
-            var hitReact = sim.Get<Sim.Abilities.HitReact>();
+            var hitReact = sim.Get<HitReact>();
             bool incapacitated = !sim.Vitals.IsAlive ||
                                  (hitReact != null && hitReact.TicksRemaining(sim.CurrentTick) > 0);
+            bool builtInPressed = builtInDeciding && _intent.HasPendingAttack;
             HasAttackToken = AttackPacingLink.Apply(
-                fight, _intent, in _percept, sim.State.CombatId, _attackPool,
+                fight != null ? fight.Attacks : null, _intent, in _percept,
+                sim.State.CombatId, _attackPool,
                 _tuning.AttackCooldownTicks, incapacitated, sim.CurrentTick);
+
+            // A stripped press must not burn the loop's cooldown — it would wait out the full
+            // beat for a swing that never happened, holding a granted token idle the whole time.
+            if (builtInPressed && !_intent.HasPendingAttack)
+                BuiltIn.NotifyPressDenied(sim.CurrentTick);
 
 #if UNITY_EDITOR
             Trace(sim);
@@ -200,7 +268,7 @@ namespace Rokkan.Prophecy.Presentation
             // is actually deciding.
             string behaviour = _drivenExternally
                 ? (_driverLabel ?? "<external>")
-                : _builtIn.Behaviour.ToString();
+                : BuiltIn.Behaviour.ToString();
 
             TraceLines.Add(string.Format(
                 "{0,6} {1,-14} driver={2,-7} x={3,7:F2} vx={4,6:F2} target={5,-5} see={6,-5} " +
@@ -253,7 +321,8 @@ namespace Rokkan.Prophecy.Presentation
 
             var eyes = new Vector2(state.Position.x, state.Position.y + state.BodySize.y * 0.5f);
 
-            _percept = Sim.AI.EnemyPerception.Sense(fight, _host.World, _candidates,
+            _percept = EnemyPerception.Sense(fight != null ? fight.Hurtboxes : null,
+                                                    _host.World, _candidates,
                                                     state.CombatId, state.Team,
                                                     eyes, _tuning.SightRange);
 
@@ -268,7 +337,7 @@ namespace Rokkan.Prophecy.Presentation
             // empty overworld bake reads as a cliff in every direction and the patrol spins on
             // the spot forever.
             _blockedAhead = state.Space == MovementSpace.SideScroll &&
-                            Sim.AI.EnemyPerception.ShouldTurnBack(_host.World, state.Position,
+                            EnemyPerception.ShouldTurnBack(_host.World, state.Position,
                                                                   state.BodySize, heading);
         }
     }

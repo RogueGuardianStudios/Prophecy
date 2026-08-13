@@ -2,8 +2,6 @@ using System;
 using RGS.GOAP.Core;
 using RGS.GOAP.Core.Interfaces;
 using RGS.GOAP.Core.Strategies;
-using Rokkan.Prophecy.Presentation;
-using Rokkan.Prophecy.Sim.Abilities;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Goap
@@ -37,9 +35,10 @@ namespace Rokkan.Prophecy.Goap
     [CreateAssetMenu(menuName = "Prophecy/GOAP/Action - Swing", fileName = "Action_Swing")]
     public sealed class SwingStrategy : ProphecyActionStrategy
     {
-        /// <summary>Ticks to keep believing in a pressed-but-unseen attack: the sim's input
-        /// buffer (10) plus handoff slack. Past this, the press was stripped or refused.</summary>
-        private const int PressPatienceTicks = 12;
+        /// <summary>Handoff slack past the input buffer before a pressed-but-unseen attack is
+        /// declared stripped or refused. The buffer itself is read live from the host, so a
+        /// buffer retune cannot silently strand the patience below it.</summary>
+        private const int PressSlackTicks = 2;
 
         public override Type GetSettingsType() => typeof(SwingSettings);
 
@@ -72,7 +71,7 @@ namespace Rokkan.Prophecy.Goap
             float reach = config?.Reach ?? 1.4f;
 
             var percept = host.Percept;
-            long tick = CurrentTick(host);
+            long tick = host.CurrentTick;
 
             if (host.Scratch.StartedTick == long.MinValue)
             {
@@ -108,7 +107,7 @@ namespace Rokkan.Prophecy.Goap
                 // AI pressing buttons rather than setting state, and it is worth paying.
                 int toTarget = percept.DirectionToTarget;
 
-                if (toTarget != 0 && FacingOf(host) != toTarget)
+                if (toTarget != 0 && host.Facing != toTarget)
                 {
                     host.Intent.MoveX = toTarget;
                     return GoapActionStatus.Running;
@@ -125,9 +124,10 @@ namespace Rokkan.Prophecy.Goap
 
             host.Intent.MoveX = 0f;
 
-            // The closed loop: watch the module, not a clock.
-            var attack = AttackOf(host);
-            if (attack != null && attack.IsAttacking)
+            // The closed loop: watch the body, not a clock. The host answers for the module,
+            // so this asset never learns which component the sim lives on or what the attack
+            // module is called — the shared-asset rule applied to references as well as state.
+            if (host.IsAttacking)
             {
                 host.Scratch.AttackObserved = true;
                 return GoapActionStatus.Running;
@@ -139,28 +139,9 @@ namespace Rokkan.Prophecy.Goap
             // Pressed but nothing ever ran: the pacing gate stripped it, a lock refused it,
             // or a stun ate it. Fail so the planner falls back — never count a swing that
             // was not thrown.
-            return tick - host.Scratch.StartedTick > PressPatienceTicks
+            return tick - host.Scratch.StartedTick > host.AttackBufferTicks + PressSlackTicks
                 ? GoapActionStatus.Failure
                 : GoapActionStatus.Running;
-        }
-
-        /// <summary>Which way the body is pointing, or 0 if it has no simulation yet.</summary>
-        private static int FacingOf(EnemyBrainHost host)
-        {
-            var body = host.GetComponent<PlayerCharacterHost>();
-            return body?.Sim?.State?.Facing ?? 0;
-        }
-
-        private static long CurrentTick(EnemyBrainHost host)
-        {
-            var body = host.GetComponent<PlayerCharacterHost>();
-            return body?.Sim?.CurrentTick ?? 0L;
-        }
-
-        private static AttackModule AttackOf(EnemyBrainHost host)
-        {
-            var body = host.GetComponent<PlayerCharacterHost>();
-            return body?.Sim?.Get<AttackModule>();
         }
     }
 }

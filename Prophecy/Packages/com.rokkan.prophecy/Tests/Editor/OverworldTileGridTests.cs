@@ -15,11 +15,24 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public sealed class OverworldTileGridTests
     {
+        // A CreateInstance with no matching destroy is a leak that outlives the test run, so
+        // every authored map this fixture builds is reclaimed in teardown.
+        private readonly List<Object> _cleanup = new List<Object>();
+
+        [TearDown]
+        public void TearDown()
+        {
+            foreach (var obj in _cleanup)
+                if (obj != null) Object.DestroyImmediate(obj);
+            _cleanup.Clear();
+        }
+
         // ---------------------------------------------------------------- the compiler
 
-        private static OverworldMap Map(System.Action<OverworldMap> fill)
+        private OverworldMap Map(System.Action<OverworldMap> fill)
         {
             var map = ScriptableObject.CreateInstance<OverworldMap>();
+            _cleanup.Add(map);
             map.BoundsSize = new Vector2(8f, 8f);
             fill(map);
             return map;

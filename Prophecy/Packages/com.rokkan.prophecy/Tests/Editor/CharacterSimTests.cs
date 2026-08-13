@@ -4,6 +4,7 @@ using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -25,13 +26,6 @@ namespace Rokkan.Prophecy.Tests
             var sim = new CharacterSim(world ?? GroundAt());
             sim.Teleport(Vector2.zero);
             return sim;
-        }
-
-        /// <summary>Advance the sim n ticks at the fixed rate.</summary>
-        private static void Step(CharacterSim sim, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, SimConstants.FixedDeltaSeconds));
         }
 
         // ---------- module registry ----------

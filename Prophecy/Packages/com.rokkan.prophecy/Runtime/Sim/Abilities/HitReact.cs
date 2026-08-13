@@ -126,9 +126,14 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         // ---------------------------------------------------------------- the gate
 
-        public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
+        public HitResult Evaluate(IDefendable owner, in HitEvent hit)
         {
             if (hit.Tick >= _invulnerableUntilTick) return HitResult.Continue;
+
+            // The authored "cannot be dodged" flag means every i-frame source, this one
+            // included — an unavoidable grab that whiffed against whoever was recently hit
+            // would read as a random miss, with the cause invisible from the data.
+            if (!hit.CanBe(DefensiveAnswer.IFrames)) return HitResult.Continue;
 
             return new HitResult(HitOutcome.Invulnerable);
         }

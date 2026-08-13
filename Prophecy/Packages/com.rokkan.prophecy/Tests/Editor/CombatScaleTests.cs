@@ -188,53 +188,15 @@ namespace Rokkan.Prophecy.Tests
 
         // ---------------------------------------------------------------- fight state
 
-        private sealed class Dummy : ICombatant
-        {
-            public int CombatId { get; set; }
-            public int Team { get; set; } = 2;
-            public bool IsAlive { get; set; } = true;
-            public int ContactDamage { get; set; }
-            public int ContactIntervalTicks { get; set; } = 45;
-            public DefensiveAnswer ContactDefeats { get; set; }
-
-            public Vector2 Position;
-            public int Hits;
-            public int DamageTaken;
-
-            /// <summary>How many times the fight has asked where this body is. See the tick-cost test.</summary>
-            public int BuildCalls;
-
-            /// <summary>Where this body claims to be from its second answer onward. Null keeps it
-            /// honest; setting it makes asking twice in one tick visible as a wrong answer.</summary>
-            public Vector2? PositionFromSecondBuild;
-
-            public Hurtbox BuildHurtbox()
-            {
-                var at = BuildCalls > 0 && PositionFromSecondBuild.HasValue
-                    ? PositionFromSecondBuild.Value
-                    : Position;
-
-                BuildCalls++;
-                return new Hurtbox(CombatId, at, new Vector2(0.45f, 0.9f), 0f, Team);
-            }
-
-            public HitResult ReceiveHit(in HitEvent hit)
-            {
-                Hits++;
-                DamageTaken += hit.Damage;
-                return new HitResult(HitOutcome.Landed, hit.Damage);
-            }
-        }
-
         [Test]
         public void HitsRouteByIdWithoutSearching()
         {
             var state = new CombatState();
 
             for (int i = 1; i <= 100; i++)
-                state.Register(new Dummy { CombatId = i, Position = new Vector2(i * 3f, 1f) });
+                state.Register(new DummyCombatant { CombatId = i, Position = new Vector2(i * 3f, 1f) });
 
-            var target = (Dummy)state.Combatants[41];
+            var target = (DummyCombatant)state.Combatants[41];
 
             state.OnHit(new HitEvent(999, target.CombatId, 7, -1, 10, "probe", 0));
 
@@ -246,15 +208,20 @@ namespace Rokkan.Prophecy.Tests
         public void ADuplicateIdIsRefusedRatherThanAccepted()
         {
             // A duplicate does not fail loudly on its own — it silently routes someone else's hits
-            // to the wrong body, which is the worst way for an id scheme to be wrong.
+            // to the wrong body, which is the worst way for an id scheme to be wrong. The fight
+            // reports through its problem sink rather than a console call, so a headless harness
+            // can assert on the report — which is exactly what this does.
             var state = new CombatState();
+            string reported = null;
+            state.OnProblem = message => reported = message;
 
-            Assert.IsTrue(state.Register(new Dummy { CombatId = 5 }));
+            Assert.IsTrue(state.Register(new DummyCombatant { CombatId = 5 }));
 
-            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("share id 5"));
-            Assert.IsFalse(state.Register(new Dummy { CombatId = 5 }));
+            Assert.IsFalse(state.Register(new DummyCombatant { CombatId = 5 }));
 
             Assert.AreEqual(1, state.Combatants.Count);
+            StringAssert.Contains("share id 5", reported,
+                "the refusal must say WHY, through the sink the fight's owner wires");
         }
 
         [Test]
@@ -271,13 +238,13 @@ namespace Rokkan.Prophecy.Tests
         {
             var state = new CombatState();
 
-            var hazard = new Dummy
+            var hazard = new DummyCombatant
             {
                 CombatId = 1, Team = 2, Position = new Vector2(0f, 1f),
                 ContactDamage = 5, ContactIntervalTicks = 10,
             };
-            var victim = new Dummy { CombatId = 2, Team = 1, Position = new Vector2(0.3f, 1f) };
-            var friend = new Dummy { CombatId = 3, Team = 2, Position = new Vector2(0.3f, 1f) };
+            var victim = new DummyCombatant { CombatId = 2, Team = 1, Position = new Vector2(0.3f, 1f) };
+            var friend = new DummyCombatant { CombatId = 3, Team = 2, Position = new Vector2(0.3f, 1f) };
 
             state.Register(hazard);
             state.Register(victim);
@@ -296,13 +263,13 @@ namespace Rokkan.Prophecy.Tests
             // showed up as a hit that silently never happened.
             var state = new CombatState();
 
-            var a = new Dummy { CombatId = 1, Team = 2, Position = new Vector2(0f, 1f),
+            var a = new DummyCombatant { CombatId = 1, Team = 2, Position = new Vector2(0f, 1f),
                                 ContactDamage = 5, ContactIntervalTicks = 1000 };
-            var b = new Dummy { CombatId = 2, Team = 2, Position = new Vector2(0f, 1f),
+            var b = new DummyCombatant { CombatId = 2, Team = 2, Position = new Vector2(0f, 1f),
                                 ContactDamage = 5, ContactIntervalTicks = 1000 };
 
-            var victim1000 = new Dummy { CombatId = 1000, Team = 1, Position = new Vector2(0f, 1f) };
-            var victim2000 = new Dummy { CombatId = 2000, Team = 1, Position = new Vector2(0f, 1f) };
+            var victim1000 = new DummyCombatant { CombatId = 1000, Team = 1, Position = new Vector2(0f, 1f) };
+            var victim2000 = new DummyCombatant { CombatId = 2000, Team = 1, Position = new Vector2(0f, 1f) };
 
             state.Register(a);
             state.Register(b);
@@ -325,12 +292,12 @@ namespace Rokkan.Prophecy.Tests
             var state = new CombatState();
 
             for (int i = 1; i <= 100; i++)
-                state.Register(new Dummy { CombatId = i, Team = 2, Position = new Vector2(0f, 1f) });
+                state.Register(new DummyCombatant { CombatId = i, Team = 2, Position = new Vector2(0f, 1f) });
 
             for (long tick = 0; tick < 60; tick++) state.Tick(null, tick, 1f / 60f);
 
             for (int i = 0; i < state.Combatants.Count; i++)
-                Assert.AreEqual(0, ((Dummy)state.Combatants[i]).Hits);
+                Assert.AreEqual(0, ((DummyCombatant)state.Combatants[i]).Hits);
         }
 
         [Test]
@@ -344,7 +311,7 @@ namespace Rokkan.Prophecy.Tests
 
             for (int i = 1; i <= 40; i++)
             {
-                state.Register(new Dummy
+                state.Register(new DummyCombatant
                 {
                     CombatId = i,
                     Team = i <= 4 ? 1 : 2,
@@ -357,7 +324,7 @@ namespace Rokkan.Prophecy.Tests
 
             for (int i = 0; i < state.Combatants.Count; i++)
             {
-                var dummy = (Dummy)state.Combatants[i];
+                var dummy = (DummyCombatant)state.Combatants[i];
                 Assert.AreEqual(1, dummy.BuildCalls,
                     $"combatant {dummy.CombatId} was asked for its hurtbox {dummy.BuildCalls} times in one tick");
             }
@@ -374,7 +341,7 @@ namespace Rokkan.Prophecy.Tests
             // it would get x=50 and the hazard would miss a victim it is standing inside.
             var state = new CombatState();
 
-            var hazard = new Dummy
+            var hazard = new DummyCombatant
             {
                 CombatId = 1,
                 Team = 1,
@@ -384,11 +351,11 @@ namespace Rokkan.Prophecy.Tests
             };
 
             state.Register(hazard);
-            state.Register(new Dummy { CombatId = 2, Team = 2, Position = new Vector2(0f, 1f) });
+            state.Register(new DummyCombatant { CombatId = 2, Team = 2, Position = new Vector2(0f, 1f) });
 
             state.Tick(null, 0, 1f / 60f);
 
-            Assert.AreEqual(1, ((Dummy)state.Combatants[1]).Hits,
+            Assert.AreEqual(1, ((DummyCombatant)state.Combatants[1]).Hits,
                 "contact should resolve against the tick's snapshot, not a freshly built box");
         }
 
@@ -469,8 +436,8 @@ namespace Rokkan.Prophecy.Tests
         {
             var state = new CombatState();
 
-            state.Register(new Dummy { CombatId = 1, Position = Vector2.zero });
-            state.Register(new Dummy { CombatId = 2, Position = Vector2.zero, IsAlive = false });
+            state.Register(new DummyCombatant { CombatId = 1, Position = Vector2.zero });
+            state.Register(new DummyCombatant { CombatId = 2, Position = Vector2.zero, IsAlive = false });
 
             state.RebuildHurtboxes();
 

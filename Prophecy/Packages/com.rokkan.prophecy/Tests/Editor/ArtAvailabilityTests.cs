@@ -1,10 +1,10 @@
 using NUnit.Framework;
-using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -23,7 +23,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var sim = Player();
 
-            foreach (var entry in ArtCatalog.All)
+            foreach (var entry in sim.ArtTuning.Arts)
                 Assert.IsTrue(sim.KnownArts.Contains(entry.Id), $"{entry.Id} should be known");
         }
 
@@ -101,11 +101,8 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void TheDoubleJumpIsAscentsGift()
         {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
-
             var tuning = new MovementTuningData();
-            var sim = PlayerCharacterFactory.Create(world, tuning);
+            var sim = PlayerCharacterFactory.Create(Ground(), tuning);
 
             // Ground jump, then wait out the arming delay in the air.
             Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
@@ -122,15 +119,6 @@ namespace Rokkan.Prophecy.Tests
             Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
             Assert.AreEqual(tuning.AirJumpVelocity, sim.State.Velocity.y, 0.001f,
                             "Ascent gives the second jump");
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, 1f / 60f));
-            }
         }
 
         [Test]

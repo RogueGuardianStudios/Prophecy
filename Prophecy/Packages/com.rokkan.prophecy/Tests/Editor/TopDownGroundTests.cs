@@ -1,8 +1,8 @@
 using NUnit.Framework;
-using RGS.Core.Sim;
 using Rokkan.Prophecy.Overworld;
 using Rokkan.Prophecy.Sim;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -13,8 +13,6 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public sealed class TopDownGroundTests
     {
-        private const float Dt = 1f / 60f;
-
         /// <summary>Walkable everywhere west of a wall at x = 5, flat.</summary>
         private sealed class WallAtFive : ITopDownGround
         {
@@ -29,15 +27,6 @@ namespace Rokkan.Prophecy.Tests
                                                     MovementSpace.TopDown);
             sim.Teleport(Vector2.zero);
             return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
         }
 
         private static InputFrame Hold(float x, float y) => new InputFrame(new Vector2(x, y));

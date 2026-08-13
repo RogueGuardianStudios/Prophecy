@@ -117,15 +117,15 @@ namespace Rokkan.Prophecy.Editor.MapTool
             AdoptSceneHost();
             if (_map == null)
                 _map = AssetDatabase.LoadAssetAtPath<OverworldMap>(
-                    "Assets/_Prophecy/Data/OverworldMap.asset");
+                    Build.GrayBoxOverworldBuilder.MapPath);
             if (_tiles == null)
                 _tiles = AssetDatabase.LoadAssetAtPath<OverworldTileSet>(OverworldTileBuilder.TileSetPath);
             if (_palette == null)
                 _palette = AssetDatabase.LoadAssetAtPath<OverworldPropPalette>(
-                    "Assets/_Prophecy/Data/OverworldPropPalette.asset");
+                    Build.MockPropBuilder.PalettePath);
             if (_biomePalette == null)
                 _biomePalette = AssetDatabase.LoadAssetAtPath<OverworldBiomePalette>(
-                    "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
+                    Build.GrayBoxOverworldBuilder.BiomePalettePath);
 
             _canvas.SyncFromMap(_map);
             _canvas.ShowProvinces = _showProvinceView;
@@ -318,69 +318,28 @@ namespace Rokkan.Prophecy.Editor.MapTool
 
         /// <summary>The selected shape's inspector: rename it, and give a named place its
         /// PROVINCE — the gameplay rules — right here, because the shapes ARE the provinces
-        /// and the tool is where they are authored.</summary>
+        /// and the tool is where they are authored. Reads and writes go through the kind's
+        /// descriptor, so a field cannot be read here and forgotten on the write.</summary>
         private void SelectionPanel()
         {
-            string kindLabel = null;
-            string shapeName = null;
-            OverworldProvince province = null;
-            bool takesProvince = false;
-            CoverStyle cover = CoverStyle.Auto;
-            bool takesCover = false;
-
-            switch (_selectedKind)
-            {
-                case OverworldShapeHandles.KindRegion when InRange(_map.Regions):
-                    kindLabel = "Terrain";
-                    shapeName = _map.Regions[_selectedIndex].Name;
-                    province = _map.Regions[_selectedIndex].Province;
-                    takesProvince = true;
-                    break;
-                case OverworldShapeHandles.KindBiomeArea when InRange(_map.BiomeAreas):
-                    kindLabel = "Biome Area";
-                    shapeName = _map.BiomeAreas[_selectedIndex].Name;
-                    province = _map.BiomeAreas[_selectedIndex].Province;
-                    takesProvince = true;
-                    break;
-                case OverworldShapeHandles.KindGreeble when InRange(_map.Greebles):
-                    kindLabel = "Greeble Mass";
-                    shapeName = _map.Greebles[_selectedIndex].Name;
-                    province = _map.Greebles[_selectedIndex].Province;
-                    takesProvince = true;
-                    break;
-                case OverworldShapeHandles.KindRamp when InRange(_map.Ramps):
-                    kindLabel = "Ramp";
-                    shapeName = _map.Ramps[_selectedIndex].Name;
-                    break;
-                case OverworldShapeHandles.KindRiver when InRange(_map.Rivers):
-                    kindLabel = "River";
-                    shapeName = _map.Rivers[_selectedIndex].Name;
-                    break;
-                case OverworldShapeHandles.KindRoad when InRange(_map.Roads):
-                    kindLabel = "Road";
-                    shapeName = _map.Roads[_selectedIndex].Name;
-                    break;
-                case OverworldShapeHandles.KindLayer when InRange(_map.Layers):
-                    kindLabel = "Layer";
-                    shapeName = _map.Layers[_selectedIndex].Name;
-                    cover = _map.Layers[_selectedIndex].Cover;
-                    takesCover = true;
-                    break;
-            }
-
-            if (kindLabel == null)
+            var kind = OverworldShapeHandles.KindOf(_selectedKind);
+            if (kind == null || _selectedIndex < 0 || _selectedIndex >= kind.Count(_map))
             {
                 EditorGUILayout.LabelField("Nothing selected.", EditorStyles.miniLabel);
                 return;
             }
 
+            string shapeName = kind.GetName(_map, _selectedIndex);
+            var province = kind.HasProvince ? kind.GetProvince(_map, _selectedIndex) : null;
+            var cover = kind.HasCover ? kind.GetCover(_map, _selectedIndex) : CoverStyle.Auto;
+
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField($"Selected {kindLabel}", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Selected {kind.PanelLabel}", EditorStyles.boldLabel);
 
             EditorGUI.BeginChangeCheck();
             string newName = EditorGUILayout.TextField("Name", shapeName);
             OverworldProvince newProvince = province;
-            if (takesProvince)
+            if (kind.HasProvince)
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -391,7 +350,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 }
             }
             CoverStyle newCover = cover;
-            if (takesCover)
+            if (kind.HasCover)
                 newCover = (CoverStyle)EditorGUILayout.EnumPopup(
                     new GUIContent("Cover", "Cave inverts the picture when the player is " +
                                             "underneath; Bridge does not. Auto derives it: " +
@@ -402,38 +361,31 @@ namespace Rokkan.Prophecy.Editor.MapTool
                 return;
 
             Undo.RecordObject(_map, "Edit Overworld Shape");
-            switch (_selectedKind)
-            {
-                case OverworldShapeHandles.KindRegion:
-                    _map.Regions[_selectedIndex].Name = newName;
-                    _map.Regions[_selectedIndex].Province = newProvince;
-                    break;
-                case OverworldShapeHandles.KindBiomeArea:
-                    _map.BiomeAreas[_selectedIndex].Name = newName;
-                    _map.BiomeAreas[_selectedIndex].Province = newProvince;
-                    break;
-                case OverworldShapeHandles.KindGreeble:
-                    _map.Greebles[_selectedIndex].Name = newName;
-                    _map.Greebles[_selectedIndex].Province = newProvince;
-                    break;
-                case OverworldShapeHandles.KindRamp:
-                    _map.Ramps[_selectedIndex].Name = newName; break;
-                case OverworldShapeHandles.KindRiver:
-                    _map.Rivers[_selectedIndex].Name = newName; break;
-                case OverworldShapeHandles.KindRoad:
-                    _map.Roads[_selectedIndex].Name = newName; break;
-                case OverworldShapeHandles.KindLayer:
-                    _map.Layers[_selectedIndex].Name = newName;
-                    _map.Layers[_selectedIndex].Cover = newCover;
-                    break;
-            }
+            kind.SetName(_map, _selectedIndex, newName);
+            if (kind.HasProvince) kind.SetProvince(_map, _selectedIndex, newProvince);
+            if (kind.HasCover) kind.SetCover(_map, _selectedIndex, newCover);
             EditorUtility.SetDirty(_map);
             _canvas.MarkStale();
             if (PreviewActive) _preview.MarkAll();
         }
 
-        private bool InRange<T>(T[] array) =>
-            array != null && _selectedIndex >= 0 && _selectedIndex < array.Length;
+        /// <summary>The per-kind visibility toggles stay individual serialized fields (the
+        /// window remembers them across sessions); this is the ONE mapping from kind id to
+        /// toggle, handed to the handles as their draw filter.</summary>
+        private bool ShapeKindVisible(int kind)
+        {
+            switch (kind)
+            {
+                case OverworldShapeHandles.KindRegion: return _showRegions;
+                case OverworldShapeHandles.KindRamp: return _showRamps;
+                case OverworldShapeHandles.KindLayer: return _showLayers;
+                case OverworldShapeHandles.KindRiver: return _showRivers;
+                case OverworldShapeHandles.KindRoad: return _showRoads;
+                case OverworldShapeHandles.KindBiomeArea: return _showBiomeAreas;
+                case OverworldShapeHandles.KindGreeble: return _showGreebles;
+                default: return false;
+            }
+        }
 
         /// <summary>A fresh province asset named for its place, with a legible random tint.</summary>
         private static OverworldProvince CreateProvinceAsset(string placeName)
@@ -489,18 +441,19 @@ namespace Rokkan.Prophecy.Editor.MapTool
                                     "prop deletes it · Esc returns to Select.", MessageType.None);
         }
 
-        /// <summary>The minimap's colour key — cryptic tints were half of "unintuitive".</summary>
+        /// <summary>The minimap's colour key — cryptic tints were half of "unintuitive". The
+        /// swatches read the canvas's own ink, so the key cannot drift from the paint.</summary>
         private static void Legend()
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                Swatch(new Color(0.2f, 0.42f, 0.22f), "low ground");
-                Swatch(new Color(0.75f, 0.9f, 0.55f), "high ground");
-                Swatch(new Color(0.16f, 0.32f, 0.62f), "water");
-                Swatch(new Color(0.85f, 0.62f, 0.25f), "stairs");
-                Swatch(new Color(0.65f, 0.4f, 0.9f), "deck/cave");
-                Swatch(new Color(0.78f, 0.66f, 0.45f), "road");
-                Swatch(new Color(1f, 0.35f, 0.75f), "painted");
+                Swatch(OverworldMapCanvas.GroundLowColour, "low ground");
+                Swatch(OverworldMapCanvas.GroundHighColour, "high ground");
+                Swatch(OverworldMapCanvas.WaterColour, "water");
+                Swatch(OverworldMapCanvas.StairsColour, "stairs");
+                Swatch(OverworldMapCanvas.CoverColour, "deck/cave");
+                Swatch(OverworldMapCanvas.RoadColour, "road");
+                Swatch(OverworldMapCanvas.PaintedColour, "painted");
             }
         }
 
@@ -530,10 +483,7 @@ namespace Rokkan.Prophecy.Editor.MapTool
                     break;
 
                 default:
-                    OverworldShapeHandles.Draw(_map, _preview, _worldOrigin,
-                                               _showRegions, _showRamps, _showLayers,
-                                               _showRivers, _showRoads,
-                                               _showBiomeAreas, _showGreebles,
+                    OverworldShapeHandles.Draw(_map, _preview, _worldOrigin, ShapeKindVisible,
                                                _selectedKind, _selectedIndex,
                                                (kind, index) =>
                                                {

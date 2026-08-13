@@ -1,4 +1,5 @@
 using Rokkan.Prophecy.Core;
+using Rokkan.Prophecy.Editor.Build;
 using UnityEditor;
 using UnityEngine;
 
@@ -27,7 +28,7 @@ namespace Rokkan.Prophecy.Editor
     public static class EnemyTuningBuilder
     {
         public const string GruntTuningPath = "Assets/_Prophecy/Data/CombatTuning_Grunt.asset";
-        private const string PlayerTuningPath = "Assets/_Prophecy/Data/CombatTuning.asset";
+        private const string PlayerTuningPath = ProphecyAssetBootstrap.CombatTuningPath;
 
         /// <summary>
         /// Ticks of wind-up before an enemy swing becomes dangerous.

@@ -305,31 +305,16 @@ namespace Rokkan.Prophecy.Overworld
 
         /// <summary>
         /// The height a cell presents to cliff-face planning at one edge, in 1/RampRun level
-        /// units. Sea presents 0; ground its level; run cell i presents +i / +i+1 at its low and
-        /// high edges and its base level at its sides — the cheek covers the wedge band, faces
-        /// stack below.
+        /// units — <see cref="OverworldTileGrid.EdgeLevelAt"/> with the planner's role calls
+        /// layered on. Water presents its OWN level (the sea is level 0, but a river reach
+        /// carved through a terrace holds that terrace's level, so cliffs beside it stop at the
+        /// water instead of diving to the ocean floor); a ramp's SIDE presents its base level —
+        /// the cheek covers the wedge band, faces stack below. The ground seam's wrapper makes
+        /// the opposite calls (sea absent, sides refused); the arithmetic between them lives
+        /// once, on the grid.
         /// </summary>
-        private static int FaceEdgeLevel(OverworldTileGrid grid, int x, int z, int dx, int dz)
-        {
-            switch (grid.KindAt(x, z))
-            {
-                // Water presents its own level — the sea is level 0, but a river reach carved
-                // through a terrace holds that terrace's level, so cliffs beside it stop at the
-                // water instead of diving to the ocean floor.
-                case TileCellKind.Sea: return grid.LevelAt(x, z) * OverworldTileGrid.RampRun;
-                case TileCellKind.Ground: return grid.LevelAt(x, z) * OverworldTileGrid.RampRun;
-                default:
-                {
-                    int scaled = grid.LevelAt(x, z) * OverworldTileGrid.RampRun;
-                    var facing = FacingDir(grid.FacingAt(x, z));
-                    bool towardHigh = facing.x == dx && facing.y == dz;
-                    bool towardLow = facing.x == -dx && facing.y == -dz;
-                    if (!towardHigh && !towardLow) return scaled;   // side
-
-                    return scaled + grid.RampIndexAt(x, z) + (towardHigh ? 1 : 0);
-                }
-            }
-        }
+        private static int FaceEdgeLevel(OverworldTileGrid grid, int x, int z, int dx, int dz) =>
+            grid.EdgeLevelAt(x, z, dx, dz, out _);
 
         /// <summary>Faces for a drop from <paramref name="top"/> down to <paramref name="bottom"/>,
         /// split greedily top-down into 3s — the tall stratum rides at plateau eye level and the

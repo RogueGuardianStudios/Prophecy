@@ -146,15 +146,15 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         // ---------------------------------------------------------------- the gate
 
-        public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
+        public HitResult Evaluate(IDefendable owner, in HitEvent hit)
         {
             // Asked rather than assumed: a hit-react may have force-locked this character between
             // the guard's last tick and this hit, and a shield held by someone who has just been
             // knocked off their feet is not a shield.
-            if (!IsGuarding || !sim.HoldsLock(this)) return HitResult.Continue;
+            if (!IsGuarding || !owner.HoldsLock(this)) return HitResult.Continue;
 
             // Facing is the one requirement both answers share.
-            if (!FacesTheHit(sim.State.Facing, hit.Facing)) return HitResult.Continue;
+            if (!FacesTheHit(owner.Facing, hit.Facing)) return HitResult.Continue;
 
             if (hit.CanBe(DefensiveAnswer.Parry) && ParryWindowOpen(hit.Tick))
             {
@@ -174,7 +174,9 @@ namespace Rokkan.Prophecy.Sim.Abilities
             // on every blocked hit. A guard is also already a lock that suppresses moving and
             // attacking, so "blockstun" would be a duration in which nothing further is prevented.
             // So the pressure a blocked hit applies is that it moves you, and the cost is chip.
-            sim.State.Velocity.x = hit.Facing * _combat.BlockPushbackSpeed;
+            // Parked rather than written: this runs during the ATTACKER's tick, and the defender
+            // takes the shove up on their own — the same law the stun obeys, for the same reason.
+            owner.Impulse(hit.Facing * _combat.BlockPushbackSpeed, hit.Tick);
 
             return new HitResult(HitOutcome.Blocked, Chip(hit.Damage));
         }

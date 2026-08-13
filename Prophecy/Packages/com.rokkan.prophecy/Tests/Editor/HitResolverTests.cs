@@ -19,8 +19,6 @@ namespace Rokkan.Prophecy.Tests
         private const int MyId = 1;
         private const int MyTeam = 1;
 
-        private readonly List<int> _hits = new List<int>();
-
         /// <summary>An attacker standing at the origin, body centre at chest height.</summary>
         private static Attacker Me(int facing = 1) =>
             new Attacker(MyId, Vector2.zero, new Vector2(0f, 0.9f), facing, MyTeam);
@@ -46,9 +44,10 @@ namespace Rokkan.Prophecy.Tests
         {
             var box = Box(new Vector2(1f, 1f), new Vector2(0.7f, 0.7f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(1.2f, 1f), Vector2.one * 0.4f) };
+            var hits = new List<int>();
 
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
-            Assert.AreEqual(0, _hits[0]);
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits));
+            Assert.AreEqual(0, hits[0]);
         }
 
         [Test]
@@ -57,7 +56,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(8f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, new List<int>()));
         }
 
         [Test]
@@ -68,12 +67,13 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1f, 1f), new Vector2(0.6f, 0.6f));
             var inFront = new List<Hurtbox> { new Hurtbox(2, new Vector2(1f, 1f), Vector2.one * 0.4f) };
             var behind = new List<Hurtbox> { new Hurtbox(2, new Vector2(-1f, 1f), Vector2.one * 0.4f) };
+            var hits = new List<int>();
 
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(1), inFront, null, _hits));
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(1), behind, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(1), inFront, null, hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(1), behind, null, hits));
 
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(-1), behind, null, _hits));
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(-1), inFront, null, _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(-1), behind, null, hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(-1), inFront, null, hits));
         }
 
         [Test]
@@ -82,13 +82,14 @@ namespace Rokkan.Prophecy.Tests
             // The capability an AABB could not have, exercised through the real resolver rather
             // than only in the probe.
             var target = new List<Hurtbox> { new Hurtbox(2, new Vector2(0f, 2.1f), Vector2.one * 0.3f) };
+            var hits = new List<int>();
 
             var flat = Box(new Vector2(0f, 1f), new Vector2(1.2f, 0.3f));
             var upright = Box(new Vector2(0f, 1f), new Vector2(1.2f, 0.3f), rotation: 90f);
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(flat, Me(), target, null, _hits),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(flat, Me(), target, null, hits),
                 "a wide flat box does not reach up");
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(upright, Me(), target, null, _hits),
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(upright, Me(), target, null, hits),
                 "the same box turned upright does");
         }
 
@@ -100,7 +101,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(Vector2.zero, Vector2.one * 2f);
             var targets = new List<Hurtbox> { new Hurtbox(MyId, Vector2.zero, Vector2.one * 0.5f) };
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, new List<int>()));
         }
 
         [Test]
@@ -113,10 +114,11 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(3, Vector2.zero, Vector2.one * 0.3f, 0f, team: 2),      // enemy
                 new Hurtbox(4, Vector2.zero, Vector2.one * 0.3f, 0f, team: 0),      // neutral crate
             };
+            var hits = new List<int>();
 
-            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits);
 
-            CollectionAssert.AreEquivalent(new[] { 1, 2 }, _hits, "the enemy and the crate, not the ally");
+            CollectionAssert.AreEquivalent(new[] { 1, 2 }, hits, "the enemy and the crate, not the ally");
         }
 
         // ---------------------------------------------------------------- cover
@@ -136,11 +138,12 @@ namespace Rokkan.Prophecy.Tests
             // if the ray is traced from the attacker's body rather than from the box.
             var box = Box(new Vector2(1.8f, 1f), new Vector2(0.8f, 0.6f), stoppedByGeometry: true);
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(2.2f, 1f), Vector2.one * 0.4f) };
+            var hits = new List<int>();
 
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits),
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits),
                 "with no world it connects");
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), hits),
                 "and a wall between attacker and target stops it");
         }
 
@@ -151,7 +154,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(new Vector2(1.8f, 1f), new Vector2(0.8f, 0.6f), stoppedByGeometry: false);
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(2.2f, 1f), Vector2.one * 0.4f) };
 
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), new List<int>()));
         }
 
         [Test]
@@ -163,10 +166,11 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(2, new Vector2(0.2f, 1f), Vector2.one * 0.3f),  // this side of the wall
                 new Hurtbox(3, new Vector2(2.6f, 1f), Vector2.one * 0.3f),  // behind it
             };
+            var hits = new List<int>();
 
-            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), _hits);
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, WallBetween(), hits);
 
-            CollectionAssert.AreEqual(new[] { 0 }, _hits, "only the sheltered one is spared");
+            CollectionAssert.AreEqual(new[] { 0 }, hits, "only the sheltered one is spared");
         }
 
         // ---------------------------------------------------------------- batching and edges
@@ -176,23 +180,25 @@ namespace Rokkan.Prophecy.Tests
         {
             var box = Box(new Vector2(1f, 1f), new Vector2(2f, 1f));
             var targets = new List<Hurtbox>();
+            var hits = new List<int>();
 
             for (int i = 0; i < 6; i++)
                 targets.Add(new Hurtbox(10 + i, new Vector2(0.5f + i * 0.4f, 1f), Vector2.one * 0.2f));
 
-            int count = HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
+            int count = HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits);
 
             Assert.Greater(count, 1, "a wide sweep catches several at once");
-            Assert.AreEqual(count, _hits.Count);
+            Assert.AreEqual(count, hits.Count);
         }
 
         [Test]
         public void NoTargetsIsHarmless()
         {
             var box = Box(Vector2.one, Vector2.one);
+            var hits = new List<int>();
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), new List<Hurtbox>(), null, _hits));
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), null, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), new List<Hurtbox>(), null, hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), null, null, hits));
         }
 
         [Test]
@@ -201,7 +207,7 @@ namespace Rokkan.Prophecy.Tests
             var box = Box(Vector2.one, Vector2.zero);
             var targets = new List<Hurtbox> { new Hurtbox(2, Vector2.one, Vector2.one) };
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, new List<int>()));
         }
 
         [Test]
@@ -209,9 +215,10 @@ namespace Rokkan.Prophecy.Tests
         {
             var box = Box(new Vector2(1f, 1f), new Vector2(0.4f, 0.4f));
             var targets = new List<Hurtbox> { new Hurtbox(2, new Vector2(1.9f, 1f), Vector2.one * 0.3f) };
+            var hits = new List<int>();
 
-            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits));
-            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits, skin: 0.5f),
+            Assert.AreEqual(0, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits));
+            Assert.AreEqual(1, HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits, skin: 0.5f),
                 "forgiveness without resizing the authored volume");
         }
 
@@ -224,14 +231,15 @@ namespace Rokkan.Prophecy.Tests
                 new Hurtbox(2, new Vector2(1.3f, 1.2f), Vector2.one * 0.35f),
                 new Hurtbox(3, new Vector2(4f, 1f), Vector2.one * 0.35f),
             };
+            var hits = new List<int>();
 
-            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
-            var first = _hits.ToArray();
+            HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits);
+            var first = hits.ToArray();
 
             for (int i = 0; i < 10; i++)
             {
-                HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, _hits);
-                CollectionAssert.AreEqual(first, _hits, "same inputs, same hits, every time");
+                HitResolver.ResolveWithoutBroadphase(box, Me(), targets, null, hits);
+                CollectionAssert.AreEqual(first, hits, "same inputs, same hits, every time");
             }
         }
 

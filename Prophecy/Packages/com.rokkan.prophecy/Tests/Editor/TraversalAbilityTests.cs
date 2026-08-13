@@ -5,6 +5,7 @@ using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Arts;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -19,40 +20,18 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class TraversalAbilityTests
     {
-        private const float Dt = 1f / 60f;
-
         private static MovementTuningData Tuning() => new MovementTuningData();
-
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
 
         private static CharacterSim Player(MovementTuningData tuning, CollisionWorld world,
                                            Vector2 at = default, AbilityLoadoutData loadout = null)
         {
-            var sim = PlayerCharacterFactory.Create(world, tuning, MovementSpace.SideScroll, loadout);
+            var sim = SimTestHarness.Player(world, null, null, tuning, at, loadout: loadout);
 
             // Ascent gates the double jump now; these tests are about the JUMPS themselves,
             // so the art is lit as part of the rig.
             sim.ActiveArts.Add(ArtId.Ascent);
-
-            sim.Teleport(at);
             return sim;
         }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
-
-        private static void Step(CharacterSim sim, int ticks = 1) => Step(sim, InputFrame.Empty, ticks);
 
         private static InputFrame Hold(float x = 0f, float y = 0f) => new InputFrame(new Vector2(x, y));
 

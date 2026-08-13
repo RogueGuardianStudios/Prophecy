@@ -2,9 +2,9 @@ using NUnit.Framework;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
-using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -19,8 +19,6 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class DefenceTests
     {
-        private const float Dt = 1f / 60f;
-
         private const int DefenderId = 1;
         private const int DefenderTeam = 1;
         private const int AttackerId = 9;
@@ -28,35 +26,12 @@ namespace Rokkan.Prophecy.Tests
 
         // ---------------------------------------------------------------- harness
 
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
-
-        private static CharacterSim Defender(CombatTuningData combat)
-        {
-            var sim = PlayerCharacterFactory.Create(
-                Ground(), new MovementTuningData(), MovementSpace.SideScroll, null, combat, null);
-
-            sim.State.CombatId = DefenderId;
-            sim.State.Team = DefenderTeam;
-
-            // Facing +1 with blows arriving from +1 would mean being struck in the back on every
-            // test. The defender faces right; the attacker stands to the right and swings left.
-            sim.Teleport(Vector2.zero, facing: 1);
-            return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
+        /// <summary>
+        /// Facing +1 with blows arriving from +1 would mean being struck in the back on every
+        /// test. The defender faces right; the attacker stands to the right and swings left.
+        /// </summary>
+        private static CharacterSim Defender(CombatTuningData combat) =>
+            Player(Ground(), combat, null, combatId: DefenderId, team: DefenderTeam);
 
         private static InputFrame Hold(float x = 0f, float y = 0f) =>
             new InputFrame(new Vector2(x, y));
@@ -543,10 +518,15 @@ namespace Rokkan.Prophecy.Tests
             SettleGuard(sim, combat);
             sim.ReceiveHit(Blow(sim, 20));
 
-            Assert.Less(sim.State.Velocity.x, 0f, "a blocked hit must still move you");
+            // The shove is PARKED, not written: the hit lands during the attacker's tick, and
+            // the defender takes it up at the top of their own — the same law the stun obeys,
+            // so the outcome cannot depend on which character registered first.
+            Assert.AreEqual(0f, sim.State.Velocity.x,
+                "the shove must wait for the defender's own tick");
 
             Step(sim, Guarding());
 
+            Assert.Less(sim.State.Velocity.x, 0f, "a blocked hit must still move you");
             Assert.IsTrue(sim.Get<Block>().IsGuarding, "the guard must survive a hit it answered");
             Assert.IsFalse(sim.Get<HitReact>().IsReacting);
         }
@@ -671,56 +651,40 @@ namespace Rokkan.Prophecy.Tests
         /// <summary>
         /// Press parry, then take one blow per tick for the whole action, and record what each tick
         /// turned into. The string is the entire defensive profile of the move.
+        ///
+        /// <para>Driven through the REAL clock — SimClock, the accumulator the game ships — so
+        /// the claim covers the arithmetic that actually runs. The run lasts a fixed number of
+        /// TICKS rather than frames: what is being compared is the tick-for-tick answer, and the
+        /// clock's own tail rounding is the clock's business.</para>
         /// </summary>
         private static string RunAtFrameRate(int fps)
         {
             var combat = new CombatTuningData();
             var sim = Defender(combat);
 
-            double fixedDelta = 1.0 / SimConstants.TicksPerSecond;
-            double frameDelta = 1.0 / fps;
-            double accumulator = 0.0;
-            long tick = 0;
-
             var outcomes = new System.Text.StringBuilder();
-            bool pressed = false;
 
-            // Run until a fixed number of TICKS have been retired rather than for a fixed number
-            // of frames. How many ticks a wall-clock second turns into can differ by one at the
-            // tail because of accumulator rounding, and that is the clock's business — what is
-            // being compared here is the tick-for-tick answer, not the clock's arithmetic.
-            const int Ticks = 60;
+            var clock = new SimClock();
 
-            while (tick < Ticks)
+            // The guard goes up on the first simulated tick and is held from then on, so the
+            // parry window and the block that follows it are being compared from the same
+            // starting point at every frame rate.
+            clock.Register(new TickHook(_ =>
+                sim.SetInput(new InputFrame(Vector2.zero, block: ButtonState.Holding))));
+            clock.Register(sim);
+            clock.Register(new TickHook(_ =>
             {
-                accumulator += frameDelta;
+                // Health is restored each tick so the run cannot end early at a different
+                // point on different machines — what is being compared is the answer, not
+                // how long the defender survived.
+                var result = sim.ReceiveHit(new HitEvent(
+                    AttackerId, DefenderId, 5, -1, sim.CurrentTick, "probe", 0, AttackHeight.Any));
 
-                while (accumulator >= fixedDelta && tick < Ticks)
-                {
-                    accumulator -= fixedDelta;
-                    tick++;
+                sim.Vitals.Reset();
+                outcomes.Append((int)result.Outcome);
+            }));
 
-                    // The press lands on the first simulated tick at every frame rate, so the
-                    // windows below are being compared from the same starting point.
-                    // The guard goes up on the first simulated tick and is held from then on, so
-                    // the parry window and the block that follows it are being compared from the
-                    // same starting point at every frame rate.
-                    var input = new InputFrame(Vector2.zero, block: ButtonState.Holding);
-                    pressed = true;
-
-                    sim.SetInput(input);
-                    sim.Tick(new SimTickInfo(tick, SimConstants.FixedDeltaSeconds));
-
-                    // Health is restored each tick so the run cannot end early at a different
-                    // point on different machines — what is being compared is the answer, not
-                    // how long the defender survived.
-                    var result = sim.ReceiveHit(new HitEvent(
-                        AttackerId, DefenderId, 5, -1, tick, "probe", 0, AttackHeight.Any));
-
-                    sim.Vitals.Reset();
-                    outcomes.Append((int)result.Outcome);
-                }
-            }
+            AdvanceTicks(clock, 1.0 / fps, 60);
 
             return outcomes.ToString();
         }

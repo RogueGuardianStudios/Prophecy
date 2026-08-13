@@ -29,7 +29,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
     /// into a side-scroll scene, which is Zelda II's structure and the reason
     /// <see cref="CharacterSim"/> forces <see cref="Stance.Stand"/> in top-down.</para>
     /// </summary>
-    public sealed class AttackModule : AbilityModule, IDamageGate
+    public sealed class AttackModule : AbilityModule, IDamageGate, IDebugVolumeSource
     {
         /// <summary>
         /// Same flags the down-thrust commits with: a swing takes away movement, turning and
@@ -174,8 +174,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
             // The attack REALLY started — tell the fight, so the attack director's pacing
             // spends its token here and never on a press that a lock or a stun stripped.
-            (sim.CombatWorld as IAttackObserver)
-                ?.OnAttackStarted(state.CombatId, info.Tick, definition.TotalTicks);
+            sim.CombatWorld?.OnAttackStarted(state.CombatId, info.Tick, definition.TotalTicks);
         }
 
         private void Finish(CharacterSim sim, long tick)
@@ -183,7 +182,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             sim.ReleaseLock(this);
             _sweep.Begin();
 
-            (sim.CombatWorld as IAttackObserver)?.OnAttackEnded(sim.State.CombatId, tick);
+            sim.CombatWorld?.OnAttackEnded(sim.State.CombatId, tick);
         }
 
         /// <summary>Interrupted by something with a stronger claim. The lock is already theirs, so
@@ -195,7 +194,7 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _runner.End();
             _sweep.Begin();
 
-            (sim.CombatWorld as IAttackObserver)?.OnAttackEnded(sim.State.CombatId, tick);
+            sim.CombatWorld?.OnAttackEnded(sim.State.CombatId, tick);
         }
 
         // ------------------------------------------------------------------ hits
@@ -235,13 +234,45 @@ namespace Rokkan.Prophecy.Sim.Abilities
         /// I-frames authored on the attack currently running. A dodge is mostly this; most attacks
         /// have none, and an unarmed character has none at all.
         /// </summary>
-        public HitResult Evaluate(CharacterSim sim, in HitEvent hit)
+        public HitResult Evaluate(IDefendable owner, in HitEvent hit)
         {
             if (_runner == null || !_runner.IsAttacking) return HitResult.Continue;
             if (!_runner.Timeline.IsInvulnerable) return HitResult.Continue;
             if (!hit.CanBe(DefensiveAnswer.IFrames)) return HitResult.Continue;
 
             return new HitResult(HitOutcome.Invulnerable);
+        }
+
+        // ------------------------------------------------------------------ the viewer's seam
+
+        /// <summary>
+        /// The boxes this swing is asking the world about, resolved exactly as
+        /// <see cref="ResolveHits"/> resolves them — the drawn box and the asked box must be
+        /// the same box, or the overlay lies about the one thing it exists to be truthful about.
+        /// </summary>
+        public void CollectDebugVolumes(CharacterState state, List<DebugVolume> into)
+        {
+            if (_runner == null || !_runner.IsAttacking) return;
+
+            var definition = _runner.Current;
+            if (definition?.HitBoxes == null) return;
+
+            var timeline = _runner.Timeline;
+
+            for (int i = 0; i < definition.HitBoxes.Length; i++)
+            {
+                var box = definition.HitBoxes[i];
+
+                into.Add(new DebugVolume
+                {
+                    Centre = box.ResolveCentre(state.Position, state.Facing),
+                    HalfExtents = box.HalfExtents,
+                    RotationDegrees = box.ResolveRotation(state.Facing),
+                    Kind = DebugVolumeKind.Windowed,
+                    Live = timeline.IsHitBoxLive(i),
+                    StoppedByGeometry = box.StoppedByGeometry,
+                });
+            }
         }
 
         // ------------------------------------------------------------------ moveset

@@ -24,36 +24,10 @@ namespace Rokkan.Prophecy.Tests
         private const int TargetId = 1;
         private const int TargetTeam = 1;
 
-        private sealed class RecordingWorld : ICombatWorld
-        {
-            public readonly List<Hurtbox> Targets = new List<Hurtbox>();
-            public readonly List<HitEvent> Hits = new List<HitEvent>();
-
-            public HitResult Answer = new HitResult(HitOutcome.Landed, 12);
-
-            private readonly HurtboxSet _set = new HurtboxSet();
-
-            /// <summary>Rebuilt on every read so a test can add a target mid-run and have it
-            /// counted. The real one is built once a tick; correctness is the same either way.</summary>
-            public HurtboxSet Hurtboxes
-            {
-                get
-                {
-                    _set.Clear();
-                    for (int i = 0; i < Targets.Count; i++) _set.Add(Targets[i]);
-                    _set.Build();
-                    return _set;
-                }
-            }
-
-            public void Spawn(ProjectileDefinition definition, in Attacker owner) { }
-
-            public HitResult OnHit(in HitEvent hit)
-            {
-                Hits.Add(hit);
-                return Answer;
-            }
-        }
+        /// <summary>The shared recording world, answering the clean 12-damage landing every
+        /// flight test here assumes unless it says otherwise.</summary>
+        private static RecordingCombatWorld World() =>
+            new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Landed, 12) };
 
         // ---------------------------------------------------------------- harness
 
@@ -89,7 +63,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void ASpawnedBoltTravelsAndHits()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(4f));
 
             var system = new ProjectileSystem();
@@ -108,7 +82,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void ABoltFliesTheOtherWayWhenTheCasterDoes()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(-4f));
 
             var system = new ProjectileSystem();
@@ -122,7 +96,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void ABoltExpiresOnItsOwn()
         {
-            var world = new RecordingWorld();
+            var world = World();
 
             var definition = Bolt();
             definition.LifetimeTicks = 10;
@@ -143,7 +117,7 @@ namespace Rokkan.Prophecy.Tests
             var level = new CollisionWorld();
             level.Add(new Aabb(new Vector2(2f, 0f), new Vector2(2.2f, 3f)));
 
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(4f));
 
             var definition = Bolt();
@@ -164,7 +138,7 @@ namespace Rokkan.Prophecy.Tests
             var level = new CollisionWorld();
             level.Add(new Aabb(new Vector2(2f, 0f), new Vector2(2.2f, 3f)));
 
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(4f));
 
             var system = new ProjectileSystem();
@@ -178,7 +152,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void GravityArcsAShot()
         {
-            var world = new RecordingWorld();
+            var world = World();
 
             var definition = Bolt();
             definition.Gravity = 30f;
@@ -197,7 +171,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void AStationaryVolumeStaysWhereItLanded()
         {
-            var world = new RecordingWorld();
+            var world = World();
 
             var definition = Bolt();
             definition.Speed = 0f;
@@ -217,7 +191,7 @@ namespace Rokkan.Prophecy.Tests
         {
             // The difference between a lingering hazard and a spreading one, and the only thing
             // separating an area attack from a projectile that forgot to move.
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(3f));
 
             var definition = Bolt();
@@ -241,7 +215,7 @@ namespace Rokkan.Prophecy.Tests
         {
             // MaxTargets 0 is what makes it an area rather than a projectile that hits the first
             // person and stops.
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(new Hurtbox(1, new Vector2(1f, 1f), new Vector2(0.4f, 0.9f), 0f, TargetTeam));
             world.Targets.Add(new Hurtbox(2, new Vector2(2f, 1f), new Vector2(0.4f, 0.9f), 0f, TargetTeam));
             world.Targets.Add(new Hurtbox(3, new Vector2(3f, 1f), new Vector2(0.4f, 0.9f), 0f, TargetTeam));
@@ -263,7 +237,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void ABoltStopsAtItsTargetLimit()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(new Hurtbox(1, new Vector2(1f, 1f), new Vector2(0.4f, 0.9f), 0f, TargetTeam));
             world.Targets.Add(new Hurtbox(2, new Vector2(2f, 1f), new Vector2(0.4f, 0.9f), 0f, TargetTeam));
 
@@ -287,7 +261,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void OneVolumeHitsOneTargetOnce()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(2f));
 
             var definition = Bolt();
@@ -308,7 +282,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void TheAuthoredAnswerSetReachesTheDefender()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(2f));
 
             var definition = Bolt();
@@ -335,7 +309,7 @@ namespace Rokkan.Prophecy.Tests
         {
             // Nothing is reflected. Reflection is a mechanic this project has not decided on, and
             // inventing it here would make a parry behave differently against a bolt than a blade.
-            var world = new RecordingWorld
+            var world = new RecordingCombatWorld
             {
                 Answer = new HitResult(HitOutcome.Parried, 0, 40),
             };
@@ -358,7 +332,7 @@ namespace Rokkan.Prophecy.Tests
         [Test]
         public void AShotNeverHitsItsOwnCaster()
         {
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(new Hurtbox(CasterId, new Vector2(0.5f, 1f),
                                           new Vector2(0.9f, 0.9f), 0f, CasterTeam));
 
@@ -379,7 +353,7 @@ namespace Rokkan.Prophecy.Tests
         {
             // The point of the whole type. Nothing here holds a reference to whoever fired it, so
             // there is nothing to go stale when they are stunned or killed a tick later.
-            var world = new RecordingWorld();
+            var world = World();
             world.Targets.Add(TargetAt(4f));
 
             var system = new ProjectileSystem();

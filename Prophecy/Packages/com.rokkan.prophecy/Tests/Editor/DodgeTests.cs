@@ -2,9 +2,9 @@ using NUnit.Framework;
 using RGS.Core.Sim;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
-using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -18,40 +18,14 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class DodgeTests
     {
-        private const float Dt = 1f / 60f;
-
         private const int DefenderId = 1;
         private const int DefenderTeam = 1;
         private const int AttackerId = 9;
 
         // ---------------------------------------------------------------- harness
 
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
-
-        private static CharacterSim Player(CombatTuningData combat)
-        {
-            var sim = PlayerCharacterFactory.Create(
-                Ground(), new MovementTuningData(), MovementSpace.SideScroll, null, combat, null);
-
-            sim.State.CombatId = DefenderId;
-            sim.State.Team = DefenderTeam;
-            sim.Teleport(Vector2.zero, facing: 1);
-            return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
+        private static CharacterSim Player(CombatTuningData combat) =>
+            SimTestHarness.Player(Ground(), combat, null, combatId: DefenderId, team: DefenderTeam);
 
         private static InputFrame Hold(float x = 0f) => new InputFrame(new Vector2(x, 0f));
 
@@ -398,43 +372,36 @@ namespace Rokkan.Prophecy.Tests
         /// <summary>
         /// Dodge once, take a blow every tick, and record what each turned into plus where the step
         /// finished. The outcome string is the whole i-frame profile; the position is the distance.
+        /// Driven through the REAL clock — SimClock, the accumulator the game ships — with the
+        /// input feed registered ahead of the sim and the probe blow behind it, exactly the shape
+        /// of a real tick.
         /// </summary>
         private static string RunAtFrameRate(int fps)
         {
             var combat = new CombatTuningData();
             var sim = Player(combat);
 
-            double fixedDelta = 1.0 / SimConstants.TicksPerSecond;
-            double frameDelta = 1.0 / fps;
-            double accumulator = 0.0;
-            long tick = 0;
-
             var outcomes = new System.Text.StringBuilder();
-            const int Ticks = 45;
 
-            while (tick < Ticks)
+            var clock = new SimClock();
+            clock.Register(new TickHook(info =>
+                sim.SetInput(info.Tick == 0
+                    ? new InputFrame(new Vector2(1f, 0f), dodge: ButtonState.Press)
+                    : new InputFrame(new Vector2(1f, 0f)))));
+            clock.Register(sim);
+            clock.Register(new TickHook(_ =>
             {
-                accumulator += frameDelta;
+                var result = sim.ReceiveHit(new HitEvent(
+                    AttackerId, DefenderId, 5, -1, sim.CurrentTick, "probe", 0));
 
-                while (accumulator >= fixedDelta && tick < Ticks)
-                {
-                    accumulator -= fixedDelta;
-                    tick++;
+                // Health is restored each tick so the run cannot end early at a different point
+                // on different machines — what is being compared is the answer, not how long the
+                // defender survived.
+                sim.Vitals.Reset();
+                outcomes.Append((int)result.Outcome);
+            }));
 
-                    var input = tick == 1
-                        ? new InputFrame(new Vector2(1f, 0f), dodge: ButtonState.Press)
-                        : new InputFrame(new Vector2(1f, 0f));
-
-                    sim.SetInput(input);
-                    sim.Tick(new SimTickInfo(tick, SimConstants.FixedDeltaSeconds));
-
-                    var result = sim.ReceiveHit(new HitEvent(
-                        AttackerId, DefenderId, 5, -1, tick, "probe", 0));
-
-                    sim.Vitals.Reset();
-                    outcomes.Append((int)result.Outcome);
-                }
-            }
+            AdvanceTicks(clock, 1.0 / fps, 45);
 
             return $"{outcomes}|{sim.State.Position.x:F4}";
         }

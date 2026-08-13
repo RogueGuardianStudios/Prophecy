@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Rokkan.Prophecy.Sim;
-using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Arts;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -38,17 +37,13 @@ namespace Rokkan.Prophecy.Presentation.UI
             public Label Running;
         }
 
-        /// <summary>How long A must be held on the equipped art before the cast fires —
-        /// the fill animation's whole length.</summary>
-        private const float FillSeconds = 0.45f;
-
         private const float RowWidth = 1084f;
 
         private readonly FlameBarWidget _bar;
         private readonly List<Row> _rows = new List<Row>();
 
-        /// <summary>Indexes into <see cref="ArtCatalog.All"/> for the arts the sim knows,
-        /// in catalog order — the compacted page.</summary>
+        /// <summary>Indexes into the sim's art table for the arts it knows, in table
+        /// order — the compacted page.</summary>
         private readonly List<int> _known = new List<int>();
 
         private Label _empty;
@@ -69,9 +64,9 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             _bar = new FlameBarWidget(page, 16f, 12f, new Vector2(1076f, 22f));
 
-            // One slot per catalog entry — the most the page can ever need. Which art a
+            // One slot per authored art — the most the page can ever need. Which art a
             // slot shows (and whether it shows at all) is dealt each draw.
-            for (int i = 0; i < ArtCatalog.All.Length; i++)
+            for (int i = 0; i < ArtCatalog.DefaultTable().Length; i++)
             {
                 var row = new Row();
 
@@ -140,7 +135,7 @@ namespace Rokkan.Prophecy.Presentation.UI
             // Every open lands the cursor on the equipped art — the page has no memory of
             // its own, the character's slot is the memory.
             for (int i = 0; i < _known.Count; i++)
-                if (ArtCatalog.All[_known[i]].Id == sim.EquippedArt)
+                if (sim.ArtTuning.Arts[_known[i]].Id == sim.EquippedArt)
                     _cursor = i;
         }
 
@@ -170,10 +165,12 @@ namespace Rokkan.Prophecy.Presentation.UI
                 _castArmed = false;
             }
 
-            var art = ArtCatalog.All[_known[_cursor]];
+            var art = sim.ArtTuning.Arts[_known[_cursor]];
 
             // The press SELECTS (equips) — and arms the hold, so press-and-keep-holding
-            // is the single gesture that selects and then casts.
+            // is the single gesture that selects and then casts. Equipping writes the slot
+            // directly: it is a loadout edit, the same class of write as the pack's gear
+            // boxes, and InputFrame's doc names it as sanctioned.
             if (frame.Confirm)
             {
                 sim.EquippedArt = art.Id;
@@ -183,16 +180,20 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             if (frame.ConfirmHeld && _castArmed && sim.EquippedArt == art.Id)
             {
-                _fill += Time.deltaTime / FillSeconds;
+                // The fill is purely visual, so frame time is honest here. The CAST is not:
+                // it is parked as a request the sim consumes at the top of its next tick —
+                // the page runs with the clock paused, and a cast applied from UI code
+                // between ticks is a mutation no headless replay could reproduce.
+                _fill += Time.deltaTime / Mathf.Max(0.05f, sim.ArtTuning.HoldToCastSeconds);
 
                 if (_fill >= 1f)
                 {
                     _fill = 0f;
                     _castArmed = false;   // one cast per hold; a fresh press re-arms
 
-                    // Buoyancy's cast is its module's water toggle and runs on the world
-                    // clock; everything else goes through the one cast path.
-                    if (art.Id != ArtId.Buoyancy) CastArt.Cast(sim, art.Id, sim.CurrentTick);
+                    // A module-owned art (Buoyancy) casts only from its own button verb;
+                    // the page cannot cast it, the same fact the sim's cast path enforces.
+                    if (!art.ModuleOwned) sim.RequestCast(art.Id);
                 }
             }
             else if (!frame.ConfirmHeld)
@@ -207,8 +208,9 @@ namespace Rokkan.Prophecy.Presentation.UI
         private void RebuildKnown(CharacterSim sim)
         {
             _known.Clear();
-            for (int i = 0; i < ArtCatalog.All.Length; i++)
-                if (sim.KnownArts.Contains(ArtCatalog.All[i].Id)) _known.Add(i);
+            var table = sim.ArtTuning.Arts;
+            for (int i = 0; i < table.Count && _known.Count < _rows.Count; i++)
+                if (sim.KnownArts.Contains(table[i].Id)) _known.Add(i);
         }
 
         /// <summary>Cost as CASTING DIFFICULTY (Matt): pips for the share of the bar the
@@ -224,10 +226,7 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         private void Draw(CharacterSim sim)
         {
-            var equipped = ArtCatalog.Find(sim.EquippedArt);
-            _bar.Set(sim.Reserve.Current, sim.Reserve.Max, equipped.Cost);
-
-            var buoyancy = sim.Get<Buoyancy>();
+            _bar.Set(sim.Reserve.Current, sim.Reserve.Max, sim.ArtTuning.CostOf(sim.EquippedArt));
 
             for (int r = 0; r < _rows.Count; r++)
             {
@@ -237,13 +236,11 @@ namespace Rokkan.Prophecy.Presentation.UI
                     continue;
                 }
 
-                var entry = ArtCatalog.All[_known[r]];
+                var entry = sim.ArtTuning.Arts[_known[r]];
                 bool cursor = r == _cursor;
                 bool isEquipped = entry.Id == sim.EquippedArt;
                 bool affordable = sim.Reserve.CanAfford(entry.Cost);
-                bool running = entry.Id == ArtId.Buoyancy
-                    ? buoyancy != null && buoyancy.FloatOn
-                    : sim.ActiveArts.Contains(entry.Id);
+                bool running = sim.IsArtRunning(entry.Id);
 
                 var row = _rows[r];
                 row.Highlight.style.display = DisplayStyle.Flex;

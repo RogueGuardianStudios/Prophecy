@@ -17,20 +17,24 @@ namespace Rokkan.Prophecy.Sim.AI
     public static class AttackPacingLink
     {
         /// <summary>Apply the gate for one tick. Returns whether the token is held — the
-        /// answer the host publishes for sensors to read.</summary>
-        public static bool Apply(CombatState fight, EnemyIntent intent, in Percept percept,
+        /// answer the host publishes for sensors to read.
+        ///
+        /// <para>Takes the director rather than the whole fight — the pacing seam reads
+        /// nothing else, and narrowing it here keeps the AI namespace out of the registry
+        /// and projectile business it has no opinion about.</para></summary>
+        public static bool Apply(AttackDirector attacks, EnemyIntent intent, in Percept percept,
                                  int combatId, AttackPool pool, int beatTicks,
                                  bool incapacitated, long tick)
         {
-            if (fight == null || intent == null) return false;
+            if (attacks == null || intent == null) return false;
 
             // The standing request: renewed every tick this enemy is a live, targeted
             // combatant. Going quiet — death, stun, lost target — is itself the signal
             // that lapses a granted token back to the pool.
             if (percept.HasTarget && !incapacitated)
-                fight.Attacks.Request(combatId, pool, beatTicks, tick);
+                attacks.Request(combatId, pool, beatTicks, tick);
 
-            bool holds = fight.Attacks.HoldsToken(combatId);
+            bool holds = attacks.HoldsToken(combatId);
 
             // The veto: an unlicensed press dies here, before the sim ever sees it.
             if (!holds && intent.HasPendingAttack)

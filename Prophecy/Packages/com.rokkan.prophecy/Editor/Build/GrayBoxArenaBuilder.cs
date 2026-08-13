@@ -1,13 +1,12 @@
-using System.IO;
+using System.Collections.Generic;
 using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Combat;
 using Rokkan.Prophecy.World;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using static Rokkan.Prophecy.Editor.Build.GrayBoxSceneScaffold;
 using Object = UnityEngine.Object;
 
 namespace Rokkan.Prophecy.Editor.Build
@@ -35,8 +34,21 @@ namespace Rokkan.Prophecy.Editor.Build
     {
         public const string ScenePath = "Assets/_Prophecy/Scenes/GrayBox_Arena.unity";
 
-        private const float Depth = 3f;
-        private const float GroundThickness = 2f;
+        /// <summary>Warp entries, recorded as the stations are built — the FloorSpans pattern,
+        /// because a hand-typed table of coordinates drifts the first time a station moves and
+        /// nobody moves the table.</summary>
+        private static readonly List<(string Label, Vector3 Position)> _stationIndex =
+            new List<(string, Vector3)>();
+
+        /// <summary>Warps land this far west of the station they name. Materialising inside
+        /// the thing you came to hit reads as a glitch, and a stride or two of approach is
+        /// what makes the reach stripe legible on arrival.</summary>
+        private const float StationApproachMetres = 2f;
+
+        /// <summary>Planner stations get a longer runway. These enemies move and aggro on
+        /// sight, so a warp that lands at melee range starts the fight before the player has
+        /// oriented — the approach leaves the enemy visible but the first move the player's.</summary>
+        private const float PlannerApproachMetres = 7f;
 
         /// <summary>
         /// Authored combat ids, handed out in build order.
@@ -51,10 +63,10 @@ namespace Rokkan.Prophecy.Editor.Build
         [MenuItem("Prophecy/Build/Generate GrayBox_Arena", priority = 41)]
         public static void Generate()
         {
-            var tuning = LoadTuning();
+            var tuning = LoadMovementTuning();
             if (tuning == null) return;
 
-            var combat = LoadCombat();
+            var combat = LoadCombatTuning();
             if (combat == null) return;
 
             var reach = Reach.From(tuning.Data, combat.Data);
@@ -66,26 +78,8 @@ namespace Rokkan.Prophecy.Editor.Build
                 return;
             }
 
-            if (HasUnsavedChanges()) return;
-
-            var setup = EditorSceneManager.GetSceneManagerSetup();
-            bool canRestore = false;
-            for (int i = 0; setup != null && i < setup.Length; i++)
-                if (!string.IsNullOrEmpty(setup[i].path)) canRestore = true;
-
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            BuildContents(tuning, combat, reach);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath).Replace('\\', '/'));
-            EditorSceneManager.SaveScene(scene, ScenePath);
-
-            AssetDatabase.Refresh();
-            BuildSettings.EnsureInBuildSettings(ScenePath);
-
-            if (canRestore) EditorSceneManager.RestoreSceneManagerSetup(setup);
-
-            Debug.Log($"[Prophecy] Generated {ScenePath}\n{reach}");
+            if (GenerateScene(ScenePath, () => { BuildContents(tuning, combat, reach); return true; }))
+                Debug.Log($"[Prophecy] Generated {ScenePath}\n{reach}");
         }
 
         /// <summary><c>-executeMethod</c> target.</summary>
@@ -127,33 +121,10 @@ namespace Rokkan.Prophecy.Editor.Build
             {
                 BodyHalfWidth = movement.BodyWidth * 0.5f;
 
-                Measure(combat.ForStance(Stance.Stand), out Stand, out StandNear, out StandLow, out StandHigh);
-                Measure(combat.ForStance(Stance.Crouch), out Crouch, out _, out CrouchLow, out CrouchHigh);
-            }
-
-            private static void Measure(AttackDefinition definition, out float reach, out float near,
-                                        out float low, out float high)
-            {
-                reach = 0f;
-                near = 0f;
-                low = 0f;
-                high = 0f;
-
-                if (definition?.HitBoxes == null || definition.HitBoxes.Length == 0) return;
-
-                // The furthest and tallest any of the move's boxes gets. Multi-hit moves sweep more
-                // than one volume and the station has to accommodate the whole move, not box zero.
-                low = float.MaxValue;
-                near = float.MaxValue;
-
-                for (int i = 0; i < definition.HitBoxes.Length; i++)
-                {
-                    var box = definition.HitBoxes[i];
-                    reach = Mathf.Max(reach, box.Offset.x + box.HalfExtents.x);
-                    near = Mathf.Min(near, box.Offset.x - box.HalfExtents.x);
-                    low = Mathf.Min(low, box.Offset.y - box.HalfExtents.y);
-                    high = Mathf.Max(high, box.Offset.y + box.HalfExtents.y);
-                }
+                AttackReach.Measure(combat.ForStance(Stance.Stand),
+                                    out Stand, out StandNear, out StandLow, out StandHigh);
+                AttackReach.Measure(combat.ForStance(Stance.Crouch),
+                                    out Crouch, out _, out CrouchLow, out CrouchHigh);
             }
 
             public static Reach From(MovementTuningData movement, CombatTuningData combat) =>
@@ -169,6 +140,7 @@ namespace Rokkan.Prophecy.Editor.Build
         private static void BuildContents(MovementTuning tuning, CombatTuning combat, Reach reach)
         {
             _nextAuthoredId = 10;
+            _stationIndex.Clear();
 
             var geometry = new GameObject("Geometry").transform;
             var targets = new GameObject("Targets").transform;
@@ -194,7 +166,8 @@ namespace Rokkan.Prophecy.Editor.Build
             // thrust is the only answer. Sized from the attack, not eyeballed.
             Station(targets, "2_Squat", 6f, reach,
                     size: new Vector2(0.9f, reach.StandLow - 0.1f),
-                    centreY: (reach.StandLow - 0.1f) * 0.5f, health: 8);
+                    centreY: (reach.StandLow - 0.1f) * 0.5f, health: 8,
+                    indexLabel: "2 Squat / 3 Raised");
 
             // Station 3 — the mirror. Raised above the crouching thrust's ceiling, so only the
             // standing slash reaches. Two stations that each refuse one answer are what make stance
@@ -213,7 +186,8 @@ namespace Rokkan.Prophecy.Editor.Build
             // Station 5 — the chain. Enough health to survive the opener, so the follow-up has
             // something to land on and the cancel window can actually be felt.
             Station(targets, "5_Chain", 32f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 48);
+                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 48,
+                    indexLabel: "5 Chain");
 
             // Station 6 — height. A dummy on a ledge one lane up: reachable from the platform,
             // not from the floor, so vertical spacing gets checked against real reach too.
@@ -222,22 +196,29 @@ namespace Rokkan.Prophecy.Editor.Build
             // Stations 7-9 — the things that swing back. Each demands exactly one answer, because a
             // telegraph you can survive two ways teaches nothing about either.
             Telegraph(targets, "7_High", 52f, AttackHeight.High, DefensiveAnswer.None, delay: 0,
-                      damage: 2, tuning: tuning);
+                      damage: 2, tuning: tuning, indexLabel: "7 High telegraph");
 
             Telegraph(targets, "8_Low", 60f, AttackHeight.Low, DefensiveAnswer.None, delay: 30,
-                      damage: 2, tuning: tuning);
+                      damage: 2, tuning: tuning, indexLabel: "8 Low telegraph");
 
             // No guard answers this one, but a parry and a dodge both do — which is the shape that
             // makes a telegraph worth reading rather than just worth holding a button through.
             Telegraph(targets, "9_Unblockable", 68f, AttackHeight.Any,
                       DefensiveAnswer.Block, delay: 60,
-                      damage: 4, tuning: tuning);
+                      damage: 4, tuning: tuning, indexLabel: "9 Unblockable");
+
+            // Station 10 — the down-thrust. A launch ledge and a row of targets under it, spaced so
+            // one bounce carries into the next. Nothing else in the arena asks whether the dive is
+            // worth doing rather than merely working. Built in course order, so the warp list and
+            // the authored combat ids both read west to east.
+            PogoStation(geometry, targets, tuning, 78f, reach);
 
             // Stations 11-12 — things that are not a sword. A bolt that travels, and a
             // shockwave that stays where it lands and grows. Each authors a different set of
             // answers, so "which of my four buttons is this one for" becomes a question the
             // arena can actually ask.
-            Caster(targets, "11_Bolt", 90f, tuning, projectile: true);
+            Caster(targets, "11_Bolt", 90f, tuning, projectile: true,
+                   indexLabel: "11 Bolt / 12 Shockwave");
             Caster(targets, "12_Shockwave", 100f, tuning, projectile: false);
 
             // Station 13 — the first thing in the arena that decides for itself. Everything above
@@ -250,14 +231,12 @@ namespace Rokkan.Prophecy.Editor.Build
             // Spaced further apart than the dummy stations: these move, and two planners inside
             // each other's 12 m sight range would be answering questions about each other rather
             // than about the player.
-            Planner(targets, "Enemy_Chaser", "14_Chaser", 130f);
-            Planner(targets, "Enemy_Ambusher", "15_Ambusher", 148f);
-            Planner(targets, "Enemy_Caster", "16_Caster", 166f);
-
-            // Station 10 — the down-thrust. A launch ledge and a row of targets under it, spaced so
-            // one bounce carries into the next. Nothing else in the arena asks whether the dive is
-            // worth doing rather than merely working.
-            PogoStation(geometry, targets, tuning, 78f, reach);
+            Planner(targets, EnemyBuilder.Archetype.Chaser, "14_Chaser", 130f,
+                    indexLabel: "14 Chaser (body-checks)");
+            Planner(targets, EnemyBuilder.Archetype.Ambusher, "15_Ambusher", 148f,
+                    indexLabel: "15 Ambusher (springs)");
+            Planner(targets, EnemyBuilder.Archetype.Caster, "16_Caster", 166f,
+                    indexLabel: "16 Caster (keeps away)");
 
             // A wall to stop the run-out, so nobody walks into the void wondering where the arena went.
             Box(geometry, "Wall_East", new Vector2(cursor - 2f, 0f), new Vector2(cursor, 8f));
@@ -265,13 +244,21 @@ namespace Rokkan.Prophecy.Editor.Build
             CreateStationIndex(markers);
         }
 
+        /// <summary>Registers a warp entry at the moment its station is built, with the same
+        /// coordinates the station was built from.</summary>
+        private static void Index(string label, float x, float y = 0f) =>
+            _stationIndex.Add((label, new Vector3(x, y, 0f)));
+
         /// <summary>
         /// One dummy on the floor, with a marker strip on the ground showing where the player has
         /// to stand for the attack to connect. The strip is the reach, drawn.
         /// </summary>
         private static void Station(Transform parent, string name, float x, Reach reach,
-                                    Vector2 size, float centreY, int health, float post = 0f)
+                                    Vector2 size, float centreY, int health, float post = 0f,
+                                    string indexLabel = null)
         {
+            if (indexLabel != null) Index(indexLabel, x - StationApproachMetres);
+
             // The root sits on the floor and every height is measured from there. Raising the root
             // to the top of a pedestal instead would add the pedestal to the hurtbox offset as
             // well, putting the volume a pedestal higher than the box you can see.
@@ -332,8 +319,10 @@ namespace Rokkan.Prophecy.Editor.Build
         /// </summary>
         private static void Telegraph(Transform parent, string name, float x, AttackHeight height,
                                       DefensiveAnswer defeats, int delay, int damage,
-                                      MovementTuning tuning)
+                                      MovementTuning tuning, string indexLabel = null)
         {
+            if (indexLabel != null) Index(indexLabel, x - StationApproachMetres);
+
             var root = new GameObject($"Attacker_{name}");
             root.transform.SetParent(parent, false);
             root.transform.position = new Vector3(x, 0f, 0f);
@@ -367,20 +356,26 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(attacker, "_openingDelayTicks", delay);
             SetPrivate(attacker, "_faceNearestTarget", true);
 
+            // The window is the phases, restated: the box opens when the wind-up ends and
+            // closes when the active phase does. Authored once, so retiming the telegraph
+            // cannot leave the box open during a phase it no longer matches.
+            const int startupTicks = 34;
+            const int activeTicks = 6;
+
             var serialized = new SerializedObject(attacker);
             var definition = serialized.FindProperty("_attack");
 
             definition.FindPropertyRelative("Id").stringValue = $"telegraph_{name}";
-            definition.FindPropertyRelative("StartupTicks").intValue = 34;
-            definition.FindPropertyRelative("ActiveTicks").intValue = 6;
+            definition.FindPropertyRelative("StartupTicks").intValue = startupTicks;
+            definition.FindPropertyRelative("ActiveTicks").intValue = activeTicks;
             definition.FindPropertyRelative("RecoveryTicks").intValue = 26;
 
             var boxes = definition.FindPropertyRelative("HitBoxes");
             boxes.arraySize = 1;
 
             var box = boxes.GetArrayElementAtIndex(0);
-            box.FindPropertyRelative("OpenTick").intValue = 34;
-            box.FindPropertyRelative("CloseTick").intValue = 40;
+            box.FindPropertyRelative("OpenTick").intValue = startupTicks;
+            box.FindPropertyRelative("CloseTick").intValue = startupTicks + activeTicks;
             box.FindPropertyRelative("Offset").vector2Value = new Vector2(1.05f, centreY);
             box.FindPropertyRelative("HalfExtents").vector2Value = new Vector2(0.75f, halfY);
             box.FindPropertyRelative("RotationDegrees").floatValue = 0f;
@@ -405,6 +400,10 @@ namespace Rokkan.Prophecy.Editor.Build
                                         float x, Reach reach)
         {
             float ledgeTop = tuning.Data.LaneHeight;
+
+            // The warp lands ON the ledge, a couple of strides in from its edge — the station
+            // is the dive, and the dive starts up here.
+            Index("10 Pogo (on the ledge)", x + StationApproachMetres, ledgeTop);
 
             Box(geometry, "Pogo_Ledge", new Vector2(x, 0f), new Vector2(x + 5f, ledgeTop));
 
@@ -432,19 +431,24 @@ namespace Rokkan.Prophecy.Editor.Build
         /// holds.
         /// </summary>
         private static void Grunt(Transform parent, float x) =>
-            Planner(parent, "Enemy_Capsule", "13_Grunt", x);
+            Planner(parent, EnemyBuilder.Archetype.Grunt, "13_Grunt", x,
+                    indexLabel: "13 Grunt (it plans)");
 
         /// <summary>
-        /// Drops one planner-driven enemy in, by prefab name.
+        /// Drops one planner-driven enemy in, by archetype — the prefab path comes from
+        /// <see cref="EnemyBuilder"/>, the generator that writes it, so the two cannot drift.
         ///
         /// <para>Each archetype gets its own station so they can be read one at a time. A chaser
         /// and a grunt standing together are hard to tell apart until one of them stops to swing,
         /// which is the moment the difference matters and the worst moment to be guessing which is
         /// which.</para>
         /// </summary>
-        private static void Planner(Transform parent, string prefabName, string stationName, float x)
+        private static void Planner(Transform parent, EnemyBuilder.Archetype archetype,
+                                    string stationName, float x, string indexLabel = null)
         {
-            string path = $"Assets/_Prophecy/Prefabs/{prefabName}.prefab";
+            if (indexLabel != null) Index(indexLabel, x - PlannerApproachMetres);
+
+            string path = EnemyBuilder.PrefabPathFor(archetype);
 
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
 
@@ -462,8 +466,10 @@ namespace Rokkan.Prophecy.Editor.Build
         }
 
         private static void Caster(Transform parent, string name, float x, MovementTuning tuning,
-                                   bool projectile)
+                                   bool projectile, string indexLabel = null)
         {
+            if (indexLabel != null) Index(indexLabel, x - StationApproachMetres);
+
             var root = new GameObject($"Caster_{name}");
             root.transform.SetParent(parent, false);
             root.transform.position = new Vector3(x, 0f, 0f);
@@ -489,12 +495,17 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(attacker, "_openingDelayTicks", projectile ? 0 : 45);
             SetPrivate(attacker, "_faceNearestTarget", true);
 
+            // The projectile leaves the hand the tick the wind-up ends — authored once, so
+            // retiming the cast cannot leave the launch inside a phase it no longer matches.
+            const int startupTicks = 40;
+            const int activeTicks = 4;
+
             var serialized = new SerializedObject(attacker);
             var definition = serialized.FindProperty("_attack");
 
             definition.FindPropertyRelative("Id").stringValue = $"cast_{name}";
-            definition.FindPropertyRelative("StartupTicks").intValue = 40;
-            definition.FindPropertyRelative("ActiveTicks").intValue = 4;
+            definition.FindPropertyRelative("StartupTicks").intValue = startupTicks;
+            definition.FindPropertyRelative("ActiveTicks").intValue = activeTicks;
             definition.FindPropertyRelative("RecoveryTicks").intValue = 24;
 
             // The cast has no hit box of its own: everything it does, it does at range.
@@ -504,7 +515,7 @@ namespace Rokkan.Prophecy.Editor.Build
             spawns.arraySize = 1;
 
             var spawn = spawns.GetArrayElementAtIndex(0);
-            spawn.FindPropertyRelative("Tick").intValue = 40;
+            spawn.FindPropertyRelative("Tick").intValue = startupTicks;
 
             var shot = spawn.FindPropertyRelative("Projectile");
             float stand = tuning.Data.StandHeight;
@@ -555,9 +566,11 @@ namespace Rokkan.Prophecy.Editor.Build
         }
 
         /// <summary>
-        /// The warp list. Ninety metres of arena with the stations that fight back at the far end
-        /// means a long walk before every attempt at a parry, which is exactly the friction that
-        /// stops anyone iterating.
+        /// The warp list, serialized from the entries the stations recorded as they were built.
+        /// Ninety metres of arena with the stations that fight back at the far end means a long
+        /// walk before every attempt at a parry, which is exactly the friction that stops anyone
+        /// iterating — and a warp list authored as a second set of coordinates drifts the moment
+        /// a station moves, which is why the positions here are the build's own.
         /// </summary>
         private static void CreateStationIndex(Transform markers)
         {
@@ -568,32 +581,13 @@ namespace Rokkan.Prophecy.Editor.Build
             var serialized = new SerializedObject(stations);
             var list = serialized.FindProperty("_stations");
 
-            (string label, float x, float y)[] entries =
-            {
-                ("Spawn", -8f, 0f),
-                ("2 Squat / 3 Raised", 4f, 0f),
-                ("4 Cover", 20.5f, 0f),
-                ("5 Chain", 30.5f, 0f),
-                ("6 Ledge", 39f, 0f),
-                ("7 High telegraph", 50.5f, 0f),
-                ("8 Low telegraph", 58.5f, 0f),
-                ("9 Unblockable", 66.5f, 0f),
-                ("10 Pogo (on the ledge)", 80f, 3.6f),
-                ("11 Bolt / 12 Shockwave", 88f, 0f),
-                ("13 Grunt (it plans)", 105f, 0f),
-                ("14 Chaser (body-checks)", 124f, 0f),
-                ("15 Ambusher (springs)", 142f, 0f),
-                ("16 Caster (keeps away)", 158f, 0f),
-            };
+            list.arraySize = _stationIndex.Count;
 
-            list.arraySize = entries.Length;
-
-            for (int i = 0; i < entries.Length; i++)
+            for (int i = 0; i < _stationIndex.Count; i++)
             {
                 var element = list.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("Label").stringValue = entries[i].label;
-                element.FindPropertyRelative("Position").vector3Value =
-                    new Vector3(entries[i].x, entries[i].y, 0f);
+                element.FindPropertyRelative("Label").stringValue = _stationIndex[i].Label;
+                element.FindPropertyRelative("Position").vector3Value = _stationIndex[i].Position;
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -606,12 +600,17 @@ namespace Rokkan.Prophecy.Editor.Build
             Box(geometry, "Cover_Grate", new Vector2(x, 0f), new Vector2(x + 0.15f, 2.2f));
 
             Station(targets, "4_Cover", x + 0.65f, reach,
-                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 12);
+                    size: new Vector2(0.9f, 1.8f), centreY: 0.9f, health: 12,
+                    indexLabel: "4 Cover");
         }
 
         private static void LedgeStation(Transform geometry, Transform targets, MovementTuning tuning,
                                          float x, Reach reach)
         {
+            // The warp stops short of the ledge itself, on the floor: the station's question is
+            // "can you reach what stands a half-lane up", and it is asked from down here.
+            Index("6 Ledge", x - StationApproachMetres);
+
             float top = tuning.Data.LaneHeight * 0.5f;
 
             Box(geometry, "Ledge", new Vector2(x, 0f), new Vector2(x + 8f, top));
@@ -621,17 +620,6 @@ namespace Rokkan.Prophecy.Editor.Build
         }
 
         // ------------------------------------------------------------------ scene furniture
-
-        private static void CreateLighting()
-        {
-            var light = new GameObject("Directional Light");
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
-            var component = light.AddComponent<Light>();
-            component.type = LightType.Directional;
-            component.intensity = 1.1f;
-            component.shadows = LightShadows.Soft;
-        }
 
         /// <summary>
         /// The arena owns the combat world, not Bootstrap. The player persists across scenes and
@@ -653,9 +641,13 @@ namespace Rokkan.Prophecy.Editor.Build
 
         private static void CreateDescriptorAndSpawn(Transform markers, MovementTuning tuning)
         {
+            const float spawnX = -8f;
+
+            Index("Spawn", spawnX);
+
             var spawnObject = new GameObject("Spawn_default");
             spawnObject.transform.SetParent(markers, false);
-            spawnObject.transform.position = new Vector3(-8f, 0f, 0f);
+            spawnObject.transform.position = new Vector3(spawnX, 0f, 0f);
 
             var spawn = spawnObject.AddComponent<SpawnPoint>();
             SetPrivate(spawn, "_id", "default");
@@ -679,29 +671,6 @@ namespace Rokkan.Prophecy.Editor.Build
 
         // ------------------------------------------------------------------ primitives
 
-        private static float Ground(Transform parent, string name, float startX, float length,
-                                    float topY = 0f)
-        {
-            Box(parent, name,
-                new Vector2(startX, topY - GroundThickness),
-                new Vector2(startX + length, topY));
-
-            return startX + length;
-        }
-
-        private static Transform Box(Transform parent, string name, Vector2 min, Vector2 max)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
-
-            var size = max - min;
-            cube.transform.localScale = new Vector3(size.x, size.y, Depth);
-            cube.transform.position = new Vector3((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, 0f);
-
-            return cube.transform;
-        }
-
         /// <summary>A flat strip painted on the floor. Non-colliding — it is a label, not geometry.</summary>
         private static void Marker(Transform parent, string name, float minX, float maxX)
         {
@@ -712,76 +681,6 @@ namespace Rokkan.Prophecy.Editor.Build
             quad.transform.position = new Vector3((minX + maxX) * 0.5f, 0.02f, 0f);
 
             Object.DestroyImmediate(quad.GetComponent<Collider>());
-        }
-
-        // ------------------------------------------------------------------ helpers
-
-        private static bool HasUnsavedChanges()
-        {
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-            {
-                var scene = SceneManager.GetSceneAt(i);
-                if (!scene.isDirty) continue;
-
-                Debug.LogError($"[Prophecy] '{(string.IsNullOrEmpty(scene.name) ? "Untitled" : scene.name)}' " +
-                               "has unsaved changes. Save or discard them, then run this again — " +
-                               "generating replaces the open scene.");
-                return true;
-            }
-
-            return false;
-        }
-
-        private static MovementTuning LoadTuning()
-        {
-            var asset = AssetDatabase.LoadAssetAtPath<MovementTuning>(ProphecyAssetBootstrap.MovementTuningPath);
-
-            if (asset == null)
-                Debug.LogError($"[Prophecy] No MovementTuning at {ProphecyAssetBootstrap.MovementTuningPath}. " +
-                               "Run Prophecy > Build > Create Missing Data Assets first.");
-
-            return asset;
-        }
-
-        private static CombatTuning LoadCombat()
-        {
-            var asset = AssetDatabase.LoadAssetAtPath<CombatTuning>(ProphecyAssetBootstrap.CombatTuningPath);
-
-            if (asset == null)
-                Debug.LogError($"[Prophecy] No CombatTuning at {ProphecyAssetBootstrap.CombatTuningPath}. " +
-                               "Run Prophecy > Build > Create Missing Data Assets first — every " +
-                               "distance in the arena is derived from the moveset.");
-
-            return asset;
-        }
-
-        private static void SetPrivate(Object target, string fieldName, object value)
-        {
-            var serialized = new SerializedObject(target);
-            var property = serialized.FindProperty(fieldName);
-
-            if (property == null)
-            {
-                Debug.LogError($"[Prophecy] {target.GetType().Name} has no serialized field '{fieldName}'.");
-                return;
-            }
-
-            switch (value)
-            {
-                case string s: property.stringValue = s; break;
-                case int i: property.intValue = i; break;
-                case float f: property.floatValue = f; break;
-                case bool b: property.boolValue = b; break;
-                case Vector2 v: property.vector2Value = v; break;
-                case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
-                case Object o: property.objectReferenceValue = o; break;
-                default:
-                    Debug.LogError($"[Prophecy] Cannot write '{fieldName}': unsupported type " +
-                                   $"{value?.GetType().Name ?? "null"}.");
-                    return;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

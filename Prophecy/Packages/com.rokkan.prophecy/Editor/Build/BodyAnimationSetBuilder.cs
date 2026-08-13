@@ -19,7 +19,7 @@ namespace Rokkan.Prophecy.Editor
     /// </summary>
     public static class BodyAnimationSetBuilder
     {
-        private const string AssetPath = "Assets/_Prophecy/Data/BodyAnimationSet.asset";
+        public const string AssetPath = "Assets/_Prophecy/Data/BodyAnimationSet.asset";
         private const string ClipRoot = "Assets/_Prophecy/Animation";
 
         /// <summary>

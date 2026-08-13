@@ -119,7 +119,13 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>Block/parry cannot be raised.</summary>
         Defend = 1 << 4,
 
+        /// <summary>No item can be used — flask drinks, and whatever joins them. Its own flag
+        /// because "may I swing" and "may I swig" are different questions: a guard forbids
+        /// attacking but not drinking, and which locks forbid drinking is a tuning decision
+        /// that needs a bit to be expressed in.</summary>
+        Item = 1 << 5,
+
         /// <summary>Fully committed — the usual state during an attack's active frames.</summary>
-        All = Move | Turn | Jump | Attack | Defend,
+        All = Move | Turn | Jump | Attack | Defend | Item,
     }
 }

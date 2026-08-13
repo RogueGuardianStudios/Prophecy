@@ -1,3 +1,4 @@
+using Rokkan.Prophecy.Core;
 using Rokkan.Prophecy.Sim;
 using UnityEngine;
 
@@ -49,6 +50,12 @@ namespace Rokkan.Prophecy.Overworld
         [SerializeField, Tooltip("Who bounds movement here. The tile grid is the authority the " +
                                  "rebuild exists to provide; NavMesh remains for comparison.")]
         private GroundAuthority _groundAuthority = GroundAuthority.TileGrid;
+
+        [SerializeField, Tooltip("The authored body the NavMesh is baked for — agent height " +
+                                 "and radius read from here, the same numbers the sim walks " +
+                                 "with, so a body retune re-bakes to match. Unassigned falls " +
+                                 "back to the recorded bake values.")]
+        private MovementTuning _movement;
 
         private OverworldBuildOutput _built;
         private ITopDownGround _published;
@@ -104,6 +111,20 @@ namespace Rokkan.Prophecy.Overworld
             gameObject.AddComponent<HaloCutoutDriver>().Bind(_built);
         }
 
+        /// <summary>Body numbers for a host with no tuning wired — MovementTuningData's
+        /// StandHeight and half its BodyWidth are the live values once the asset is assigned;
+        /// these stand in until it is.</summary>
+        private const float FallbackAgentHeight = 1.8f;
+        private const float FallbackAgentRadius = 0.35f;
+
+        /// <summary>No tuning value maps to these yet. Climb must swallow a stair riser while
+        /// staying under the full terrace step (<see cref="OverworldTileGrid.Step"/>), or
+        /// terraces stop being terraces; slope only has to pass flat tops and reject everything
+        /// else. If the sim ever grows a step/climb rule of its own (OverworldWalkGrid.MaxStep
+        /// is the nearest cousin), these should follow it.</summary>
+        private const float AgentClimb = 0.45f;
+        private const float AgentSlope = 40f;
+
         /// <summary>
         /// Bake the NavMesh from the walkable tops alone — caps, ramps, stairs — so cliff faces
         /// are not merely too steep to walk, they are absent from the bake entirely. Adjacent
@@ -118,11 +139,13 @@ namespace Rokkan.Prophecy.Overworld
         /// </summary>
         private void BakeNavMesh()
         {
+            var body = _movement != null ? _movement.Data : null;
+
             var settings = UnityEngine.AI.NavMesh.GetSettingsByID(0);
-            settings.agentSlope = 40f;
-            settings.agentClimb = 0.45f;
-            settings.agentRadius = 0.35f;
-            settings.agentHeight = 1.8f;
+            settings.agentSlope = AgentSlope;
+            settings.agentClimb = AgentClimb;
+            settings.agentRadius = body != null ? body.BodyWidth * 0.5f : FallbackAgentRadius;
+            settings.agentHeight = body != null ? body.StandHeight : FallbackAgentHeight;
 
             var sources = new System.Collections.Generic.List<UnityEngine.AI.NavMeshBuildSource>();
             UnityEngine.AI.NavMeshBuilder.CollectSources(

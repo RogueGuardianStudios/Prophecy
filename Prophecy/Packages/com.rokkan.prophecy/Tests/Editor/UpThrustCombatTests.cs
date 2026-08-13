@@ -6,6 +6,7 @@ using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
 using Rokkan.Prophecy.Sim.Combat;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -18,73 +19,19 @@ namespace Rokkan.Prophecy.Tests
     /// </summary>
     public class UpThrustCombatTests
     {
-        private const float Dt = 1f / 60f;
-
         private const int PlayerId = 1;
         private const int PlayerTeam = 1;
 
-        /// <summary>Records what it was asked and answers however the test wants.</summary>
-        private sealed class RecordingWorld : ICombatWorld
-        {
-            public readonly List<Hurtbox> Targets = new List<Hurtbox>();
-            public readonly List<HitEvent> Hits = new List<HitEvent>();
-
-            public HitResult Answer = new HitResult(HitOutcome.Landed, 16);
-
-            public readonly List<ProjectileDefinition> Spawned = new List<ProjectileDefinition>();
-
-            public void Spawn(ProjectileDefinition definition, in Attacker owner) =>
-                Spawned.Add(definition);
-
-            private readonly HurtboxSet _set = new HurtboxSet();
-
-            public HurtboxSet Hurtboxes
-            {
-                get
-                {
-                    _set.Clear();
-                    for (int i = 0; i < Targets.Count; i++) _set.Add(Targets[i]);
-                    _set.Build();
-                    return _set;
-                }
-            }
-
-            public HitResult OnHit(in HitEvent hit)
-            {
-                Hits.Add(hit);
-                return Answer;
-            }
-        }
-
         // ---------------------------------------------------------------- harness
 
-        private static CollisionWorld Ground(float top = 0f)
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, top - 2f), new Vector2(500f, top)));
-            return world;
-        }
+        /// <summary>The shared recording world, answering the clean 16-damage landing every
+        /// thrust test here assumes unless it says otherwise.</summary>
+        private static RecordingCombatWorld World() =>
+            new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Landed, 16) };
 
         private static CharacterSim Player(MovementTuningData tuning, CombatTuningData combat,
-                                           ICombatWorld world, Vector2 at)
-        {
-            var sim = PlayerCharacterFactory.Create(
-                Ground(), tuning, MovementSpace.SideScroll, null, combat, world);
-
-            sim.State.CombatId = PlayerId;
-            sim.State.Team = PlayerTeam;
-            sim.Teleport(at, facing: 1);
-            return sim;
-        }
-
-        private static void Step(CharacterSim sim, InputFrame input, int ticks = 1)
-        {
-            for (int i = 0; i < ticks; i++)
-            {
-                sim.SetInput(input);
-                sim.Tick(new SimTickInfo(sim.CurrentTick + 1, Dt));
-            }
-        }
+                                           ICombatWorld world, Vector2 at) =>
+            SimTestHarness.Player(Ground(), combat, world, tuning, at, PlayerId, PlayerTeam);
 
         private static InputFrame Hold(float x = 0f, float y = 0f) =>
             new InputFrame(new Vector2(x, y));
@@ -120,7 +67,7 @@ namespace Rokkan.Prophecy.Tests
         public void RisingWithUpHeldStartsTheThrust()
         {
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
 
             Rise(sim);
         }
@@ -135,7 +82,7 @@ namespace Rokkan.Prophecy.Tests
             // THEN attack while rising; human presses spread over several frames and land
             // there. Pinned so the seam is a decision, not an accident someone rediscovers.
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
 
             Step(sim, Hold(), 3);
             Assert.IsTrue(sim.State.Grounded);
@@ -153,7 +100,7 @@ namespace Rokkan.Prophecy.Tests
         public void TheGroundRefusesIt()
         {
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
 
             Step(sim, Hold(), 3);
             Step(sim, ThrustInput());
@@ -167,7 +114,7 @@ namespace Rokkan.Prophecy.Tests
             // Falling is the dive's domain. An up-thrust that fires on the descent would blur
             // the pair into one air slash and there would be nothing left to teach in Threnhold.
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 6f));
+                             World(), new Vector2(0f, 6f));
 
             Step(sim, Hold(), 3);
             Assert.IsFalse(sim.State.Grounded);
@@ -182,7 +129,7 @@ namespace Rokkan.Prophecy.Tests
         public void ANeutralAirPressIsNotAThrust()
         {
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
 
             Step(sim, Hold(), 3);
             Step(sim, new InputFrame(Vector2.zero, jump: ButtonState.Press));
@@ -202,7 +149,7 @@ namespace Rokkan.Prophecy.Tests
             // the jump that carries it, so its reward is simply the hit.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 0f));
             var thrust = Rise(sim);
@@ -227,7 +174,7 @@ namespace Rokkan.Prophecy.Tests
             // rises past would be milled on every tick of the overlap.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 0f));
             Rise(sim);
@@ -245,7 +192,7 @@ namespace Rokkan.Prophecy.Tests
             // like the dive's does per dive.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 0f));
             Rise(sim);
@@ -271,7 +218,7 @@ namespace Rokkan.Prophecy.Tests
         {
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld();
+            var world = World();
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 0f));
             var thrust = Rise(sim);
@@ -290,7 +237,7 @@ namespace Rokkan.Prophecy.Tests
         public void TheApexSheathesTheBlade()
         {
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
             var thrust = Rise(sim);
 
             Assert.IsFalse(sim.Can(LockFlags.Move), "the thrust commits");
@@ -309,7 +256,7 @@ namespace Rokkan.Prophecy.Tests
             // The Zelda II air sandwich: stab up on the way up, stab down on the way down. The
             // pair partitions the air, and the seam between them is one tick wide.
             var sim = Player(new MovementTuningData(), new CombatTuningData(),
-                             new RecordingWorld(), new Vector2(0f, 0f));
+                             World(), new Vector2(0f, 0f));
             var thrust = Rise(sim);
 
             int guard = 0;
@@ -331,7 +278,7 @@ namespace Rokkan.Prophecy.Tests
             // dive's rule, mirrored.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld
+            var world = new RecordingCombatWorld
             {
                 Answer = new HitResult(HitOutcome.Parried, 0, combat.ParryStunTicks),
             };
@@ -355,7 +302,7 @@ namespace Rokkan.Prophecy.Tests
             // is the defender's to change.
             var tuning = new MovementTuningData();
             var combat = new CombatTuningData();
-            var world = new RecordingWorld { Answer = new HitResult(HitOutcome.Blocked, 4) };
+            var world = new RecordingCombatWorld { Answer = new HitResult(HitOutcome.Blocked, 4) };
 
             var sim = Player(tuning, combat, world, new Vector2(0f, 0f));
             var thrust = Rise(sim);

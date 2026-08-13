@@ -29,6 +29,14 @@ namespace Rokkan.Prophecy.Overworld
         public Vector3 WorldOffset;
         public bool StairsForRamps;
 
+        /// <summary>Whether the compiler's authoring audits also go to the console. True for
+        /// scene loads, where the console is the only surface; the map tool builds with it
+        /// off — it compiles on every stroke, and reads <see cref="CompileNotes"/> instead.</summary>
+        public bool LogAuditsToConsole = true;
+
+        /// <summary>The authoring audits from this build's LAST compile.</summary>
+        public IReadOnlyList<string> CompileNotes;
+
         // The global merged meshes, the prop root and the scatter root, rebuilt whole on
         // every rebuild (they are cheap — a few meshes and the prop/tree instances).
         public GameObject RoadsObject;
@@ -90,7 +98,8 @@ namespace Rokkan.Prophecy.Overworld
         public static OverworldBuildOutput Build(OverworldMap map, OverworldTileSet tiles,
                                                  Transform walkableRoot, Transform sceneryRoot,
                                                  Vector3 worldOffset, bool stairsForRamps,
-                                                 OverworldBiomePalette biomes = null)
+                                                 OverworldBiomePalette biomes = null,
+                                                 bool logAuditsToConsole = true)
         {
             var output = new OverworldBuildOutput
             {
@@ -101,9 +110,13 @@ namespace Rokkan.Prophecy.Overworld
                 SceneryRoot = sceneryRoot,
                 WorldOffset = worldOffset,
                 StairsForRamps = stairsForRamps,
+                LogAuditsToConsole = logAuditsToConsole,
             };
 
-            output.Grid = OverworldTileGridCompiler.Compile(map, worldOffset);
+            var compiled = OverworldTileGridCompiler.CompileWithReport(map, worldOffset,
+                                                                       logAuditsToConsole);
+            output.Grid = compiled.Grid;
+            output.CompileNotes = compiled.Notes;
             output.Placements = TilePiecePlanner.Plan(output.Grid, stairsForRamps);
 
             BuildGroundMaterial(output);
@@ -129,7 +142,10 @@ namespace Rokkan.Prophecy.Overworld
         /// </summary>
         public static void RebuildChunks(OverworldBuildOutput output, HashSet<Vector2Int> dirty)
         {
-            output.Grid = OverworldTileGridCompiler.Compile(output.Map, output.WorldOffset);
+            var compiled = OverworldTileGridCompiler.CompileWithReport(output.Map, output.WorldOffset,
+                                                                       output.LogAuditsToConsole);
+            output.Grid = compiled.Grid;
+            output.CompileNotes = compiled.Notes;
             output.Placements = TilePiecePlanner.Plan(output.Grid, output.StairsForRamps);
 
             RefreshGroundLut(output);

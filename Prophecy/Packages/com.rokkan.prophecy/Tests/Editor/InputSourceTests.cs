@@ -5,6 +5,7 @@ using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Abilities;
 using Rokkan.Prophecy.Sim.Collision;
 using UnityEngine;
+using static Rokkan.Prophecy.Tests.SimTestHarness;
 
 namespace Rokkan.Prophecy.Tests
 {
@@ -44,19 +45,10 @@ namespace Rokkan.Prophecy.Tests
             }
         }
 
-        private static CollisionWorld Ground()
-        {
-            var world = new CollisionWorld();
-            world.Add(new Aabb(new Vector2(-500f, -2f), new Vector2(500f, 0f)));
-            return world;
-        }
-
         private static CharacterSim Character(out MovementTuningData tuning)
         {
             tuning = new MovementTuningData();
-            var sim = PlayerCharacterFactory.Create(Ground(), tuning, MovementSpace.SideScroll);
-            sim.Teleport(Vector2.zero);
-            return sim;
+            return Player(Ground(), null, null, tuning);
         }
 
         /// <summary>Run a character off a source, exactly as the host does each tick.</summary>

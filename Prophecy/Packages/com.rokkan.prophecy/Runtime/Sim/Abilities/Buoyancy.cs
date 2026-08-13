@@ -67,11 +67,14 @@ namespace Rokkan.Prophecy.Sim.Abilities
             _launchSpeed = 0f;
         }
 
-        /// <summary>Lighting the float spends the catalog's cost — read from there so the
+        /// <summary>Lighting the float spends the table's cost — read from there so the
         /// volume's difficulty pips and this spend cannot disagree. False means the reserve
         /// could not cover it and the float stays dark.</summary>
-        private static bool TryActivate(CharacterSim sim) =>
-            sim.Reserve.TrySpend(Arts.ArtCatalog.Find(Arts.ArtId.Buoyancy).Cost);
+        private static bool TryActivate(CharacterSim sim)
+        {
+            var entry = sim.ArtTuning.Find(Arts.ArtId.Buoyancy);
+            return entry != null && sim.Reserve.TrySpend(entry.Cost);
+        }
 
         /// <summary>The cast is room-scoped (Matt's section rule, rooms being its final name):
         /// passing through a door ends it, exactly as recasting would. The platform goes with
@@ -99,6 +102,17 @@ namespace Rokkan.Prophecy.Sim.Abilities
 
         public override void Tick(CharacterSim sim, in InputFrame input, in SimTickInfo info)
         {
+            // One truth for "running": the mark every consumer reads is ActiveArts, via
+            // sim.IsArtRunning, and this module keeps its float's entry in step with the
+            // toggle it owns. Re-asserted per tick rather than at each transition, so a
+            // Reset or a room change can never strand a stale mark.
+            bool marked = sim.ActiveArts.Contains(Arts.ArtId.Buoyancy);
+            if (FloatOn != marked)
+            {
+                if (FloatOn) sim.ActiveArts.Add(Arts.ArtId.Buoyancy);
+                else sim.ActiveArts.Remove(Arts.ArtId.Buoyancy);
+            }
+
             // The cast button belongs to the EQUIPPED art (spec §3.1). Buoyancy owns it only
             // while it is the one in the slot — but a float already RUNNING keeps running:
             // swapping the equipped art in the volume is not a recast.

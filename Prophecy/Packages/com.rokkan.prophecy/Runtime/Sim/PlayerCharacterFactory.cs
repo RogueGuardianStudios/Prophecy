@@ -35,7 +35,8 @@ namespace Rokkan.Prophecy.Sim
             MovementSpace space = MovementSpace.SideScroll,
             AbilityLoadoutData loadout = null,
             CombatTuningData combat = null,
-            ICombatWorld combatWorld = null)
+            ICombatWorld combatWorld = null,
+            Arts.ArtTuningData arts = null)
         {
             if (tuning == null) tuning = new MovementTuningData();
             if (combat == null) combat = new CombatTuningData();
@@ -43,6 +44,7 @@ namespace Rokkan.Prophecy.Sim
             var sim = new CharacterSim(world);
             sim.State.Space = space;
             sim.CombatWorld = combatWorld;
+            if (arts != null) sim.ArtTuning = arts;
             tuning.ApplyBody(sim.State);
 
             // Locomotion.
@@ -104,12 +106,12 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new Interact(tuning));
 
             // The cast button and the flask row — the HUD's verbs.
-            sim.Add(new CastArt(combat));
+            sim.Add(new CastArt());
             sim.Add(new DrinkFlask(combat));
 
             // Every art known in the gray box; the loadout's art toggles trim from here.
-            var catalog = Arts.ArtCatalog.All;
-            for (int i = 0; i < catalog.Length; i++) sim.KnownArts.Add(catalog[i].Id);
+            var artTable = sim.ArtTuning.Arts;
+            for (int i = 0; i < artTable.Count; i++) sim.KnownArts.Add(artTable[i].Id);
 
             // The sim already swings and guards, so the sheet says so from the first boot.
             // Code-built data for the gray box; authored ItemDetails assets take over when

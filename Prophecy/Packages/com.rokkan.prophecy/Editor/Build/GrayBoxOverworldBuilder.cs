@@ -5,9 +5,8 @@ using Rokkan.Prophecy.Presentation;
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.World;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using static Rokkan.Prophecy.Editor.Build.GrayBoxSceneScaffold;
 
 namespace Rokkan.Prophecy.Editor.Build
 {
@@ -32,11 +31,16 @@ namespace Rokkan.Prophecy.Editor.Build
         /// <summary>Scene name portals target. Derived so it cannot drift from the asset.</summary>
         public static string SceneName => Path.GetFileNameWithoutExtension(ScenePath);
 
-        // Arrival spawns, flanking the portal cube. Leaving the traversal course by different
+        // Arrival spawns, flanking the portal slab. Leaving the traversal course by different
         // ends arrives at different sides of it — the beginnings of the level occupying a place
         // on the map rather than being a menu entry.
         public const string WestSpawnId = "west";
         public const string EastSpawnId = "east";
+
+        // The overworld's authored assets, named once — the map tool loads the same files, and
+        // a re-typed path there degrades a rename to per-run warnings instead of one edit here.
+        public const string MapPath = "Assets/_Prophecy/Data/OverworldMap.asset";
+        public const string BiomePalettePath = "Assets/_Prophecy/Data/OverworldBiomePalette.asset";
 
         // The plain. Sized in metres like everything else; roomy enough that the camera's frame
         // fits well inside it from the centre, small enough that the portal is never out of sight.
@@ -46,29 +50,11 @@ namespace Rokkan.Prophecy.Editor.Build
         [MenuItem("Prophecy/Build/Generate GrayBox_Overworld", priority = 41)]
         public static void Generate()
         {
-            var tuning = LoadTuning();
+            var tuning = LoadMovementTuning();
             if (tuning == null) return;
 
-            if (HasUnsavedChanges()) return;
-
-            var setup = EditorSceneManager.GetSceneManagerSetup();
-            bool canRestore = false;
-            for (int i = 0; setup != null && i < setup.Length; i++)
-                if (!string.IsNullOrEmpty(setup[i].path)) canRestore = true;
-
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            BuildContents(tuning);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath).Replace('\\', '/'));
-            EditorSceneManager.SaveScene(scene, ScenePath);
-
-            AssetDatabase.Refresh();
-            BuildSettings.EnsureInBuildSettings(ScenePath);
-
-            if (canRestore) EditorSceneManager.RestoreSceneManagerSetup(setup);
-
-            Debug.Log($"[Prophecy] Generated {ScenePath}");
+            if (GenerateScene(ScenePath, () => { BuildContents(tuning); return true; }))
+                Debug.Log($"[Prophecy] Generated {ScenePath}");
         }
 
         /// <summary><c>-executeMethod</c> target.</summary>
@@ -121,9 +107,7 @@ namespace Rokkan.Prophecy.Editor.Build
         /// </summary>
         private static Rokkan.Prophecy.Overworld.OverworldMap CreateStalbergGround()
         {
-            const string mapPath = "Assets/_Prophecy/Data/OverworldMap.asset";
-
-            var map = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldMap>(mapPath);
+            var map = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldMap>(MapPath);
 
             if (map == null)
             {
@@ -143,7 +127,7 @@ namespace Rokkan.Prophecy.Editor.Build
                     new Rokkan.Prophecy.Overworld.AuthoredRegion
                         { Name = "North Spur", Centre = new Vector2(10f, PlainDepth * 0.55f), Size = new Vector2(18f, 14f) },
                 };
-                AssetDatabase.CreateAsset(map, mapPath);
+                AssetDatabase.CreateAsset(map, MapPath);
             }
 
             var tiles = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldTileSet>(
@@ -160,32 +144,10 @@ namespace Rokkan.Prophecy.Editor.Build
 
             // The biome palette is optional — no asset simply means gray-box everywhere.
             var biomes = AssetDatabase.LoadAssetAtPath<Rokkan.Prophecy.Overworld.OverworldBiomePalette>(
-                "Assets/_Prophecy/Data/OverworldBiomePalette.asset");
+                BiomePalettePath);
             if (biomes != null) SetPrivate(component, "_biomes", biomes);
 
             return map;
-        }
-
-        private static void CreateLighting()
-        {
-            var light = new GameObject("Directional Light");
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
-            var component = light.AddComponent<Light>();
-            component.type = LightType.Directional;
-            component.intensity = 1.1f;
-            component.shadows = LightShadows.Soft;
-
-            // Custom shadow bias: the tile world is thin lips and fine stair risers, and the
-            // default bias lets their self-shadowing swim while the camera moves — which reads
-            // exactly like z-fighting at the stair/wall junctions (a full coplanarity audit of
-            // the built world found zero actual fights). Normal bias flattens the acne; depth
-            // bias stays low so contact shadows keep touching their pieces.
-            component.shadowBias = 0.4f;
-            component.shadowNormalBias = 1.8f;
-
-            var data = light.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
-            data.usePipelineSettings = false;
         }
 
         // The flat plain-and-rim ground this scene started with is gone: the ground is now the
@@ -195,27 +157,14 @@ namespace Rokkan.Prophecy.Editor.Build
         // of sight (the lesson the plain taught).
 
         /// <summary>
-        /// The cube that carries you to the fight — the portal colour, standing proud of the
-        /// plain at the map's centre, volume a little larger than the cube so touching it is
-        /// entering it. Targets the combat tester's fixed spawn; the tester's own portal
-        /// comes back via <c>@return</c>, so the round trip lands where the player left.
+        /// The slab that carries you to the fight — the shared portal recipe, standing proud
+        /// of the plain at the map's centre. Targets the combat tester's fixed spawn; the
+        /// tester's own portal comes back via <c>@return</c>, so the round trip lands where
+        /// the player left.
         /// </summary>
-        private static void CreateReturnPortal(Transform parent, Vector3 centre)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = "Portal_CombatTester";
-            cube.transform.SetParent(parent, false);
-            cube.transform.localScale = new Vector3(1.6f, 1.6f, 1.6f);
-            cube.transform.position = centre + new Vector3(0f, 0.8f, 0f);
-
-            Object.DestroyImmediate(cube.GetComponent<Collider>());
-            cube.GetComponent<MeshRenderer>().sharedMaterial = GrayBoxMaterials.Portal();
-
-            var portal = cube.AddComponent<Portal>();
-            SetPrivate(portal, "_targetScene", GrayBoxCombatTesterBuilder.SceneName);
-            SetPrivate(portal, "_targetSpawnId", GrayBoxCombatTesterBuilder.DefaultSpawnId);
-            SetPrivate(portal, "_halfExtents", new Vector3(1.3f, 1.5f, 1.3f));
-        }
+        private static void CreateReturnPortal(Transform parent, Vector3 centre) =>
+            PortalSlab(parent, "Portal_CombatTester", centre,
+                       GrayBoxCombatTesterBuilder.SceneName, GrayBoxCombatTesterBuilder.DefaultSpawnId);
 
         private static void CreateDescriptorAndSpawns(Transform markers, Vector3 centre)
         {
@@ -318,64 +267,6 @@ namespace Rokkan.Prophecy.Editor.Build
             SetPrivate(spawner, "_roadSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
             SetPrivate(spawner, "_fallbackScene", GrayBoxTraversalBuilder.SceneName);
             SetPrivate(spawner, "_fallbackSpawnId", GrayBoxTraversalBuilder.CentreSpawnId);
-        }
-
-        // ------------------------------------------------------------------ helpers
-
-        private static bool HasUnsavedChanges()
-        {
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-            {
-                var scene = SceneManager.GetSceneAt(i);
-                if (!scene.isDirty) continue;
-
-                Debug.LogError($"[Prophecy] '{(string.IsNullOrEmpty(scene.name) ? "Untitled" : scene.name)}' " +
-                               "has unsaved changes. Save or discard them, then run this again — " +
-                               "generating replaces the open scene.");
-                return true;
-            }
-
-            return false;
-        }
-
-        private static MovementTuning LoadTuning()
-        {
-            var asset = AssetDatabase.LoadAssetAtPath<MovementTuning>(ProphecyAssetBootstrap.MovementTuningPath);
-
-            if (asset == null)
-                Debug.LogError($"[Prophecy] No MovementTuning at {ProphecyAssetBootstrap.MovementTuningPath}. " +
-                               "Run Prophecy > Build > Create Missing Data Assets first.");
-
-            return asset;
-        }
-
-        private static void SetPrivate(Object target, string fieldName, object value)
-        {
-            var serialized = new SerializedObject(target);
-            var property = serialized.FindProperty(fieldName);
-
-            if (property == null)
-            {
-                Debug.LogError($"[Prophecy] {target.GetType().Name} has no serialized field '{fieldName}'.");
-                return;
-            }
-
-            switch (value)
-            {
-                case string s: property.stringValue = s; break;
-                case int i: property.intValue = i; break;
-                case float f: property.floatValue = f; break;
-                case bool b: property.boolValue = b; break;
-                case System.Enum e: property.enumValueFlag = System.Convert.ToInt32(e); break;
-                case Vector2 v2: property.vector2Value = v2; break;
-                case Vector3 v: property.vector3Value = v; break;
-                case Object o: property.objectReferenceValue = o; break;
-                default:
-                    Debug.LogError($"[Prophecy] Unsupported field type for '{fieldName}'.");
-                    return;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

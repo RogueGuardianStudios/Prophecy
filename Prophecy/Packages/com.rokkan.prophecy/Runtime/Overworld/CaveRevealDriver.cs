@@ -42,8 +42,7 @@ namespace Rokkan.Prophecy.Overworld
 
         private void Update()
         {
-            var director = SceneDirector.Instance;
-            var player = director != null ? director.Player : null;
+            var player = Presentation.PlayerLocator.Current;
 
             int region = player != null && _built != null
                 ? OverworldCoverRules.ActiveCaveRegion(_built.Grid, player.FeetWorldPosition)

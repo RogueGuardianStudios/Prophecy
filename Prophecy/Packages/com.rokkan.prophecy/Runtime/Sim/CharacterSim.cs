@@ -26,13 +26,14 @@ namespace Rokkan.Prophecy.Sim
     /// <para>Modules therefore always see grounded state that matches the geometry they are about
     /// to move through, and always run before resolution rather than fighting it.</para>
     /// </summary>
-    public sealed class CharacterSim : ISimSystem
+    public sealed class CharacterSim : ISimSystem, Combat.IDefendable
     {
         private readonly List<AbilityModule> _modules = new List<AbilityModule>();
         private readonly List<IDamageGate> _gates = new List<IDamageGate>();
         private ActionLock _lock = ActionLock.None;
         private InputFrame _input = InputFrame.Empty;
         private PendingStun _pendingStun;
+        private PendingImpulse _pendingImpulse;
 
         public CharacterState State { get; } = new CharacterState();
         public CollisionWorld World { get; }
@@ -61,6 +62,11 @@ namespace Rokkan.Prophecy.Sim
         /// exactly what Matt tuned it to do until the volume says otherwise.</summary>
         public Arts.ArtId EquippedArt = Arts.ArtId.Buoyancy;
 
+        /// <summary>The art table and its feel numbers. The factory swaps in the authored
+        /// asset's data when one is wired; the code defaults otherwise, so every headless
+        /// test runs the shipped table.</summary>
+        public Arts.ArtTuningData ArtTuning = new Arts.ArtTuningData();
+
         /// <summary>Arts running in this room — the "running" marks for the HUD and the arts
         /// volume. Room-scoped: cleared when a crossing completes, alongside the room-scoped
         /// stat modifiers those arts applied. GfP will except itself when it becomes real.</summary>
@@ -73,6 +79,39 @@ namespace Rokkan.Prophecy.Sim
         /// are the availability switch, live like every loadout edit.</summary>
         public readonly System.Collections.Generic.HashSet<Arts.ArtId> KnownArts =
             new System.Collections.Generic.HashSet<Arts.ArtId>();
+
+        /// <summary>The ONE question "is this art on" — for the HUD's emblem, the volume's
+        /// running marks, and any module gated on its art. Buoyancy keeps its float's entry
+        /// in step with the toggle it owns, so no consumer needs to know which module an
+        /// art lives in.</summary>
+        public bool IsArtRunning(Arts.ArtId id) => ActiveArts.Contains(id);
+
+        // Page casts arrive here as REQUESTS: the arts volume runs on render frames with the
+        // clock paused, and sim state must not mutate between ticks. CastArt consumes the
+        // queue at the top of the next tick, so a page cast and a button cast land through
+        // the identical path, on a tick, replayable from the record like everything else.
+        private readonly List<Arts.ArtId> _pendingCasts = new List<Arts.ArtId>();
+
+        /// <summary>Park a cast for the next tick. The volume's channel; see the field note.</summary>
+        public void RequestCast(Arts.ArtId id)
+        {
+            if (id != Arts.ArtId.None) _pendingCasts.Add(id);
+        }
+
+        /// <summary>Take the oldest parked cast, if any. <see cref="Abilities.CastArt"/> owns
+        /// the consuming; nothing else should drain this.</summary>
+        public bool TryDequeueCastRequest(out Arts.ArtId id)
+        {
+            if (_pendingCasts.Count == 0)
+            {
+                id = Arts.ArtId.None;
+                return false;
+            }
+
+            id = _pendingCasts[0];
+            _pendingCasts.RemoveAt(0);
+            return true;
+        }
 
         /// <summary>
         /// Might, Flame and Heart, and everything modifying them. Design bible §6.2.
@@ -121,12 +160,20 @@ namespace Rokkan.Prophecy.Sim
         /// <summary>The tick currently being simulated. Modules stamp timers against this.</summary>
         public long CurrentTick { get; private set; }
 
+        /// <summary>Which way the body faces: -1 or +1. The damage gates' view of it.</summary>
+        public int Facing => State.Facing;
+
         public IReadOnlyList<AbilityModule> Modules => _modules;
 
         public CharacterSim(CollisionWorld world)
         {
             World = world ?? new CollisionWorld();
+            _mover = new CharacterMover(World);
         }
+
+        // The motor. Its own class so a physics change and a lock-arbitration change can never
+        // land in the same file — see CharacterMover for the integrator's actual rules.
+        private readonly CharacterMover _mover;
 
         // ---------------------------------------------------------------- modules
 
@@ -185,20 +232,8 @@ namespace Rokkan.Prophecy.Sim
         {
             if (!Vitals.IsAlive) return HitResult.Ignored;
 
-            for (int i = 0; i < _gates.Count; i++)
-            {
-                var answer = _gates[i].Evaluate(this, in hit);
-                if (answer.Outcome == HitOutcome.Continue) continue;
-
-                // A gate that lets damage through in reduced form — a block — still deals it.
-                if (answer.DamageApplied > 0)
-                {
-                    int applied = Vitals.ApplyDamage(answer.DamageApplied, hit.Tick);
-                    return new HitResult(answer.Outcome, applied, answer.AttackerStunTicks);
-                }
-
-                return answer;
-            }
+            var answered = DamageGateChain.Answer(_gates, this, in hit, Vitals);
+            if (answered.Outcome != HitOutcome.Continue) return answered;
 
             int landed = Vitals.ApplyDamage(hit.Damage, hit.Tick);
             Stun(HitStunTicks, hit.Facing, hit.Tick, HitOutcome.Landed);
@@ -233,6 +268,19 @@ namespace Rokkan.Prophecy.Sim
 
         /// <summary>True while a stun is waiting to be picked up. Debug overlay.</summary>
         public bool HasPendingStun => _pendingStun.IsSet;
+
+        /// <summary>
+        /// Park a shove for this character's own tick — a blocked hit's pushback, or anything else
+        /// that moves a body it does not control. The strongest pending shove wins, the same law
+        /// <see cref="Stun"/> applies to durations.
+        /// </summary>
+        public void Impulse(float velocityX, long tick)
+        {
+            if (_pendingImpulse.IsSet &&
+                System.Math.Abs(_pendingImpulse.VelocityX) >= System.Math.Abs(velocityX)) return;
+
+            _pendingImpulse = new PendingImpulse(velocityX, tick);
+        }
 
         // ---------------------------------------------------------------- input
 
@@ -387,6 +435,14 @@ namespace Rokkan.Prophecy.Sim
             State.HitCeilingThisTick = false;
             State.LandedThisTick = false;
 
+            // Shoves parked by the attacker's tick land here, before any module runs — the same
+            // moment for every character, whatever order the clock ticked them in.
+            if (_pendingImpulse.IsSet)
+            {
+                State.Velocity.x = _pendingImpulse.VelocityX;
+                _pendingImpulse = default;
+            }
+
             bool wasGrounded = State.Grounded;
             RefreshGrounded();
 
@@ -405,13 +461,13 @@ namespace Rokkan.Prophecy.Sim
                 m.Tick(this, in _input, in info);
             }
 
-            Integrate(info.DeltaSeconds);
+            _mover.Integrate(State, Ground, info.DeltaSeconds);
 
             RefreshGrounded();
             if (!wasGrounded && State.Grounded) State.LandedThisTick = true;
             if (State.Grounded) State.LastGroundedTick = info.Tick;
 
-            UpdateStance();
+            _mover.UpdateStance(State);
         }
 
         /// <summary>
@@ -448,193 +504,7 @@ namespace Rokkan.Prophecy.Sim
         /// </summary>
         public ITopDownGround Ground;
 
-        /// <summary>
-        /// Whether the body's leading edge may make this single-axis move.
-        ///
-        /// <para>Three points across the leading face — centre and both corners — because a feet
-        /// point alone lets half a body hang over a cliff edge before anything objects. The
-        /// corners pull in slightly so brushing a wall while walking parallel to it does not
-        /// read as a collision.</para>
-        /// </summary>
-        private bool GroundPermits(Vector2 delta)
-        {
-            var from = State.Position;
-            var to = from + delta;
-
-            float half = State.BodySize.x * 0.5f;
-            float lead = Mathf.Sign(delta.x != 0f ? delta.x : delta.y) * half;
-            float across = half * 0.8f;
-
-            Vector2 centre, cornerA, cornerB;
-
-            if (delta.x != 0f)
-            {
-                centre = new Vector2(to.x + lead, to.y);
-                cornerA = new Vector2(to.x + lead, to.y - across);
-                cornerB = new Vector2(to.x + lead, to.y + across);
-            }
-            else
-            {
-                centre = new Vector2(to.x, to.y + lead);
-                cornerA = new Vector2(to.x - across, to.y + lead);
-                cornerB = new Vector2(to.x + across, to.y + lead);
-            }
-
-            // The edge probes VALIDATE; only a feet-to-feet probe RESOLVES the layer. The
-            // leading edge runs up to half a body ahead of the feet, and committing its layer
-            // flipped the token one cell early — walking a bridge deck toward its junction
-            // dropped the body through the deck, and leaving a cave popped it onto the roof,
-            // for every frame until the feet caught up. The token must track where the feet
-            // ARE, not where the toes point.
-            int edgeLayerA = State.GroundLayer;
-            int edgeLayerB = State.GroundLayer;
-            int edgeLayerC = State.GroundLayer;
-
-            bool permitted = Ground.CanStep(from, centre, ref edgeLayerA) &&
-                             Ground.CanStep(from, cornerA, ref edgeLayerB) &&
-                             Ground.CanStep(from, cornerB, ref edgeLayerC);
-            if (!permitted) return false;
-
-            int feetLayer = State.GroundLayer;
-            Ground.CanStep(from, to, ref feetLayer);
-            State.GroundLayer = feetLayer;
-            return true;
-        }
-
-        /// <summary>
-        /// Move by velocity, resolving each axis separately against the world.
-        ///
-        /// <para>Axis separation is the standard platformer approach and it is what makes wall
-        /// sliding fall out for free: blocked horizontally, vertical motion still proceeds. A
-        /// single combined sweep would instead snag the character on any surface it brushed.
-        /// Horizontal resolves first so that landing is evaluated at the position actually
-        /// arrived at.</para>
-        /// </summary>
-        private void Integrate(float dt)
-        {
-            var delta = State.Velocity * dt;
-            if (delta == Vector2.zero) return;
-
-            if (State.Space == MovementSpace.TopDown)
-            {
-                // No gravity and no one-ways overhead; both axes are plain lateral motion,
-                // resolved against the ground seam when a scene supplies one. No ground means
-                // free movement — every scene before the overworld, and every old test.
-                if (Ground == null)
-                {
-                    State.Position += delta;
-                    return;
-                }
-
-                // Axis separation, exactly as side-scroll below: blocked one way, the other axis
-                // still proceeds, which is what makes walls slide-alongable rather than sticky.
-                if (delta.x != 0f)
-                {
-                    if (GroundPermits(new Vector2(delta.x, 0f)))
-                        State.Position += new Vector2(delta.x, 0f);
-                    else
-                    {
-                        State.HitWallThisTick = true;
-                        State.Velocity.x = 0f;
-                    }
-                }
-
-                if (delta.y != 0f)
-                {
-                    if (GroundPermits(new Vector2(0f, delta.y)))
-                        State.Position += new Vector2(0f, delta.y);
-                    else
-                    {
-                        State.HitWallThisTick = true;
-                        State.Velocity.y = 0f;
-                    }
-                }
-
-                return;
-            }
-
-            if (delta.x != 0f)
-            {
-                float allowedX = World.SweepHorizontal(State.Body, delta.x, out bool hitX);
-                State.Position += new Vector2(allowedX, 0f);
-                if (hitX)
-                {
-                    State.HitWallThisTick = true;
-                    State.Velocity.x = 0f;   // stop pushing into geometry
-                }
-            }
-
-            if (delta.y != 0f)
-            {
-                float allowedY = World.SweepVertical(State.Body, delta.y, out bool hitY, State.DropThrough);
-
-                // The float floor stops a downward crossing from above, exactly as a one-way
-                // platform would — a body already beneath it is not touched, which is what
-                // lets a submerged body rise up through its own waterline.
-                if (State.HasFloatFloor && delta.y < 0f && State.Position.y >= State.FloatFloorY)
-                {
-                    float toFloor = State.FloatFloorY - State.Position.y;
-                    if (allowedY < toFloor)
-                    {
-                        allowedY = toFloor;
-                        hitY = true;
-                    }
-                }
-
-                State.Position += new Vector2(0f, allowedY);
-                if (hitY)
-                {
-                    if (delta.y > 0f) State.HitCeilingThisTick = true;
-                    State.Velocity.y = 0f;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Recompute support from geometry.
-        ///
-        /// <para>Deliberately passes <see cref="CharacterState.DropThrough"/> along. Grounding is
-        /// the thing that stops a fall starting, so a character dropping through a platform must
-        /// stop counting as standing on it the moment the drop is permitted — otherwise gravity
-        /// keeps being zeroed and the input looks ignored.</para>
-        /// </summary>
-        private void RefreshGrounded()
-        {
-            State.Grounded = State.Space == MovementSpace.TopDown ||
-                             World.IsGrounded(State.Body, dropThrough: State.DropThrough) ||
-                             OnFloatFloor();
-        }
-
-        /// <summary>Standing on the temporary surface an ability maintains (Buoyancy's
-        /// water-walk): feet at the floor, or within the same probe distance the solid
-        /// grounding uses. Never true from beneath — the float floor is one-way.</summary>
-        private bool OnFloatFloor() =>
-            State.HasFloatFloor &&
-            State.Position.y >= State.FloatFloorY - 0.001f &&
-            State.Position.y <= State.FloatFloorY + 0.02f;
-
-        /// <summary>
-        /// Airborne always wins, because the down-thrust is gated on it. Crouch is otherwise a
-        /// module decision — this only forces the character out of Air when they land, and never
-        /// silently un-crouches someone under a low ceiling.
-        /// </summary>
-        private void UpdateStance()
-        {
-            if (State.Space == MovementSpace.TopDown)
-            {
-                State.Stance = Stance.Stand;
-                return;
-            }
-
-            if (!State.Grounded)
-            {
-                State.Stance = Stance.Air;
-            }
-            else if (State.Stance == Stance.Air)
-            {
-                State.Stance = Stance.Stand;
-            }
-        }
+        private void RefreshGrounded() => _mover.RefreshGrounded(State);
 
         // ---------------------------------------------------------------- helpers
 
@@ -666,6 +536,7 @@ namespace Rokkan.Prophecy.Sim
             Vitals.Reset();
             Restrictions.Clear();
             _pendingStun = default;
+            _pendingImpulse = default;
         }
 
         /// <summary>Place the character, clearing motion and history. Used on spawn and on scene
@@ -687,10 +558,12 @@ namespace Rokkan.Prophecy.Sim
 
             _lock = ActionLock.None;
             _pendingStun = default;
+            _pendingImpulse = default;
+            _pendingCasts.Clear();
             for (int i = 0; i < _modules.Count; i++) _modules[i].Reset();
 
             RefreshGrounded();
-            UpdateStance();
+            _mover.UpdateStance(State);
         }
     }
 }
