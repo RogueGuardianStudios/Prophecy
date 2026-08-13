@@ -27,8 +27,11 @@ namespace Rokkan.Prophecy.Presentation.UI
     {
         public const string LayerName = "PlayerBody";
 
-        private const int Width = 512;
-        private const int Height = 640;
+        // Matched to the pack sheet's full-height portrait area (346×852 design units, at
+        // 2× so the film is crisp at 4K). A standing body suits the tall frame — the
+        // camera fits the height and the width follows the aspect.
+        private const int Width = 692;
+        private const int Height = 1704;
         private const float Fov = 28f;
 
         /// <summary>How much air the frame keeps around the body's bounds.</summary>
@@ -43,7 +46,6 @@ namespace Rokkan.Prophecy.Presentation.UI
         private AnimationSystem _animation;
         private AnimationClip _idleClip;
         private bool _idleLoop;
-        private float _standHeight = 1.8f;
         private bool _warnedNoLayer;
 
         public static PlayerPortrait Acquire()
@@ -129,14 +131,6 @@ namespace Rokkan.Prophecy.Presentation.UI
             _double.transform.localPosition = Vector3.zero;
             _double.transform.localRotation = Quaternion.identity;
 
-            // The frame is a fixed window sized off the sim's own stand height — the model
-            // was scaled to exactly this by its installer. Renderer bounds are deliberately
-            // NOT consulted: a freshly cloned skinned mesh reports bind-pose bounds from
-            // wherever its root bone happens to be, and the first framing cropped the body
-            // at the knees believing them.
-            if (player.Sim != null && player.Sim.State.StandSize.y > 0f)
-                _standHeight = player.Sim.State.StandSize.y;
-
             int layer = LayerMask.NameToLayer(LayerName);
             if (layer >= 0)
             {
@@ -187,15 +181,32 @@ namespace Rokkan.Prophecy.Presentation.UI
         {
             if (_double == null) return;
 
-            // Face the double from its front: a fixed window centred on the standing body
-            // (feet at the stage origin), far enough back that the height fits with air.
-            var centre = transform.position + Vector3.up * (_standHeight * 0.52f);
-            float distance = _standHeight * Padding * 0.5f
+            // Face the double from its front, CENTRED on the body's live bounds (Matt: not
+            // bottom-justified) — by LateUpdate the graph has posed the double, so the
+            // bounds are the visible body's, not the bind pose's; the one bind-pose read at
+            // Open() self-corrects a frame later. Sizing off an assumed stand height
+            // anchored at the feet is what shoved every spare inch of window above the head.
+            var bounds = BodyBounds(_double.transform);
+            float height = Mathf.Max(0.5f, bounds.size.y);
+            float distance = height * Padding * 0.5f
                              / Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad);
             var forward = _double.transform.forward;
 
-            _camera.transform.position = centre + forward * distance;
+            _camera.transform.position = bounds.center + forward * distance;
             _camera.transform.rotation = Quaternion.LookRotation(-forward, Vector3.up);
+        }
+
+        private static Bounds BodyBounds(Transform body)
+        {
+            var renderers = body.GetComponentsInChildren<Renderer>();
+
+            if (renderers.Length == 0)
+                return new Bounds(body.position + Vector3.up * 0.9f,
+                                  new Vector3(0.6f, 1.8f, 0.6f));
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            return bounds;
         }
 
         /// <summary>The visual the world is actually showing: the installed hero model,

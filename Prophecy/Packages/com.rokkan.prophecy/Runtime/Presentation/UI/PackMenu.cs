@@ -1,5 +1,6 @@
 using Rokkan.Prophecy.Sim;
 using Rokkan.Prophecy.Sim.Combat;
+using Rokkan.Prophecy.Sim.Items;
 using Rokkan.Prophecy.Sim.Stats;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -8,19 +9,21 @@ namespace Rokkan.Prophecy.Presentation.UI
 {
     /// <summary>
     /// The pack — the full sheet, still a read-only record of what the player has taken; the
-    /// page does not comment on that (spec §8.2). Four zones: the LOADOUT top-left (the
-    /// filmed player on the left of the split, his worn slots as item boxes arranged in his
-    /// shape on the right — boots at the bottom, pants above, shirt above that, hands
-    /// holding sword and shield; empty slots show the dash they are), the CONSUMABLES
-    /// carousel under it (the centre card is the equipped consumable; D-pad Left/Right will
-    /// turn it when there is more than one thing to cycle), the STATS window top-right —
-    /// Resolve as a BAR in the seam's colors above the three numerals (Might steel, Flame
-    /// rank a gold ROMAN numeral — the rank carries the word; the reserve is a bar and
-    /// never rendered as one here — Heart red) — and the ITEMS window under it, its bottom
-    /// flush with the carousel's: a scrolling grid of square cells, mostly empty outlines
-    /// until the item economy fills them.
+    /// page does not comment on that (spec §8.2). Two columns. LEFT, full height: the
+    /// LOADOUT — the filmed player beside his worn slots as item boxes arranged in his shape
+    /// (boots at the bottom, pants above, shirt above that, hands holding sword and shield;
+    /// empty slots show the dash they are). RIGHT, five item squares wide: STATS (the
+    /// Resolve seam as a bar in its colors, the three ranks under it — Might steel, Flame
+    /// gold, Heart red; every rank is a serifed "Rank N" so numeral I cannot read as l),
+    /// then CONSUMABLES — LOCKED to five slots: the flask permanent in the first (Matt),
+    /// four open beside it, D-pad Left/Right to cycle when anything fills them — then
+    /// ITEMS: the bag pure and whole as a scrolling grid of square cells, six rows in view.
     ///
-    /// <para>The Resolve rite (spending a banked level) belongs under the stats and arrives
+    /// <para>The sheet wears its own footprint — taller and narrower than the shared menu
+    /// size, because the column widths are DERIVED (five squares plus scroller) and six bag
+    /// rows must stay in view (Matt: adjust the widths, resize the panel to look right).</para>
+    ///
+    /// <para>The Resolve rite (spending a banked level) belongs by the stats and arrives
     /// with the Resolve economy — until something awards Resolve there is nothing to spend.</para>
     /// </summary>
     internal sealed class PackMenu : MenuRoot.MenuPanel
@@ -41,14 +44,19 @@ namespace Rokkan.Prophecy.Presentation.UI
             (EquipSlot.RingRight, "Ring",     2, 3),
         };
 
-        private const int InventoryColumns = 8;
+        /// <summary>Five across (Matt) — the right column's width is derived from this.</summary>
+        private const int InventoryColumns = 5;
 
-        /// <summary>Rows in the grid, not on the screen — six fit the viewport and the
-        /// rest are what the scroll is for.</summary>
-        private const int InventoryRows = 8;
+        /// <summary>13 rows × 5 = 65 cells for the bag's 64 slots (the last cell stays
+        /// empty). Six rows fit the viewport; the rest is what the scroll is for.</summary>
+        private const int InventoryRows = 13;
 
         /// <summary>One grid step: the standard square plus its gap.</summary>
         private const float Stride = 84f;
+
+        /// <summary>The sheet's own footprint — see the class summary.</summary>
+        private const float PanelWidth = 1152f;
+        private const float PanelHeight = 974f;
 
         private readonly Label[] _worn = new Label[Boxes.Length];
         private readonly Label[] _bagName = new Label[InventoryColumns * InventoryRows];
@@ -61,7 +69,6 @@ namespace Rokkan.Prophecy.Presentation.UI
         private Label _heart;
         private Label _resolve;
         private VisualElement _resolveFill;
-        private Label _consumable;
         private ScrollView _inventoryScroll;
         private VisualElement _flaskFill;
         private Label _flaskCount;
@@ -70,15 +77,15 @@ namespace Rokkan.Prophecy.Presentation.UI
         {
             var panel = UiBuild.Bordered(layer, "Pack",
                                          UiPalette.Umber, UiPalette.Parchment, 3f);
-            UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
+            UiBuild.Centre(panel, PanelWidth, PanelHeight);
             Root = panel;
 
             var title = UiBuild.Text(panel, "Title", "THE PACK", 30, UiPalette.Umber);
-            UiBuild.Place(title, left: 24f, top: 14f, width: 500f, height: 40f);
+            UiBuild.Place(title, left: 24f, top: 12f, width: 500f, height: 40f);
 
             BuildLoadout(panel);
-            BuildCarousel(panel);
             BuildStats(panel);
+            BuildCarousel(panel);
             BuildInventory(panel);
 
             var hints = UiBuild.Text(panel, "Hints", "B  close", 20, UiPalette.Muted,
@@ -88,18 +95,19 @@ namespace Rokkan.Prophecy.Presentation.UI
             IsOpen = false;
         }
 
+        /// <summary>Full height on the left — top lined up with STATS, bottom with ITEMS.</summary>
         private void BuildLoadout(VisualElement panel)
         {
             var region = UiBuild.Bordered(panel, "Loadout",
                                           UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Place(region, left: 24f, top: 64f, width: 744f, height: 576f);
+            UiBuild.Place(region, left: 20f, top: 60f, width: 640f, height: 868f);
 
             var caption = UiBuild.Text(region, "Caption", "LOADOUT", 18, UiPalette.Muted);
             UiBuild.Place(caption, left: 14f, top: 8f, width: 300f, height: 24f);
 
             // Split down the middle: the Bearer stands on the left, his slots on the right.
             var divide = UiBuild.Solid(region, "Divide", UiPalette.Umber);
-            UiBuild.Place(divide, left: 370f, top: 40f, width: 2f, height: 528f);
+            UiBuild.Place(divide, left: 348f, top: 36f, width: 2f, height: 824f);
 
             BuildFigure(region);
 
@@ -113,13 +121,15 @@ namespace Rokkan.Prophecy.Presentation.UI
             };
             _portrait.style.position = Position.Absolute;
             _portrait.style.display = DisplayStyle.None;
-            UiBuild.Place(_portrait, left: 0f, top: 40f, width: 368f, bottom: 0f);
+            UiBuild.Place(_portrait, left: 0f, top: 36f, width: 346f, bottom: 0f);
             region.Add(_portrait);
 
+            // Spread over the half's height (Matt: "space them out a bit") — a body is
+            // taller than it is wide, and so is this arrangement of it.
             for (int i = 0; i < Boxes.Length; i++)
             {
-                float x = 434f + Boxes[i].Column * Stride;
-                float y = 144f + Boxes[i].Row * Stride;
+                float x = 358f + Boxes[i].Column * 100f;
+                float y = 218f + Boxes[i].Row * 130f;
 
                 var box = UiBuild.Bordered(region, "Box" + i,
                                            UiPalette.Umber, UiPalette.ParchmentEmpty, 2f);
@@ -145,14 +155,14 @@ namespace Rokkan.Prophecy.Presentation.UI
             UiBuild.Place(_figure, left: 0f, top: 0f, right: 0f, bottom: 0f);
             region.Add(_figure);
 
-            FigurePart(_figure, "Head", 156f, 100f, 56f, 56f);
-            FigurePart(_figure, "Torso", 128f, 164f, 112f, 160f);
-            FigurePart(_figure, "ArmL", 90f, 168f, 30f, 140f);
-            FigurePart(_figure, "ArmR", 248f, 168f, 30f, 140f);
-            FigurePart(_figure, "LegL", 136f, 332f, 44f, 160f);
-            FigurePart(_figure, "LegR", 188f, 332f, 44f, 160f);
-            FigurePart(_figure, "FootL", 126f, 496f, 60f, 22f);
-            FigurePart(_figure, "FootR", 188f, 496f, 60f, 22f);
+            FigurePart(_figure, "Head", 133f, 130f, 80f, 80f);
+            FigurePart(_figure, "Torso", 93f, 218f, 160f, 250f);
+            FigurePart(_figure, "ArmL", 41f, 222f, 44f, 220f);
+            FigurePart(_figure, "ArmR", 261f, 222f, 44f, 220f);
+            FigurePart(_figure, "LegL", 103f, 476f, 64f, 250f);
+            FigurePart(_figure, "LegR", 179f, 476f, 64f, 250f);
+            FigurePart(_figure, "FootL", 85f, 730f, 88f, 30f);
+            FigurePart(_figure, "FootR", 179f, 730f, 88f, 30f);
         }
 
         private static void FigurePart(VisualElement region, string name,
@@ -162,105 +172,100 @@ namespace Rokkan.Prophecy.Presentation.UI
             UiBuild.Place(part, left: left, top: top, width: width, height: height);
         }
 
-        /// <summary>The consumables carousel under the loadout: five cards, the centre one
-        /// the equipped consumable. Flasks are the only consumable the sim owns, so the
-        /// neighbours are honestly empty until there is something to cycle onto them.</summary>
-        private void BuildCarousel(VisualElement panel)
-        {
-            var region = UiBuild.Bordered(panel, "Consumables",
-                                          UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Place(region, left: 24f, top: 656f, width: 744f, height: 160f);
-
-            var caption = UiBuild.Text(region, "Caption", "CONSUMABLES", 18, UiPalette.Muted);
-            UiBuild.Place(caption, left: 14f, top: 8f, width: 300f, height: 24f);
-
-            for (int i = 0; i < 5; i++)
-            {
-                bool centre = i == 2;
-                float x = 158f + i * 88f;
-
-                var card = UiBuild.Bordered(region, "Card" + i,
-                                            centre ? UiPalette.Gilt : UiPalette.Umber,
-                                            centre ? UiPalette.Bright : UiPalette.ParchmentEmpty,
-                                            centre ? 2f : 1.5f);
-                UiBuild.Place(card, left: x, top: 59f,
-                              width: UiBuild.ItemSquare, height: UiBuild.ItemSquare);
-
-                if (centre)
-                {
-                    _consumable = UiBuild.Text(card, "Consumable", "", 16,
-                                               UiPalette.Ink, TextAnchor.MiddleCenter);
-                    UiBuild.Place(_consumable, left: 0f, top: 0f, right: 0f, bottom: 0f);
-                }
-            }
-
-            var turnLeft = UiBuild.Text(region, "TurnL", "<", 22, UiPalette.Muted,
-                                        TextAnchor.MiddleCenter);
-            UiBuild.Place(turnLeft, left: 110f, top: 59f, width: 40f, height: 76f);
-
-            var turnRight = UiBuild.Text(region, "TurnR", ">", 22, UiPalette.Muted,
-                                         TextAnchor.MiddleCenter);
-            UiBuild.Place(turnRight, right: 110f, top: 59f, width: 40f, height: 76f);
-        }
-
-        /// <summary>The stats window: the Resolve seam as a BAR across the top — Flame Core
-        /// gold on the shadow ground, the HUD seam's own colors — with the three numerals
-        /// abreast under it.</summary>
+        /// <summary>The stats window at the column's top: the Resolve seam as a BAR in the
+        /// seam's own colors, the three ranks in single rows under it.</summary>
         private void BuildStats(VisualElement panel)
         {
             var region = UiBuild.Bordered(panel, "Stats",
                                           UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Place(region, left: 788f, top: 64f, width: 724f, height: 190f);
+            UiBuild.Place(region, left: 676f, top: 60f, width: 456f, height: 180f);
 
             var caption = UiBuild.Text(region, "Caption", "STATS", 18, UiPalette.Muted);
-            UiBuild.Place(caption, left: 14f, top: 8f, width: 200f, height: 24f);
+            UiBuild.Place(caption, left: 14f, top: 8f, width: 200f, height: 22f);
 
             var resolveName = UiBuild.Text(region, "ResolveName", "Resolve", 18, UiPalette.Muted);
-            UiBuild.Place(resolveName, left: 20f, top: 36f, width: 200f, height: 22f);
+            UiBuild.Place(resolveName, left: 16f, top: 32f, width: 150f, height: 22f);
 
             _resolve = UiBuild.Text(region, "ResolveValue", "", 14, UiPalette.Muted,
                                     TextAnchor.MiddleRight);
-            UiBuild.Place(_resolve, right: 20f, top: 36f, width: 240f, height: 22f);
+            UiBuild.Place(_resolve, right: 16f, top: 32f, width: 200f, height: 22f);
 
             var ground = UiBuild.Bordered(region, "ResolveGround",
                                           UiPalette.Umber, UiPalette.ShadowBase, 1f);
-            UiBuild.Place(ground, left: 20f, top: 62f, width: 680f, height: 20f);
+            UiBuild.Place(ground, left: 16f, top: 56f, width: 424f, height: 18f);
 
             _resolveFill = UiBuild.Solid(ground, "ResolveFill", UiPalette.PaleGold);
-            UiBuild.Place(_resolveFill, left: 1f, top: 1f, width: 0f, height: 16f);
+            UiBuild.Place(_resolveFill, left: 1f, top: 1f, width: 0f, height: 14f);
 
-            StatBlock(region, "Might", 0, UiPalette.Steel, out _might);
-            StatBlock(region, "Flame", 1, UiPalette.HearthGold, out _flame);
-            StatBlock(region, "Heart", 2, UiPalette.FestivalRed, out _heart);
+            StatRow(region, "Might", 82f, UiPalette.Steel, out _might);
+            StatRow(region, "Flame", 114f, UiPalette.HearthGold, out _flame);
+            StatRow(region, "Heart", 146f, UiPalette.FestivalRed, out _heart);
         }
 
-        /// <summary>The three ranks under the seam: small muted name, "Rank N" under it in a
-        /// serifed face — every stat is a rank (Matt), and the serif is what keeps Rank I's
-        /// numeral from reading as a lowercase l.</summary>
-        private static void StatBlock(VisualElement region, string statName, int index,
-                                      Color valueColor, out Label value)
+        /// <summary>One line per stat in the narrow column: muted name left, serifed
+        /// "Rank N" right — the serif keeps Rank I's numeral from reading as an l.</summary>
+        private static void StatRow(VisualElement region, string statName, float top,
+                                    Color valueColor, out Label value)
         {
-            float left = 20f + index * 228f;
+            var name = UiBuild.Text(region, statName + "Name", statName, 18,
+                                    UiPalette.Muted, TextAnchor.MiddleLeft);
+            UiBuild.Place(name, left: 16f, top: top, width: 140f, height: 28f);
 
-            var name = UiBuild.Text(region, statName + "Name", statName, 18, UiPalette.Muted);
-            UiBuild.Place(name, left: left, top: 96f, width: 208f, height: 22f);
-
-            value = UiBuild.Text(region, statName + "Value", "", 30, valueColor);
-            UiBuild.Place(value, left: left, top: 120f, width: 208f, height: 52f);
+            value = UiBuild.Text(region, statName + "Value", "", 24, valueColor,
+                                 TextAnchor.MiddleRight);
+            UiBuild.Place(value, right: 16f, top: top, width: 260f, height: 28f);
             UiBuild.Serif(value);
         }
 
-        /// <summary>The items window, its bottom flush with the carousel's: square cells in
-        /// a vertical scroll, six rows in view. Scrolling is the scroll view's; driving it
-        /// from the pad arrives with item selection.</summary>
+        /// <summary>The consumables rail between stats and the bag — LOCKED to five slots:
+        /// the flask PERMANENT in the first (its bottle and count live here now, nowhere
+        /// else), four open slots beside it. D-pad Left/Right cycles the selection when
+        /// anything fills them.</summary>
+        private void BuildCarousel(VisualElement panel)
+        {
+            var region = UiBuild.Bordered(panel, "Consumables",
+                                          UiPalette.Umber, UiPalette.Parchment, 2f);
+            UiBuild.Place(region, left: 676f, top: 252f, width: 456f, height: 124f);
+
+            var caption = UiBuild.Text(region, "Caption", "CONSUMABLES", 18, UiPalette.Muted);
+            UiBuild.Place(caption, left: 14f, top: 8f, width: 250f, height: 22f);
+
+            // The turn hint lives in the header — the five slots span the column.
+            var turnLeft = UiBuild.Text(region, "TurnL", "<", 18, UiPalette.Muted,
+                                        TextAnchor.MiddleCenter);
+            UiBuild.Place(turnLeft, right: 44f, top: 8f, width: 20f, height: 22f);
+
+            var turnRight = UiBuild.Text(region, "TurnR", ">", 18, UiPalette.Muted,
+                                         TextAnchor.MiddleCenter);
+            UiBuild.Place(turnRight, right: 16f, top: 8f, width: 20f, height: 22f);
+
+            for (int i = 0; i < 5; i++)
+            {
+                bool flaskSlot = i == 0;
+                float x = 20f + i * Stride;
+
+                var card = UiBuild.Bordered(region, "Card" + i,
+                                            flaskSlot ? UiPalette.Gilt : UiPalette.Umber,
+                                            flaskSlot ? UiPalette.Bright : UiPalette.ParchmentEmpty,
+                                            flaskSlot ? 2f : 1.5f);
+                UiBuild.Place(card, left: x, top: 38f,
+                              width: UiBuild.ItemSquare, height: UiBuild.ItemSquare);
+
+                if (flaskSlot) BuildFlaskCard(card);
+            }
+        }
+
+        /// <summary>The bag at the column's bottom, its floor flush with the loadout's:
+        /// square cells in a vertical scroll, six rows in view. Scrolling is the scroll
+        /// view's; driving it from the pad arrives with item selection.</summary>
         private void BuildInventory(VisualElement panel)
         {
             var region = UiBuild.Bordered(panel, "Inventory",
                                           UiPalette.Umber, UiPalette.Parchment, 2f);
-            UiBuild.Place(region, left: 788f, top: 270f, width: 724f, height: 546f);
+            UiBuild.Place(region, left: 676f, top: 388f, width: 456f, height: 540f);
 
             var caption = UiBuild.Text(region, "Caption", "ITEMS", 18, UiPalette.Muted);
-            UiBuild.Place(caption, left: 14f, top: 8f, width: 300f, height: 24f);
+            UiBuild.Place(caption, left: 14f, top: 8f, width: 200f, height: 22f);
 
             _inventoryScroll = new ScrollView(ScrollViewMode.Vertical)
             {
@@ -270,7 +275,7 @@ namespace Rokkan.Prophecy.Presentation.UI
                 horizontalScrollerVisibility = ScrollerVisibility.Hidden,
             };
             _inventoryScroll.style.position = Position.Absolute;
-            UiBuild.Place(_inventoryScroll, left: 0f, top: 36f, right: 0f, bottom: 8f);
+            UiBuild.Place(_inventoryScroll, left: 0f, top: 32f, right: 0f, bottom: 8f);
             region.Add(_inventoryScroll);
 
             var grid = new VisualElement { name = "Grid", pickingMode = PickingMode.Ignore };
@@ -284,17 +289,8 @@ namespace Rokkan.Prophecy.Presentation.UI
 
                 var cell = UiBuild.Bordered(grid, "Cell" + i,
                                             UiPalette.Umber, UiPalette.ParchmentEmpty, 1.5f);
-                UiBuild.Place(cell, left: 21f + column * Stride, top: 4f + row * Stride,
+                UiBuild.Place(cell, left: 12f + column * Stride, top: 4f + row * Stride,
                               width: UiBuild.ItemSquare, height: UiBuild.ItemSquare);
-
-                // The flask lives in the bag too (Matt): the first cell mirrors the
-                // carousel — a bottle whose liquid level notes the strength, count in
-                // the corner. Every other cell shows the sim's bag.
-                if (i == 0)
-                {
-                    BuildFlaskCell(cell);
-                    continue;
-                }
 
                 _bagName[i] = UiBuild.Text(cell, "Name", "", 13,
                                            UiPalette.Ink, TextAnchor.MiddleCenter);
@@ -306,9 +302,10 @@ namespace Rokkan.Prophecy.Presentation.UI
             }
         }
 
-        /// <summary>A gray-box bottle: neck, body, and a liquid fill whose level is the
-        /// strength — the fraction of a heart one drink restores.</summary>
-        private void BuildFlaskCell(VisualElement cell)
+        /// <summary>A gray-box bottle in the flask's permanent carousel slot: neck, body,
+        /// and a liquid fill whose level is the strength — the fraction of a heart one
+        /// drink restores.</summary>
+        private void BuildFlaskCard(VisualElement cell)
         {
             var neck = UiBuild.Bordered(cell, "FlaskNeck",
                                         UiPalette.Umber, UiPalette.ParchmentEmpty, 2f);
@@ -362,18 +359,6 @@ namespace Rokkan.Prophecy.Presentation.UI
                 _worn[i].style.color = worn != null ? UiPalette.Ink : UiPalette.MutedPip;
             }
 
-            // The bag, cell 0 excepted (the flask mirror lives there) — so bag slot i draws
-            // in cell i+1 and the last slot waits for a scroll row. A knowing trade.
-            for (int cell = 1; cell < _bagName.Length; cell++)
-            {
-                var stack = cell - 1 < sim.Bag.Capacity ? sim.Bag[cell - 1] : null;
-
-                _bagName[cell].text = stack != null ? stack.Item.Name : "";
-                _bagCount[cell].text = stack != null && stack.Quantity > 1
-                    ? $"×{stack.Quantity}"
-                    : "";
-            }
-
             var stats = sim.Stats;
 
             _might.text = "Rank " + UiBuild.Roman(stats.LevelOf(StatKind.Might));
@@ -390,12 +375,9 @@ namespace Rokkan.Prophecy.Presentation.UI
             float fraction = owed
                 ? 1f
                 : cost > 0 ? Mathf.Clamp01((float)stats.Resolve / cost) : 0f;
-            _resolveFill.style.width = fraction * 678f;
+            _resolveFill.style.width = fraction * 422f;
 
             int filled = sim.Flasks.Filled;
-
-            _consumable.text = $"Flask\n×{filled}";
-            _consumable.style.color = filled > 0 ? UiPalette.Ink : UiPalette.Muted;
 
             // Strength as liquid level: the fraction of a heart one drink restores — full
             // bottle today, and honest the day a weaker or stronger flask exists.
@@ -406,6 +388,19 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             _flaskCount.text = $"×{filled}";
             _flaskCount.style.color = filled > 0 ? UiPalette.Ink : UiPalette.Muted;
+
+            // The bag, pure and whole: cell i is bag slot i (the flask lives in the
+            // carousel now, nowhere else); the 65th cell outlives the 64-slot bag and
+            // stays honestly empty.
+            for (int cell = 0; cell < _bagName.Length; cell++)
+            {
+                var stack = cell < sim.Bag.Capacity ? sim.Bag[cell] : null;
+
+                _bagName[cell].text = stack != null ? stack.Item.Name : "";
+                _bagCount[cell].text = stack != null && stack.Quantity > 1
+                    ? $"×{stack.Quantity}"
+                    : "";
+            }
         }
     }
 }
