@@ -372,11 +372,13 @@ namespace Rokkan.Prophecy.Presentation.UI
             // The seam: progress toward the next rite. The FILL rule lives in one place —
             // HudController.SeamFraction — so this bar and the HUD's seam can never disagree
             // on screen about the same sim; only the label is this page's own.
-            int cost = stats.Tuning.ResolveForNextLevel(stats.TotalLevels);
-            bool owed = stats.UnspentLevels > 0;
+            var progression = sim.Progression;
+            bool owed = progression.UnspentLevels > 0;
 
-            _resolve.text = owed ? "a rite is owed" : $"{stats.Resolve} of {cost}";
-            _resolveFill.style.width = HudController.SeamFraction(stats) * 422f;
+            _resolve.text = owed
+                ? "a rite is owed"
+                : $"{progression.Resolve} of {progression.NextRiteCost}";
+            _resolveFill.style.width = HudController.SeamFraction(progression) * 422f;
 
             int filled = sim.Flasks.Filled;
 

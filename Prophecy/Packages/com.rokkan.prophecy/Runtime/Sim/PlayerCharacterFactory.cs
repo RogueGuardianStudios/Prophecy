@@ -93,7 +93,7 @@ namespace Rokkan.Prophecy.Sim
             // seam has something to show while nothing awards Resolve yet. Safe against
             // levelling — AwardResolve only converts at the full cost. Remove when the
             // Resolve economy exists; listed in Plans/Release-Checklist.md.
-            sim.Stats.AwardResolve(sim.Stats.Tuning.ResolveForNextLevel(sim.Stats.TotalLevels) / 2);
+            sim.Progression.AwardResolve(sim.Progression.NextRiteCost / 2);
 
             sim.Vitals.MaxHealth = combat.MaxHealth;
             sim.Vitals.Reset();

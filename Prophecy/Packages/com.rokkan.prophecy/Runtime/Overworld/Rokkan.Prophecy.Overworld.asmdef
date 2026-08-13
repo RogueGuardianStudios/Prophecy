@@ -3,6 +3,7 @@
     "rootNamespace": "Rokkan.Prophecy.Overworld",
     "references": [
         "Rokkan.Prophecy",
+        "Rokkan.Prophecy.Sim",
         "Rokkan.WorldGen",
         "RGS.Core",
         "RGS.GOAP.Core",

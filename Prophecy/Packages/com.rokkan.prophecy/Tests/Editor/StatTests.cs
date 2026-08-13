@@ -39,15 +39,16 @@ namespace Rokkan.Prophecy.Tests
             // The finale gates on total power as a measure of complicity (§6.3). A haste potion
             // must not read as having bound another Protector.
             var block = Fresh();
-            block.AwardResolve(100_000);
+            var progression = new Progression(block);
+            progression.AwardResolve(100_000);
 
-            int before = block.TotalLevels;
+            int before = progression.TotalLevels;
 
-            Assert.IsFalse(block.SpendLevel(StatKind.Speed), "Resolve buys the three, not Speed");
-            Assert.AreEqual(before, block.TotalLevels);
+            Assert.IsFalse(progression.SpendLevel(StatKind.Speed), "Resolve buys the three, not Speed");
+            Assert.AreEqual(before, progression.TotalLevels);
 
             block.SetLevel(StatKind.Speed, StatBlock.MaxLevel);
-            Assert.AreEqual(before, block.TotalLevels, "and Speed never counts toward the gate");
+            Assert.AreEqual(before, progression.TotalLevels, "and Speed never counts toward the gate");
         }
 
         [Test]
@@ -399,7 +400,7 @@ namespace Rokkan.Prophecy.Tests
 
             // Progression stats only — Speed is addressable and modifiable but is not power, so
             // raising it must not move the finale's gate.
-            Assert.AreEqual(StatKinds.ProgressionCount * 3, block.TotalLevels,
+            Assert.AreEqual(StatKinds.ProgressionCount * 3, new Progression(block).TotalLevels,
                 "TotalLevels must count every PROGRESSION stat, and only those");
         }
 
@@ -584,15 +585,16 @@ namespace Rokkan.Prophecy.Tests
         public void ResolveBanksIntoLevelUpsTheePlayerThenSpends()
         {
             var block = Fresh();
-            int cost = block.Tuning.ResolveForNextLevel(block.TotalLevels);
+            var progression = new Progression(block);
+            int cost = progression.NextRiteCost;
 
-            Assert.AreEqual(0, block.AwardResolve(cost - 1), "just short earns nothing");
-            Assert.AreEqual(1, block.AwardResolve(1), "and the last point tips it");
+            Assert.AreEqual(0, progression.AwardResolve(cost - 1), "just short earns nothing");
+            Assert.AreEqual(1, progression.AwardResolve(1), "and the last point tips it");
 
-            Assert.AreEqual(1, block.UnspentLevels);
-            Assert.IsTrue(block.SpendLevel(StatKind.Flame));
+            Assert.AreEqual(1, progression.UnspentLevels);
+            Assert.IsTrue(progression.SpendLevel(StatKind.Flame));
             Assert.AreEqual(2, block.LevelOf(StatKind.Flame));
-            Assert.AreEqual(0, block.UnspentLevels);
+            Assert.AreEqual(0, progression.UnspentLevels);
         }
 
         [Test]
@@ -600,25 +602,26 @@ namespace Rokkan.Prophecy.Tests
         {
             // Binding a Protector is a deliberate spike (§6.2). Granting one level and discarding
             // the remainder would rob the moment the whole progression is built around.
-            var block = Fresh();
+            var progression = new Progression(Fresh());
 
-            int earned = block.AwardResolve(10_000);
+            int earned = progression.AwardResolve(10_000);
 
             Assert.Greater(earned, 1, "a huge award must grant more than one level");
-            Assert.AreEqual(earned, block.UnspentLevels);
+            Assert.AreEqual(earned, progression.UnspentLevels);
         }
 
         [Test]
         public void LevelsAreCappedAndSpendingRefusesAtTheCap()
         {
             var block = Fresh();
+            var progression = new Progression(block);
             block.SetLevel(StatKind.Might, 999);
 
             Assert.AreEqual(StatBlock.MaxLevel, block.LevelOf(StatKind.Might));
 
-            block.AwardResolve(10_000);
-            Assert.IsFalse(block.SpendLevel(StatKind.Might), "a capped stat refuses the level");
-            Assert.Greater(block.UnspentLevels, 0, "and the level stays banked for another stat");
+            progression.AwardResolve(10_000);
+            Assert.IsFalse(progression.SpendLevel(StatKind.Might), "a capped stat refuses the level");
+            Assert.Greater(progression.UnspentLevels, 0, "and the level stays banked for another stat");
         }
 
         [Test]

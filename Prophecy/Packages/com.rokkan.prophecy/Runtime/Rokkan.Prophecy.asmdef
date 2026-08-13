@@ -2,6 +2,7 @@
     "name": "Rokkan.Prophecy",
     "rootNamespace": "Rokkan.Prophecy",
     "references": [
+        "Rokkan.Prophecy.Sim",
         "RGS.Core",
         "Rokkan.Core",
         "Rokkan.Animation",

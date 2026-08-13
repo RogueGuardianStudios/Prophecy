@@ -25,8 +25,8 @@ namespace Rokkan.Prophecy.Sim.Stats
         Heart = 2,
 
         // ---- Below here: modifiable, but NOT earned. Resolve cannot be spent on these and they
-        // do not count toward the finale's power gate. Keep progression stats above this line —
-        // ProgressionCount depends on the ordering.
+        // do not count toward the finale's power gate. Membership is by name in
+        // StatKinds.Progression, so the ordering here carries no meaning.
 
         /// <summary>
         /// Movement speed, as a multiplier. Base 1 is normal; 0.5 is a hobble, 1.5 a haste.
@@ -45,14 +45,22 @@ namespace Rokkan.Prophecy.Sim.Stats
     public static class StatKinds
     {
         /// <summary>
-        /// How many stats Resolve can be spent on. The progression stats are the first
-        /// <c>ProgressionCount</c> values of <see cref="StatKind"/>, so anything added below them
-        /// is automatically modifier-only.
+        /// The stats Resolve can be spent on, by NAME. Membership used to be "the first three
+        /// enum values", which made the finale's power gate depend on where a member happened
+        /// to sit — an ordering nothing enforced and one reorder away from a haste potion
+        /// counting as complicity. A new stat is progression only by being added here.
         /// </summary>
-        public const int ProgressionCount = 3;
+        public static readonly StatKind[] Progression =
+        {
+            StatKind.Might, StatKind.Flame, StatKind.Heart,
+        };
+
+        /// <summary>How many stats Resolve can be spent on.</summary>
+        public static readonly int ProgressionCount = Progression.Length;
 
         /// <summary>True for the stats a player levels. False for Speed and anything like it.</summary>
-        public static bool IsProgression(this StatKind kind) => (int)kind < ProgressionCount;
+        public static bool IsProgression(this StatKind kind) =>
+            kind == StatKind.Might || kind == StatKind.Flame || kind == StatKind.Heart;
     }
 
     /// <summary>

@@ -52,13 +52,11 @@ namespace Rokkan.Prophecy.Sim.Stats
             set => _tuning = value ?? new StatTuningData();
         }
 
-        /// <summary>Resolve banked toward the next level-up. Design bible §6.2 — this is XP.</summary>
-        public int Resolve { get; private set; }
-
-        /// <summary>Level-ups earned and not yet spent. The player picks which stat.</summary>
-        public int UnspentLevels { get; private set; }
-
         public IReadOnlyList<StatModifier> Modifiers => _modifiers;
+
+        // The earning — Resolve, banked levels, the power gate — lives in Progression, which
+        // wraps this block for the one character that levels. This class is every combatant's:
+        // levels, the modifier algebra, and the numbers that fall out.
 
         // ---------------------------------------------------------------- levels
 
@@ -66,68 +64,6 @@ namespace Rokkan.Prophecy.Sim.Stats
 
         public void SetLevel(StatKind kind, int level) =>
             _levels[(int)kind] = Mathf.Clamp(level, MinLevel, MaxLevel);
-
-        /// <summary>
-        /// Spend a banked level-up on a stat. Refuses if there is nothing banked or the stat is
-        /// capped, and says so, because silently swallowing the choice is how a player loses a
-        /// level-up and cannot tell you what happened.
-        /// </summary>
-        public bool SpendLevel(StatKind kind)
-        {
-            // Speed and anything like it can be modified but never earned — spending a level-up on
-            // one would silently lose it, and would also change the design bible's three-way choice
-            // into a four-way one.
-            if (!kind.IsProgression()) return false;
-
-            if (UnspentLevels <= 0) return false;
-            if (_levels[(int)kind] >= MaxLevel) return false;
-
-            _levels[(int)kind]++;
-            UnspentLevels--;
-            return true;
-        }
-
-        /// <summary>
-        /// Bank Resolve, and convert it into level-ups at the authored thresholds.
-        /// </summary>
-        /// <returns>How many level-ups this award produced.</returns>
-        public int AwardResolve(int amount)
-        {
-            if (amount <= 0) return 0;
-
-            Resolve += amount;
-            int earned = 0;
-
-            // A loop rather than a single check: a Protector's essence is a large, deliberate
-            // spike (§6.2) and can cross several thresholds at once. Awarding one level and
-            // discarding the rest would quietly rob the moment the whole progression is built on.
-            while (Resolve >= _tuning.ResolveForNextLevel(TotalLevels + earned))
-            {
-                Resolve -= _tuning.ResolveForNextLevel(TotalLevels + earned);
-                earned++;
-
-                if (TotalLevels + earned >= MaxLevel * StatKinds.ProgressionCount) break;   // all capped
-            }
-
-            UnspentLevels += earned;
-            return earned;
-        }
-
-        /// <summary>
-        /// Sum of the earned levels. What the finale's power gate reads (§6.3).
-        ///
-        /// <para>Progression stats only. A haste potion must not read as complicity.</para>
-        /// </summary>
-        public int TotalLevels
-        {
-            get
-            {
-                int total = 0;
-                for (int i = 0; i < StatKinds.ProgressionCount && i < _levels.Length; i++)
-                    total += _levels[i];
-                return total;
-            }
-        }
 
         // ---------------------------------------------------------------- modifiers
 
@@ -388,14 +324,13 @@ namespace Rokkan.Prophecy.Sim.Stats
         /// <summary>Scale an authored damage number by Might, never below one point.</summary>
         public int ScaleDamage(int authored) => Combat.DamageMath.Scale(authored, DamageScale);
 
-        /// <summary>Reset to a fresh hero. Used by respawn and by tests.</summary>
+        /// <summary>Reset to a fresh hero's levels and a clean modifier set. The economy's own
+        /// bank is <see cref="Progression"/>'s to clear — a block reset must not quietly rob it.</summary>
         public void Reset()
         {
             for (int i = 0; i < _levels.Length; i++) _levels[i] = MinLevel;
 
             _modifiers.Clear();
-            Resolve = 0;
-            UnspentLevels = 0;
         }
     }
 }

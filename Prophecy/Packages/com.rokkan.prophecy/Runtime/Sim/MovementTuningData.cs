@@ -11,7 +11,7 @@ namespace Rokkan.Prophecy.Sim
     /// a module holding a <c>MovementTuning</c> asset directly would fail
     /// <c>NoSimType_HoldsAUnityObjectField</c> and, worse, would mean movement could not be
     /// constructed in a headless test. So the numbers live here and
-    /// <see cref="Rokkan.Prophecy.Core.MovementTuning"/> is a thin asset wrapper around an
+    /// <c>Rokkan.Prophecy.Core.MovementTuning</c> is a thin asset wrapper around an
     /// instance of this class.</para>
     ///
     /// <para>It is a <b>class, not a struct</b>, on purpose. Modules hold the same reference the

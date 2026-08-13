@@ -203,17 +203,17 @@ namespace Rokkan.Prophecy.Presentation.UI
         /// otherwise nudge (spec §2.3). The HUD's seam and the pack's bar both call this, so
         /// the two can never disagree on screen about the same sim.
         /// </summary>
-        public static float SeamFraction(Sim.Stats.StatBlock stats)
+        public static float SeamFraction(Sim.Stats.Progression progression)
         {
-            if (stats.UnspentLevels > 0) return 1f;
+            if (progression.UnspentLevels > 0) return 1f;
 
-            int cost = stats.Tuning.ResolveForNextLevel(stats.TotalLevels);
-            return Mathf.Clamp01(stats.Resolve / (float)Mathf.Max(1, cost));
+            return Mathf.Clamp01(
+                progression.Resolve / (float)Mathf.Max(1, progression.NextRiteCost));
         }
 
         private void DrawSeam()
         {
-            _seamFill.style.width = _seamWidth * SeamFraction(_sim.Stats);
+            _seamFill.style.width = _seamWidth * SeamFraction(_sim.Progression);
         }
 
         private void DrawHearts()

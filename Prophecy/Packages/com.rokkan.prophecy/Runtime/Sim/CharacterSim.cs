@@ -122,6 +122,13 @@ namespace Rokkan.Prophecy.Sim
         public Stats.StatBlock Stats { get; } = new Stats.StatBlock();
 
         /// <summary>
+        /// The earning — Resolve, banked levels, the finale's gate. Beside the stats rather than
+        /// inside them, because every combatant carries the algebra and only the player earns;
+        /// present on every sim so no reader null-checks, read by nothing for a grunt.
+        /// </summary>
+        public Stats.Progression Progression { get; }
+
+        /// <summary>
         /// What the character temporarily may not do — silences, disarms, roots.
         ///
         /// <para>Beside the stats rather than inside them: a restriction has no value to scale and
@@ -169,6 +176,7 @@ namespace Rokkan.Prophecy.Sim
         {
             World = world ?? new CollisionWorld();
             _mover = new CharacterMover(World);
+            Progression = new Stats.Progression(Stats);
         }
 
         // The motor. Its own class so a physics change and a lock-arbitration change can never

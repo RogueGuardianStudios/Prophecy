@@ -10,7 +10,7 @@ namespace Rokkan.Prophecy.Sim.Combat
     ///
     /// <para>Same shape and same reasons as <see cref="MovementTuningData"/>: the gate forbids a
     /// <c>UnityEngine.Object</c> under <c>Rokkan.Prophecy.Sim</c>, so the numbers live here and
-    /// <see cref="Rokkan.Prophecy.Core.CombatTuning"/> is a thin asset wrapper. A class, not a
+    /// <c>Rokkan.Prophecy.Core.CombatTuning</c> is a thin asset wrapper. A class, not a
     /// struct, so the module holds the same reference the asset serialises and an inspector edit
     /// lands on the next tick.</para>
     ///
