@@ -8,10 +8,11 @@ using UnityEngine.UIElements;
 namespace Rokkan.Prophecy.Presentation.UI
 {
     /// <summary>
-    /// Three objects, three doors, nothing nested (spec §8): D-pad Down opens the arts
-    /// volume, Select the pack, Start the book. Not one menu with tabs — three separate
-    /// things, each one press from gameplay, and none of them remembers a last page: every
-    /// open lands on the object's first face.
+    /// One sheet, three TABS on a carousel (Matt, 2026-08-13 — superseding the spec's
+    /// three separate objects): Pack, Arts, Book, cycled with LB/RB and wrapping at the
+    /// ends. The three doors survive — D-pad Down opens straight onto Arts, Select onto
+    /// Pack, Start onto Book — so every page is still one press from gameplay, and no page
+    /// remembers where you left it: every open lands on the page's first face.
     ///
     /// <para><b>Opening a menu stops the world.</b> The same switch the scene transitions
     /// throw — <see cref="SimClockDriver.Paused"/> — so the enemy mid-swing holds its pose
@@ -48,19 +49,24 @@ namespace Rokkan.Prophecy.Presentation.UI
         private ArtsVolumeMenu _arts;
         private PackMenu _pack;
         private BookMenu _book;
+        private OptionsMenu _options;
+        private MenuPanel[] _tabs;
         private MenuPanel _open;
 
         private bool _pausedByMenu;
-        private float _navArm = 1f;
+        private float _navArmX = 1f;
+        private float _navArmY = 1f;
 
-        /// <summary>What a menu reads each frame: the sim, and the few digested inputs.</summary>
+        /// <summary>What a menu reads each frame: the sim, and the few digested inputs.
+        /// LB/RB never appear here — the shoulders turn the tab carousel and belong to
+        /// this class; a page's own flipping reads the stick's horizontal step.</summary>
         internal struct Frame
         {
             public CharacterSim Sim;
             public bool Confirm;
+            public bool ConfirmHeld;
+            public int NavX;
             public int NavY;
-            public bool PageLeft;
-            public bool PageRight;
         }
 
         internal abstract class MenuPanel
@@ -91,6 +97,11 @@ namespace Rokkan.Prophecy.Presentation.UI
             _arts = new ArtsVolumeMenu(layer);
             _pack = new PackMenu(layer);
             _book = new BookMenu(layer);
+            _options = new OptionsMenu(layer);
+
+            // The carousel, in the tab rail's order (UiBuild.MenuTabs). Options has no
+            // door of its own — the rail is how it is reached.
+            _tabs = new MenuPanel[] { _pack, _arts, _book, _options };
             _open = null;
         }
 
@@ -118,14 +129,47 @@ namespace Rokkan.Prophecy.Presentation.UI
                 return;
             }
 
+            // The shoulders turn the carousel; the open page never sees them.
+            if (_pageLeft.WasPressedThisFrame())
+            {
+                Cycle(-1);
+                return;
+            }
+
+            if (_pageRight.WasPressedThisFrame())
+            {
+                Cycle(+1);
+                return;
+            }
+
+            var move = _move.ReadValue<Vector2>();
+
             _open.Tick(new Frame
             {
                 Sim = PlayerSim(),
                 Confirm = _confirm.WasPressedThisFrame(),
-                NavY = ReadNav(),
-                PageLeft = _pageLeft.WasPressedThisFrame(),
-                PageRight = _pageRight.WasPressedThisFrame(),
+                ConfirmHeld = _confirm.IsPressed(),
+                NavX = Step(move.x, ref _navArmX),
+                NavY = Step(move.y, ref _navArmY),
             });
+        }
+
+        /// <summary>One step around the tab carousel, wrapping at the ends. The leaving
+        /// page closes properly (the pack lets its camera go) and the arriving one opens
+        /// on its first face, exactly as if its own door had been used.</summary>
+        private void Cycle(int step)
+        {
+            int index = System.Array.IndexOf(_tabs, _open);
+            var next = _tabs[(index + step + _tabs.Length) % _tabs.Length];
+
+            _open.IsOpen = false;
+            _open.Closed();
+
+            _open = next;
+            _open.IsOpen = true;
+            _open.Opened(PlayerSim());
+            _navArmX = 0f;
+            _navArmY = 0f;
         }
 
         private void Toggle(MenuPanel panel)
@@ -145,7 +189,8 @@ namespace Rokkan.Prophecy.Presentation.UI
             _open = panel;
             _open.IsOpen = true;
             _open.Opened(PlayerSim());
-            _navArm = 0f;
+            _navArmX = 0f;
+            _navArmY = 0f;
 
             if (_clock != null && !_clock.Paused)
             {
@@ -175,22 +220,20 @@ namespace Rokkan.Prophecy.Presentation.UI
             _capture.ClearPending();
         }
 
-        /// <summary>Up/down as a discrete step, re-armed through neutral so a held stick
-        /// moves one row per push rather than racing down the list.</summary>
-        private int ReadNav()
+        /// <summary>One stick axis as a discrete step, re-armed through neutral so a held
+        /// stick moves one notch per push rather than racing.</summary>
+        private static int Step(float value, ref float arm)
         {
-            float y = _move.ReadValue<Vector2>().y;
-
-            if (Mathf.Abs(y) < 0.3f)
+            if (Mathf.Abs(value) < 0.3f)
             {
-                _navArm = 1f;
+                arm = 1f;
                 return 0;
             }
 
-            if (_navArm < 0.5f || Mathf.Abs(y) < 0.6f) return 0;
+            if (arm < 0.5f || Mathf.Abs(value) < 0.6f) return 0;
 
-            _navArm = 0f;
-            return y > 0f ? 1 : -1;
+            arm = 0f;
+            return value > 0f ? 1 : -1;
         }
 
         private static CharacterSim PlayerSim()

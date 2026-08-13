@@ -8,11 +8,18 @@ using UnityEngine.UIElements;
 namespace Rokkan.Prophecy.Presentation.UI
 {
     /// <summary>
-    /// The working page — the Order's book, handed to the Bearer, and the only screen with a
-    /// performance requirement (spec §8.1): two casts before a bad door must be one open, two
-    /// actions, one close. So: no animation yet, selection IS equipping, and A casts from the
-    /// page through the same <see cref="CastArt.Cast"/> the RB button uses — playing a cast
-    /// from the volume and from the pad are the same act in the sim.
+    /// The working page — the Order's book, handed to the Bearer. The carousel's Arts tab.
+    ///
+    /// <para><b>Only KNOWN arts appear</b> (Matt: you will not start with all arts): the
+    /// rows are SLOTS, dealt from <see cref="CharacterSim.KnownArts"/> in catalog order and
+    /// compacted — an untaught art leaves no gap, and a loadout toggle flips the page live.
+    /// An empty page says so instead of showing nothing.</para>
+    ///
+    /// <para><b>Press selects, hold casts (Matt, superseding spec §8.1's equip-on-select):</b>
+    /// the stick moves a CURSOR that equips nothing; pressing A equips the art under it
+    /// (the gilt frame moves); holding A on the equipped art sweeps a fill across its row
+    /// and CASTS when the row is full — releasing early abandons the cast and the fill.
+    /// One cast per hold: recasting takes a fresh press.</para>
     ///
     /// <para>The header carries the reserve bar with its cost segment, the identical widget
     /// to the HUD's, so the planning page and the play HUD speak one language. Rows already
@@ -23,14 +30,29 @@ namespace Rokkan.Prophecy.Presentation.UI
         private sealed class Row
         {
             public VisualElement Highlight;
+            public VisualElement Fill;
             public Label Name;
             public Label Pips;
             public Label Running;
         }
 
+        /// <summary>How long A must be held on the equipped art before the cast fires —
+        /// the fill animation's whole length.</summary>
+        private const float FillSeconds = 0.45f;
+
+        private const float RowWidth = 1084f;
+
         private readonly FlameBarWidget _bar;
         private readonly List<Row> _rows = new List<Row>();
-        private int _selected;
+
+        /// <summary>Indexes into <see cref="ArtCatalog.All"/> for the arts the sim knows,
+        /// in catalog order — the compacted page.</summary>
+        private readonly List<int> _known = new List<int>();
+
+        private Label _empty;
+        private int _cursor;
+        private float _fill;
+        private bool _castArmed;
 
         public ArtsVolumeMenu(VisualElement layer)
         {
@@ -39,37 +61,50 @@ namespace Rokkan.Prophecy.Presentation.UI
             UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
             Root = panel;
 
-            var title = UiBuild.Text(panel, "Title", "THE ORDER'S VOLUME", 30, UiPalette.Umber);
-            UiBuild.Place(title, left: 24f, top: 14f, width: 500f, height: 40f);
+            UiBuild.Tabs(panel, 1);
 
-            _bar = new FlameBarWidget(panel, 24f, 70f, new Vector2(1488f, 22f));
+            var page = UiBuild.PageFrame(panel);
 
-            var arts = ArtCatalog.All;
-            for (int i = 0; i < arts.Length; i++)
+            _bar = new FlameBarWidget(page, 16f, 12f, new Vector2(1076f, 22f));
+
+            // One slot per catalog entry — the most the page can ever need. Which art a
+            // slot shows (and whether it shows at all) is dealt each draw.
+            for (int i = 0; i < ArtCatalog.All.Length; i++)
             {
                 var row = new Row();
-                float y = 108f + i * 88f;
 
-                row.Highlight = UiBuild.Solid(panel, $"Row{i}", UiPalette.Bright);
-                UiBuild.Place(row.Highlight, left: 16f, top: y, width: 1504f, height: 80f);
+                row.Highlight = UiBuild.Solid(page, $"Row{i}", UiPalette.Bright);
+                UiBuild.Place(row.Highlight, left: 12f, top: 48f + i * 100f,
+                              width: RowWidth, height: 92f);
 
-                row.Name = UiBuild.Text(row.Highlight, "Name", arts[i].DisplayName, 26,
+                // The hold-to-cast fill, under the text: the cost segment's tint sweeping
+                // the row is the "are you sure" the cast no longer asks in words.
+                row.Fill = UiBuild.Solid(row.Highlight, "Fill", UiPalette.CostSegment);
+                UiBuild.Place(row.Fill, left: 0f, top: 0f, bottom: 0f, width: 0f);
+
+                row.Name = UiBuild.Text(row.Highlight, "Name", "", 26,
                                         UiPalette.Ink, TextAnchor.MiddleLeft);
-                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 80f);
+                UiBuild.Place(row.Name, left: 20f, top: 0f, width: 600f, height: 92f);
 
                 row.Running = UiBuild.Text(row.Highlight, "Running", "running", 20,
                                            UiPalette.Gilt, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Running, right: 220f, top: 0f, width: 150f, height: 80f);
+                UiBuild.Place(row.Running, right: 210f, top: 0f, width: 150f, height: 92f);
 
-                row.Pips = UiBuild.Text(row.Highlight, "Pips", HudController.Pips(arts[i].Cost),
-                                        20, UiPalette.HearthGold, TextAnchor.MiddleRight);
-                UiBuild.Place(row.Pips, right: 20f, top: 0f, width: 170f, height: 80f);
+                row.Pips = UiBuild.Text(row.Highlight, "Pips", "", 20,
+                                        UiPalette.HearthGold, TextAnchor.MiddleRight);
+                UiBuild.Place(row.Pips, right: 20f, top: 0f, width: 170f, height: 92f);
 
                 _rows.Add(row);
             }
 
-            var hints = UiBuild.Text(panel, "Hints", "A  cast        B  close", 20,
-                                     UiPalette.Muted, TextAnchor.MiddleCenter);
+            _empty = UiBuild.Text(page, "Empty", "The Order has taught nothing yet.", 24,
+                                  UiPalette.Muted, TextAnchor.MiddleCenter);
+            UiBuild.Place(_empty, left: 0f, right: 0f, top: 48f, height: 92f);
+            _empty.style.display = DisplayStyle.None;
+
+            var hints = UiBuild.Text(panel, "Hints",
+                                     "A  select        hold A  cast        LB / RB  menu        B  close",
+                                     20, UiPalette.Muted, TextAnchor.MiddleCenter);
             UiBuild.Place(hints, left: 0f, right: 0f, bottom: 8f, height: 30f);
 
             IsOpen = false;
@@ -77,16 +112,19 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         public override void Opened(CharacterSim sim)
         {
-            // Every open lands on the equipped art — the page has no memory of its own, the
-            // character's slot is the memory.
-            _selected = 0;
+            _fill = 0f;
+            _castArmed = false;
+            _cursor = 0;
 
-            if (sim != null)
-            {
-                for (int i = 0; i < ArtCatalog.All.Length; i++)
-                    if (ArtCatalog.All[i].Id == sim.EquippedArt)
-                        _selected = i;
-            }
+            if (sim == null) return;
+
+            RebuildKnown(sim);
+
+            // Every open lands the cursor on the equipped art — the page has no memory of
+            // its own, the character's slot is the memory.
+            for (int i = 0; i < _known.Count; i++)
+                if (ArtCatalog.All[_known[i]].Id == sim.EquippedArt)
+                    _cursor = i;
         }
 
         public override void Tick(in MenuRoot.Frame frame)
@@ -94,28 +132,66 @@ namespace Rokkan.Prophecy.Presentation.UI
             var sim = frame.Sim;
             if (sim == null) return;
 
-            if (frame.NavY != 0)
-            {
-                int count = ArtCatalog.All.Length;
-                _selected = (_selected - frame.NavY + count) % count;
+            RebuildKnown(sim);
 
-                // Equip on selection (spec §8.1): landing on a row IS equipping it, so
-                // closing the volume without casting still leaves the art in the slot.
-                sim.EquippedArt = ArtCatalog.All[_selected].Id;
+            if (_known.Count == 0)
+            {
+                _fill = 0f;
+                _castArmed = false;
+                Draw(sim);
+                return;
             }
 
+            _cursor = Mathf.Clamp(_cursor, 0, _known.Count - 1);
+
+            if (frame.NavY != 0)
+            {
+                _cursor = (_cursor - frame.NavY + _known.Count) % _known.Count;
+
+                // Moving the cursor abandons any hold in progress.
+                _fill = 0f;
+                _castArmed = false;
+            }
+
+            var art = ArtCatalog.All[_known[_cursor]];
+
+            // The press SELECTS (equips) — and arms the hold, so press-and-keep-holding
+            // is the single gesture that selects and then casts.
             if (frame.Confirm)
             {
-                var id = ArtCatalog.All[_selected].Id;
-                sim.EquippedArt = id;
+                sim.EquippedArt = art.Id;
+                _fill = 0f;
+                _castArmed = true;
+            }
 
-                // Buoyancy's cast is its module's water toggle and runs on the world clock;
-                // from the paused page the cast is the toggle flip the button would do.
-                // Everything else goes through the one cast path.
-                if (id != ArtId.Buoyancy) CastArt.Cast(sim, id, sim.CurrentTick);
+            if (frame.ConfirmHeld && _castArmed && sim.EquippedArt == art.Id)
+            {
+                _fill += Time.deltaTime / FillSeconds;
+
+                if (_fill >= 1f)
+                {
+                    _fill = 0f;
+                    _castArmed = false;   // one cast per hold; a fresh press re-arms
+
+                    // Buoyancy's cast is its module's water toggle and runs on the world
+                    // clock; everything else goes through the one cast path.
+                    if (art.Id != ArtId.Buoyancy) CastArt.Cast(sim, art.Id, sim.CurrentTick);
+                }
+            }
+            else if (!frame.ConfirmHeld)
+            {
+                _fill = 0f;
+                _castArmed = false;
             }
 
             Draw(sim);
+        }
+
+        private void RebuildKnown(CharacterSim sim)
+        {
+            _known.Clear();
+            for (int i = 0; i < ArtCatalog.All.Length; i++)
+                if (sim.KnownArts.Contains(ArtCatalog.All[i].Id)) _known.Add(i);
         }
 
         private void Draw(CharacterSim sim)
@@ -125,22 +201,41 @@ namespace Rokkan.Prophecy.Presentation.UI
 
             var buoyancy = sim.Get<Buoyancy>();
 
-            for (int i = 0; i < _rows.Count; i++)
+            for (int r = 0; r < _rows.Count; r++)
             {
-                var entry = ArtCatalog.All[i];
-                bool selected = i == _selected;
+                if (r >= _known.Count)
+                {
+                    _rows[r].Highlight.style.display = DisplayStyle.None;
+                    continue;
+                }
+
+                var entry = ArtCatalog.All[_known[r]];
+                bool cursor = r == _cursor;
+                bool isEquipped = entry.Id == sim.EquippedArt;
                 bool affordable = sim.Reserve.CanAfford(entry.Cost);
                 bool running = entry.Id == ArtId.Buoyancy
                     ? buoyancy != null && buoyancy.FloatOn
                     : sim.ActiveArts.Contains(entry.Id);
 
-                _rows[i].Highlight.style.backgroundColor =
-                    selected ? UiPalette.Bright : UiPalette.Parchment;
+                var row = _rows[r];
+                row.Highlight.style.display = DisplayStyle.Flex;
+                row.Highlight.style.top = 48f + r * 100f;
+                row.Highlight.style.backgroundColor =
+                    cursor ? UiPalette.Bright : UiPalette.Parchment;
 
-                _rows[i].Name.style.color = affordable ? UiPalette.Ink : UiPalette.Muted;
-                _rows[i].Pips.style.color = affordable ? UiPalette.HearthGold : UiPalette.MutedPip;
-                _rows[i].Running.style.display = running ? DisplayStyle.Flex : DisplayStyle.None;
+                // The gilt frame is the equipped mark now that the cursor no longer equips.
+                UiBuild.SetBorder(row.Highlight, UiPalette.Gilt, isEquipped ? 2f : 0f);
+
+                row.Fill.style.width = isEquipped ? _fill * RowWidth : 0f;
+
+                row.Name.text = entry.DisplayName;
+                row.Name.style.color = affordable ? UiPalette.Ink : UiPalette.Muted;
+                row.Pips.text = HudController.Pips(entry.Cost);
+                row.Pips.style.color = affordable ? UiPalette.HearthGold : UiPalette.MutedPip;
+                row.Running.style.display = running ? DisplayStyle.Flex : DisplayStyle.None;
             }
+
+            _empty.style.display = _known.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

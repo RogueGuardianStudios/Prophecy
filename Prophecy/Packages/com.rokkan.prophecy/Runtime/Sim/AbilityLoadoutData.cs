@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Rokkan.Prophecy.Sim.Arts;
 using UnityEngine;
 
 namespace Rokkan.Prophecy.Sim
@@ -38,8 +39,25 @@ namespace Rokkan.Prophecy.Sim
             }
         }
 
+        [Serializable]
+        public struct ArtEntry
+        {
+            public ArtId Id;
+            public bool Known;
+
+            public ArtEntry(ArtId id, bool known)
+            {
+                Id = id;
+                Known = known;
+            }
+        }
+
         [Tooltip("Abilities this loadout has an opinion about. Anything absent keeps its own default.")]
         public List<Entry> Abilities = new List<Entry>();
+
+        [Tooltip("Arts this loadout has an opinion about. Anything absent stays as the factory " +
+                 "seeded it — all known, in the gray box.")]
+        public List<ArtEntry> ArtToggles = new List<ArtEntry>();
 
         /// <summary>Switch modules on or off to match this loadout.</summary>
         public void Apply(CharacterSim sim)
@@ -55,6 +73,20 @@ namespace Rokkan.Prophecy.Sim
                 if (TryGet(module.Id, out bool enabled))
                     module.Enabled = enabled;
             }
+
+            if (ArtToggles == null) return;
+
+            for (int i = 0; i < ArtToggles.Count; i++)
+            {
+                if (ArtToggles[i].Known) sim.KnownArts.Add(ArtToggles[i].Id);
+                else sim.KnownArts.Remove(ArtToggles[i].Id);
+            }
+
+            // Forgetting an art unequips it — the slot cannot hold what the Order has not
+            // taught, which is also what keeps the water module from casting a revoked
+            // Buoyancy off the default equip.
+            if (sim.EquippedArt != ArtId.None && !sim.KnownArts.Contains(sim.EquippedArt))
+                sim.EquippedArt = ArtId.None;
         }
 
         public bool TryGet(AbilityId id, out bool enabled)

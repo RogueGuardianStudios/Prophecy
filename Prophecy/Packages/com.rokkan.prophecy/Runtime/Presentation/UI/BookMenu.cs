@@ -5,8 +5,9 @@ using UnityEngine.UIElements;
 namespace Rokkan.Prophecy.Presentation.UI
 {
     /// <summary>
-    /// The Bearer's own book — map, log, options — page-flipped with LB/RB, opening always
-    /// on the map (spec §8.3; no page memory).
+    /// The Bearer's own book — map and log — page-flipped with the stick's left/right (the
+    /// shoulders turn the tab carousel now), opening always on the map (spec §8.3; no page
+    /// memory). Options moved to its own tab, the carousel's last.
     ///
     /// <para><b>The log is a transcript, not a tracker.</b> No objectives, no checkboxes, no
     /// counters, no waypoints — entries are written by the Bearer in his own hand, in
@@ -15,14 +16,10 @@ namespace Rokkan.Prophecy.Presentation.UI
     /// that confidence over a darkening world is the whole horror, and nothing comments on
     /// it.</para>
     ///
-    /// <para><b>The options page reveals nothing</b> (spec §9.1): no corruption readout, no
-    /// bind count, no region states — those constraints bind every future edit of this page,
-    /// not just this stub. The parry-window setting is listed as the accessibility control it
-    /// is, gated to lit Warding Flames when those exist.</para>
     /// </summary>
     internal sealed class BookMenu : MenuRoot.MenuPanel
     {
-        private readonly string[] _titles = { "THE MAP", "THE LOG", "OPTIONS" };
+        private readonly string[] _titles = { "THE MAP", "THE LOG" };
         private readonly string[] _pages =
         {
             "No map yet drawn.\n\nThe roads I have walked are few, and I know them.",
@@ -32,10 +29,6 @@ namespace Rokkan.Prophecy.Presentation.UI
             "rooms; it does not pass the doorways, and I do not think it can.\n\n" +
             "— Mirefen's art carries me over still water. I crossed dry-shod and came " +
             "back the same way.",
-
-            "Parry window — set at a lit Warding Flame.\n\n" +
-            "Audio, display and remapping — anywhere, when there are settings to set.\n\n" +
-            "(The gray box keeps this page honest but empty.)",
         };
 
         private Label _title;
@@ -49,13 +42,18 @@ namespace Rokkan.Prophecy.Presentation.UI
             UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
             Root = panel;
 
-            _title = UiBuild.Text(panel, "Title", "", 30, UiPalette.Umber);
-            UiBuild.Place(_title, left: 24f, top: 14f, width: 500f, height: 40f);
+            UiBuild.Tabs(panel, 2);
 
-            _body = UiBuild.Text(panel, "Body", "", 24, UiPalette.Ink);
-            UiBuild.Place(_body, left: 36f, top: 72f, width: 1464f, height: 700f);
+            var page = UiBuild.PageFrame(panel);
 
-            var hints = UiBuild.Text(panel, "Hints", "LB / RB  turn the page        B  close",
+            _title = UiBuild.Text(page, "Title", "", 24, UiPalette.Umber);
+            UiBuild.Place(_title, left: 16f, top: 12f, width: 400f, height: 32f);
+
+            _body = UiBuild.Text(page, "Body", "", 24, UiPalette.Ink);
+            UiBuild.Place(_body, left: 28f, top: 56f, width: 1050f, height: 760f);
+
+            var hints = UiBuild.Text(panel, "Hints",
+                                     "Left / Right  turn the page        LB / RB  menu        B  close",
                                      20, UiPalette.Muted, TextAnchor.MiddleCenter);
             UiBuild.Place(hints, left: 0f, right: 0f, bottom: 8f, height: 30f);
 
@@ -70,8 +68,9 @@ namespace Rokkan.Prophecy.Presentation.UI
 
         public override void Tick(in MenuRoot.Frame frame)
         {
-            if (frame.PageLeft && _page > 0) { _page--; Draw(); }
-            if (frame.PageRight && _page < _pages.Length - 1) { _page++; Draw(); }
+            // The stick turns the book's own pages; the shoulders belong to the tab rail.
+            if (frame.NavX < 0 && _page > 0) { _page--; Draw(); }
+            if (frame.NavX > 0 && _page < _pages.Length - 1) { _page++; Draw(); }
         }
 
         private void Draw()

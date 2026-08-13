@@ -67,6 +67,13 @@ namespace Rokkan.Prophecy.Sim
         public readonly System.Collections.Generic.List<Arts.ArtId> ActiveArts =
             new System.Collections.Generic.List<Arts.ArtId>();
 
+        /// <summary>The arts the Order has taught. The volume lists ONLY these — compacted,
+        /// no holes — and the cast path refuses the rest (Matt: you will not start with all
+        /// arts). The factory seeds every art for the gray box; the loadout's art toggles
+        /// are the availability switch, live like every loadout edit.</summary>
+        public readonly System.Collections.Generic.HashSet<Arts.ArtId> KnownArts =
+            new System.Collections.Generic.HashSet<Arts.ArtId>();
+
         /// <summary>
         /// Might, Flame and Heart, and everything modifying them. Design bible §6.2.
         ///

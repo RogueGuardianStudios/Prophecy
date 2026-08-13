@@ -107,6 +107,10 @@ namespace Rokkan.Prophecy.Sim
             sim.Add(new CastArt(combat));
             sim.Add(new DrinkFlask(combat));
 
+            // Every art known in the gray box; the loadout's art toggles trim from here.
+            var catalog = Arts.ArtCatalog.All;
+            for (int i = 0; i < catalog.Length; i++) sim.KnownArts.Add(catalog[i].Id);
+
             // The sim already swings and guards, so the sheet says so from the first boot.
             // Code-built data for the gray box; authored ItemDetails assets take over when
             // items are found in the world rather than born with.

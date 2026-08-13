@@ -42,11 +42,13 @@ namespace Rokkan.Prophecy.Sim.Abilities
         }
 
         /// <summary>The one cast path — the arts volume calls this too, so playing a cast
-        /// from the page and from the button are the same act.</summary>
+        /// from the page and from the button are the same act. An art the Order has not
+        /// taught refuses here, whatever asked.</summary>
         public static bool Cast(CharacterSim sim, ArtId id, long tick)
         {
             var entry = ArtCatalog.Find(id);
             if (entry.Id == ArtId.None) return false;
+            if (!sim.KnownArts.Contains(id)) return false;
 
             if (!sim.Reserve.TrySpend(entry.Cost)) return false;
 

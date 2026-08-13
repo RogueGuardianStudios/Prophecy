@@ -19,9 +19,10 @@ namespace Rokkan.Prophecy.Presentation.UI
     /// four open beside it, D-pad Left/Right to cycle when anything fills them — then
     /// ITEMS: the bag pure and whole as a scrolling grid of square cells, six rows in view.
     ///
-    /// <para>The sheet wears its own footprint — taller and narrower than the shared menu
-    /// size, because the column widths are DERIVED (five squares plus scroller) and six bag
-    /// rows must stay in view (Matt: adjust the widths, resize the panel to look right).</para>
+    /// <para>The sheet's footprint became THE menu footprint (UiBuild.MenuWidth/Height):
+    /// its column widths are DERIVED (five squares plus scroller), six bag rows must stay
+    /// in view, and every other tab was resized to match (Matt). The title gave way to the
+    /// tab rail — this is the carousel's first page.</para>
     ///
     /// <para>The Resolve rite (spending a banked level) belongs by the stats and arrives
     /// with the Resolve economy — until something awards Resolve there is nothing to spend.</para>
@@ -54,10 +55,6 @@ namespace Rokkan.Prophecy.Presentation.UI
         /// <summary>One grid step: the standard square plus its gap.</summary>
         private const float Stride = 84f;
 
-        /// <summary>The sheet's own footprint — see the class summary.</summary>
-        private const float PanelWidth = 1152f;
-        private const float PanelHeight = 974f;
-
         private readonly Label[] _worn = new Label[Boxes.Length];
         private readonly Label[] _bagName = new Label[InventoryColumns * InventoryRows];
         private readonly Label[] _bagCount = new Label[InventoryColumns * InventoryRows];
@@ -77,19 +74,18 @@ namespace Rokkan.Prophecy.Presentation.UI
         {
             var panel = UiBuild.Bordered(layer, "Pack",
                                          UiPalette.Umber, UiPalette.Parchment, 3f);
-            UiBuild.Centre(panel, PanelWidth, PanelHeight);
+            UiBuild.Centre(panel, UiBuild.MenuWidth, UiBuild.MenuHeight);
             Root = panel;
 
-            var title = UiBuild.Text(panel, "Title", "THE PACK", 30, UiPalette.Umber);
-            UiBuild.Place(title, left: 24f, top: 12f, width: 500f, height: 40f);
+            UiBuild.Tabs(panel, 0);
 
             BuildLoadout(panel);
             BuildStats(panel);
             BuildCarousel(panel);
             BuildInventory(panel);
 
-            var hints = UiBuild.Text(panel, "Hints", "B  close", 20, UiPalette.Muted,
-                                     TextAnchor.MiddleCenter);
+            var hints = UiBuild.Text(panel, "Hints", "LB / RB  menu        B  close", 20,
+                                     UiPalette.Muted, TextAnchor.MiddleCenter);
             UiBuild.Place(hints, left: 0f, right: 0f, bottom: 8f, height: 30f);
 
             IsOpen = false;

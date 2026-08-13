@@ -81,10 +81,53 @@ namespace Rokkan.Prophecy.Presentation.UI
             if (height.HasValue) element.style.height = height.Value;
         }
 
-        /// <summary>The one menu footprint — 80% of the design space, leaving a 10% buffer
-        /// of world on every side (Matt).</summary>
-        public const float MenuWidth = 1920f * 0.8f;
-        public const float MenuHeight = 1080f * 0.8f;
+        /// <summary>The one menu footprint — the pack sheet set the proportions (its column
+        /// widths derive from the item square, its height from six visible bag rows) and
+        /// every tabbed menu wears them (Matt: resize the other screens to this panel).</summary>
+        public const float MenuWidth = 1152f;
+        public const float MenuHeight = 974f;
+
+        /// <summary>The carousel order of the tabbed menus (Matt: the menus are tabs,
+        /// options last).</summary>
+        public static readonly string[] MenuTabs = { "Pack", "Arts", "Book", "Options" };
+
+        /// <summary>The page frame under the tab rail — one bordered field the page's
+        /// content sits in, so the body reads apart from the header (Matt). The pack skips
+        /// it: its own windows already are the frame.</summary>
+        public static VisualElement PageFrame(VisualElement panel)
+        {
+            var frame = Bordered(panel, "Page", UiPalette.Umber, UiPalette.Parchment, 2f);
+            Place(frame, left: 20f, top: 58f, right: 20f, bottom: 44f);
+            return frame;
+        }
+
+        /// <summary>The tab rail every menu wears where its title used to be — the active
+        /// page bright, its neighbours one LB/RB press away around the carousel. The four
+        /// tabs split the whole header between them (Matt).</summary>
+        public static void Tabs(VisualElement panel, int active)
+        {
+            const float margin = 24f;
+            const float gap = 8f;
+            float width = (MenuWidth - margin * 2f - gap * (MenuTabs.Length - 1))
+                          / MenuTabs.Length;
+
+            for (int i = 0; i < MenuTabs.Length; i++)
+            {
+                bool current = i == active;
+
+                var tab = Bordered(panel, "Tab" + i,
+                                   current ? UiPalette.Gilt : UiPalette.Umber,
+                                   current ? UiPalette.Bright : UiPalette.ParchmentEmpty,
+                                   current ? 2f : 1.5f);
+                Place(tab, left: margin + i * (width + gap), top: 10f,
+                      width: width, height: 40f);
+
+                var label = Text(tab, "Label", MenuTabs[i], 20,
+                                 current ? UiPalette.Ink : UiPalette.Muted,
+                                 TextAnchor.MiddleCenter);
+                Place(label, left: 0f, top: 0f, right: 0f, bottom: 0f);
+            }
+        }
 
         /// <summary>THE item square (Matt: "standardize the sizes") — loadout slots, carousel
         /// cards and bag cells are all this size. Capped by the bag's six-visible-rows

@@ -48,3 +48,4 @@ MonoBehaviour:
       Enabled: 1
     - Id: 17
       Enabled: 1
+    ArtToggles: []
