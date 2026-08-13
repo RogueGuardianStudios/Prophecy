@@ -143,8 +143,10 @@ MonoBehaviour:
   _tuning: {fileID: 11400000, guid: e3e31b26c0e3f2b49b09c30e5226b71e, type: 2}
   _loadout: {fileID: 11400000, guid: a743d65cd3598f44c80fdbbd0b70d1b1, type: 2}
   _combatTuning: {fileID: 11400000, guid: 8573a735e0605e74f80300205bd9c465, type: 2}
+  _artTuning: {fileID: 11400000, guid: c80f2fe2b1f7c7546bbcbf3a1253aa00, type: 2}
   _clockDriver: {fileID: 0}
-  _input: {fileID: 2152798882108509657}
+  _input:
+    underlyingValue: {fileID: 0}
   _space: 1
   _collisionMask:
     serializedVersion: 2
@@ -225,8 +227,8 @@ MonoBehaviour:
   _host: {fileID: 308160872128486491}
   _set: {fileID: 11400000, guid: fa44520663e54dd4797f0705b9b08200, type: 2}
   _animation: {fileID: 2780685903315143615}
-  _moveThreshold: 0.15
-  _runThreshold: 4.5
+  _logStateChanges: 1
+  _flickerSeconds: 0.034
 --- !u!1001 &9072245420789277234
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -306,6 +308,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2780685903315143615}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8129766067684681488}
   m_SourcePrefab: {fileID: 100100000, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}
 --- !u!1 &8153343767496236899 stripped
 GameObject:
@@ -326,6 +331,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Rokkan.Animation::Rokkan.Animation.AnimationSystem
   _animator: {fileID: 0}
   _blendSeconds: 0.08
+--- !u!114 &8129766067684681488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8153343767496236899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4715c5ca58cdaab40972f158f7c6fe63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Presentation.PortraitSubject
 --- !u!4 &8821898945785644505 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4825c1696cbdcd74db02048e2ed3baa8, type: 3}

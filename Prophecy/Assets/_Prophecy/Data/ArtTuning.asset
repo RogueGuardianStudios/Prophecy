@@ -1,0 +1,138 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61c845ab8c5d54e40bb41c3104600c5f, type: 3}
+  m_Name: ArtTuning
+  m_EditorClassIdentifier: Rokkan.Prophecy::Rokkan.Prophecy.Core.ArtTuning
+  _data:
+    _holdToCastSeconds: 0.45
+    _arts:
+    - Id: 1
+      DisplayName: Ward
+      Description: Turns aside the next blow that would have landed.
+      Cost: 3
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 2
+      DisplayName: Sharpen
+      Description: The blade bites a quarter deeper while this room holds.
+      Cost: 2
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 1
+      Effect:
+        _kind: 0
+        _stage: 1
+        _value: 0.25
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 3
+      DisplayName: Ascent
+      Description: "Gildhollow's gift \u2014 a second jump, taken from the air."
+      Cost: 2
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 4
+      DisplayName: Divine Flame of Justice
+      Description: A burst of judgement upon all who stand too near.
+      Cost: 3
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 5
+      DisplayName: Censer
+      Description: A swung brazier whose smoke slows all it touches.
+      Cost: 2
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 6
+      DisplayName: Buoyancy
+      Description: "Mirefen's peace with water \u2014 stand upon it, or launch from
+        beneath it."
+      Cost: 1.5
+      ModuleOwned: 1
+      NoRecall: 0
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 7
+      DisplayName: Chalice
+      Description: Pours reserve into an empty flask, corner to corner.
+      Cost: 4
+      ModuleOwned: 0
+      NoRecall: 0
+      ConvertsReserveToFlask: 1
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0
+    - Id: 8
+      DisplayName: Glutton for Punishment
+      Description: A vow that cannot be recalled until the room is done.
+      Cost: 5
+      ModuleOwned: 0
+      NoRecall: 1
+      ConvertsReserveToFlask: 0
+      HasEffect: 0
+      Effect:
+        _kind: 0
+        _stage: 0
+        _value: 0
+        _durationTicks: 0
+        _stackKey: 0
+        _maxStacks: 0

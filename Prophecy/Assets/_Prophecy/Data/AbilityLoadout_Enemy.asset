@@ -66,3 +66,4 @@ MonoBehaviour:
       Enabled: 1
     - Id: 26
       Enabled: 0
+    ArtToggles: []

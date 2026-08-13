@@ -13,32 +13,32 @@ MonoBehaviour:
   m_Name: Brain_Ambusher
   m_EditorClassIdentifier: RGS.GOAP.Core::RGS.GOAP.Core.GoapBrainSO
   DefaultStateId:
-    Part1: 424266130
-    Part2: 1228921995
-    Part3: 2865495714
-    Part4: 1224275311
+    Part1: 3345721233
+    Part2: 1336258433
+    Part3: 497188755
+    Part4: 785579543
   UsesSpatialMemory: 0
   States:
   - Name: Ambusher
     StateId:
-      Part1: 424266130
-      Part2: 1228921995
-      Part3: 2865495714
-      Part4: 1224275311
+      Part1: 3345721233
+      Part2: 1336258433
+      Part3: 497188755
+      Part4: 785579543
     Actions:
     - InstanceId:
-        Part1: 1665966578
-        Part2: 1316669828
-        Part3: 1141960582
-        Part4: 131311614
+        Part1: 2644389488
+        Part2: 1205930641
+        Part3: 3305750925
+        Part4: 2939890463
       Name: Lurk
       Strategy: {fileID: 11400000, guid: edaf89434e07276428476fefea50bdbd, type: 2}
       Settings:
-        rid: 2975720683592483305
+        rid: 2975720775853801713
       Preconditions: []
       Effects:
       - Belief:
-          rid: 2975720683592483306
+          rid: 2975720775853801714
         TargetValue: 1
       Cost: 5
       CostModifiers: []
@@ -50,24 +50,24 @@ MonoBehaviour:
         width: 0
         height: 0
     - InstanceId:
-        Part1: 449546150
-        Part2: 1229335269
-        Part3: 2720226719
-        Part4: 3850890648
+        Part1: 3340795503
+        Part2: 1182978138
+        Part3: 2727468958
+        Part4: 398258525
       Name: Spring
       Strategy: {fileID: 11400000, guid: 808208799ffd2874faf571fa8685c8cf, type: 2}
       Settings:
-        rid: 2975720683592483307
+        rid: 2975720775853801715
       Preconditions:
       - Belief:
-          rid: 2975720683592483308
+          rid: 2975720775853801716
         TargetValue: 1
       - Belief:
-          rid: 2975720683592483309
+          rid: 2975720775853801717
         TargetValue: 1
       Effects:
       - Belief:
-          rid: 2975720683592483310
+          rid: 2975720775853801718
         TargetValue: 1
       Cost: 1
       CostModifiers: []
@@ -80,26 +80,26 @@ MonoBehaviour:
         height: 0
     Goals:
     - InstanceId:
-        Part1: 1264194260
-        Part2: 1203749771
-        Part3: 4267427518
-        Part4: 465915304
+        Part1: 2494522775
+        Part2: 1307612158
+        Part3: 886172056
+        Part4: 785266252
       Name: StrikeTarget
       Priority: 10
       PriorityModifiers: []
       DesiredState:
       - Belief:
-          rid: 2975720683592483310
+          rid: 2975720775853801718
         TargetValue: 1
       ValidityConditions:
       - Belief:
-          rid: 2975720683592483311
+          rid: 2975720775853801719
         TargetValue: 1
       - Belief:
-          rid: 2975720683592483308
+          rid: 2975720775853801716
         TargetValue: 1
       - Belief:
-          rid: 2975720683592483309
+          rid: 2975720775853801717
         TargetValue: 1
       TransitionToStateId:
         Part1: 0
@@ -107,16 +107,16 @@ MonoBehaviour:
         Part3: 0
         Part4: 0
     - InstanceId:
-        Part1: 3598005415
-        Part2: 1327929469
-        Part3: 1770921906
-        Part4: 2315038305
+        Part1: 3822607176
+        Part2: 1090675999
+        Part3: 4215726523
+        Part4: 1826222445
       Name: Wander
       Priority: 1
       PriorityModifiers: []
       DesiredState:
       - Belief:
-          rid: 2975720683592483306
+          rid: 2975720775853801714
         TargetValue: 1
       ValidityConditions: []
       TransitionToStateId:
@@ -126,68 +126,68 @@ MonoBehaviour:
         Part4: 0
     Beliefs:
     - InstanceId:
-        Part1: 1132758593
-        Part2: 1184744968
-        Part3: 2689657017
-        Part4: 494536117
+        Part1: 3957948592
+        Part2: 1241667334
+        Part3: 2728198586
+        Part4: 2027661547
       name: SeesTarget
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483312
+        rid: 2975720775853801720
     - InstanceId:
-        Part1: 2570774904
-        Part2: 1250088556
-        Part3: 3742408323
-        Part4: 1563329216
+        Part1: 2630635459
+        Part2: 1134782434
+        Part3: 729165701
+        Part4: 1769676748
       name: HasTarget
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483313
+        rid: 2975720775853801721
     - InstanceId:
-        Part1: 2663856057
-        Part2: 1227211008
-        Part3: 4108947076
-        Part4: 220485694
+        Part1: 2344525367
+        Part2: 1321669539
+        Part3: 3816788384
+        Part4: 400324481
       name: WithinReach
       BeliefSO: {fileID: 11400000, guid: ce22136d5966b6543b3fe765c9f60d19, type: 2}
       DefaultSettings:
-        rid: 2975720683592483314
+        rid: 2975720775853801722
     - InstanceId:
-        Part1: 3704990395
-        Part2: 1248050762
-        Part3: 2881397888
-        Part4: 475795845
+        Part1: 2265833863
+        Part2: 1090633600
+        Part3: 3487687816
+        Part4: 931559652
       name: TargetStruck
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483315
+        rid: 2975720775853801723
     - InstanceId:
-        Part1: 3336883398
-        Part2: 1213918814
-        Part3: 758013114
-        Part4: 1283735400
+        Part1: 1184056288
+        Part2: 1269801071
+        Part3: 2943292305
+        Part4: 2472332764
       name: Patrolling
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483316
+        rid: 2975720775853801724
     - InstanceId:
-        Part1: 1697268797
-        Part2: 1316449110
-        Part3: 1343545229
-        Part4: 2780490502
+        Part1: 1141048204
+        Part2: 1097252832
+        Part3: 3837034641
+        Part4: 4021797104
       name: Rammed
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483317
+        rid: 2975720775853801725
     - InstanceId:
-        Part1: 1584542185
-        Part2: 1261452899
-        Part3: 635957403
-        Part4: 2510300079
+        Part1: 3700784971
+        Part2: 1231992616
+        Part3: 3673109401
+        Part4: 1214428551
       name: HasAttackToken
       BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
       DefaultSettings:
-        rid: 2975720683592483318
+        rid: 2975720775853801726
     RequiredBeliefs: []
     GraphVisualData: 
   Sensors:
@@ -200,10 +200,10 @@ MonoBehaviour:
   - Name: HasTarget
     Type: 0
     KeyId:
-      Part1: 3014115210
-      Part2: 1211597641
-      Part3: 2928442496
-      Part4: 4215535962
+      Part1: 980303159
+      Part2: 1217166502
+      Part3: 612571535
+      Part4: 1430146265
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -217,10 +217,10 @@ MonoBehaviour:
   - Name: CanSeeTarget
     Type: 0
     KeyId:
-      Part1: 2549429896
-      Part2: 1230416317
-      Part3: 3917626254
-      Part4: 4275435501
+      Part1: 588936569
+      Part2: 1278480101
+      Part3: 3883942560
+      Part4: 266198805
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -234,10 +234,10 @@ MonoBehaviour:
   - Name: TargetDistanceX
     Type: 1
     KeyId:
-      Part1: 1426717196
-      Part2: 1276467894
-      Part3: 1002030225
-      Part4: 2902475907
+      Part1: 1757583449
+      Part2: 1319629483
+      Part3: 1247206074
+      Part4: 1320927083
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -251,10 +251,10 @@ MonoBehaviour:
   - Name: BlockedAhead
     Type: 0
     KeyId:
-      Part1: 344597438
-      Part2: 1092556783
-      Part3: 1458005436
-      Part4: 3573740135
+      Part1: 3107380589
+      Part2: 1328540552
+      Part3: 3493476787
+      Part4: 1321739892
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -268,10 +268,10 @@ MonoBehaviour:
   - Name: HasAttackToken
     Type: 0
     KeyId:
-      Part1: 1682456780
-      Part2: 1248967333
-      Part3: 3657160321
-      Part4: 2322060935
+      Part1: 1839754738
+      Part2: 1257699065
+      Part3: 3773890464
+      Part4: 449388795
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -285,10 +285,10 @@ MonoBehaviour:
   - Name: TargetDirection
     Type: 3
     KeyId:
-      Part1: 1408468297
-      Part2: 1229853473
-      Part3: 99925122
-      Part4: 208067768
+      Part1: 3703216532
+      Part2: 1141421882
+      Part3: 2098092692
+      Part4: 1656336481
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -302,10 +302,10 @@ MonoBehaviour:
   - Name: TargetStruck
     Type: 0
     KeyId:
-      Part1: 1778954276
-      Part2: 1261244703
-      Part3: 457646497
-      Part4: 2275386734
+      Part1: 2481728440
+      Part2: 1282987148
+      Part3: 4155060392
+      Part4: 3904247634
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -319,10 +319,10 @@ MonoBehaviour:
   - Name: Rammed
     Type: 0
     KeyId:
-      Part1: 598599799
-      Part2: 1078317750
-      Part3: 4045620903
-      Part4: 3673792201
+      Part1: 2471866007
+      Part2: 1092399885
+      Part3: 1475991472
+      Part4: 468109531
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -336,10 +336,10 @@ MonoBehaviour:
   - Name: Patrolling
     Type: 0
     KeyId:
-      Part1: 1861188171
-      Part2: 1163795421
-      Part3: 103406742
-      Part4: 971378920
+      Part1: 1871210539
+      Part2: 1241529756
+      Part3: 2588533137
+      Part4: 887936341
     Description: 
     IsTemporalKey: 0
     TemporalDuration: 5
@@ -353,158 +353,158 @@ MonoBehaviour:
   _keyManifest:
   - Slot: {fileID: 11400000, guid: a43d8d00dd621ab41accd7721efc87bd, type: 2}
     KeyId:
-      Part1: 3014115210
-      Part2: 1211597641
-      Part3: 2928442496
-      Part4: 4215535962
+      Part1: 980303159
+      Part2: 1217166502
+      Part3: 612571535
+      Part4: 1430146265
   - Slot: {fileID: 11400000, guid: c8ad09ba0b97b1843bf957440d311e83, type: 2}
     KeyId:
-      Part1: 2549429896
-      Part2: 1230416317
-      Part3: 3917626254
-      Part4: 4275435501
+      Part1: 588936569
+      Part2: 1278480101
+      Part3: 3883942560
+      Part4: 266198805
   - Slot: {fileID: 11400000, guid: 7f46c9d9eff6d8049b6515f5e8014df5, type: 2}
     KeyId:
-      Part1: 1426717196
-      Part2: 1276467894
-      Part3: 1002030225
-      Part4: 2902475907
+      Part1: 1757583449
+      Part2: 1319629483
+      Part3: 1247206074
+      Part4: 1320927083
   - Slot: {fileID: 11400000, guid: 2b7e5c407598edb41956a2518d93a44d, type: 2}
     KeyId:
-      Part1: 344597438
-      Part2: 1092556783
-      Part3: 1458005436
-      Part4: 3573740135
+      Part1: 3107380589
+      Part2: 1328540552
+      Part3: 3493476787
+      Part4: 1321739892
   - Slot: {fileID: 11400000, guid: 06f2869bb1313f54eaa3278db751797e, type: 2}
     KeyId:
-      Part1: 1682456780
-      Part2: 1248967333
-      Part3: 3657160321
-      Part4: 2322060935
+      Part1: 1839754738
+      Part2: 1257699065
+      Part3: 3773890464
+      Part4: 449388795
   - Slot: {fileID: 11400000, guid: ed508bbfff8db1143bf8b57929d19dfe, type: 2}
     KeyId:
-      Part1: 1408468297
-      Part2: 1229853473
-      Part3: 99925122
-      Part4: 208067768
+      Part1: 3703216532
+      Part2: 1141421882
+      Part3: 2098092692
+      Part4: 1656336481
   - Slot: {fileID: 11400000, guid: b44569a09bd9d754f97aea19f895f3b8, type: 2}
     KeyId:
-      Part1: 1778954276
-      Part2: 1261244703
-      Part3: 457646497
-      Part4: 2275386734
+      Part1: 2481728440
+      Part2: 1282987148
+      Part3: 4155060392
+      Part4: 3904247634
   - Slot: {fileID: 11400000, guid: 2c15baeace32bf643909001013b049b2, type: 2}
     KeyId:
-      Part1: 598599799
-      Part2: 1078317750
-      Part3: 4045620903
-      Part4: 3673792201
+      Part1: 2471866007
+      Part2: 1092399885
+      Part3: 1475991472
+      Part4: 468109531
   - Slot: {fileID: 11400000, guid: 06d76578ed868db4bafc5fbf172cff9e, type: 2}
     KeyId:
-      Part1: 1861188171
-      Part2: 1163795421
-      Part3: 103406742
-      Part4: 971378920
+      Part1: 1871210539
+      Part2: 1241529756
+      Part3: 2588533137
+      Part4: 887936341
   NeuralGraphVisualData: 
   FsmGraphVisualData: 
   references:
     version: 2
     RefIds:
-    - rid: 2975720683592483305
+    - rid: 2975720775853801713
       type: {class: LurkSettings, ns: Rokkan.Prophecy.Goap, asm: Rokkan.Prophecy.Goap}
       data:
         WatchTarget: 1
-    - rid: 2975720683592483306
+    - rid: 2975720775853801714
       type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         InstanceId:
-          Part1: 3336883398
-          Part2: 1213918814
-          Part3: 758013114
-          Part4: 1283735400
+          Part1: 1184056288
+          Part2: 1269801071
+          Part3: 2943292305
+          Part4: 2472332764
         name: Patrolling
         BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
         DefaultSettings:
-          rid: 2975720683592483316
-    - rid: 2975720683592483307
+          rid: 2975720775853801724
+    - rid: 2975720775853801715
       type: {class: SpringSettings, ns: Rokkan.Prophecy.Goap, asm: Rokkan.Prophecy.Goap}
       data:
         LungeTicks: 20
         Leap: 1
-    - rid: 2975720683592483308
+    - rid: 2975720775853801716
       type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         InstanceId:
-          Part1: 1132758593
-          Part2: 1184744968
-          Part3: 2689657017
-          Part4: 494536117
+          Part1: 3957948592
+          Part2: 1241667334
+          Part3: 2728198586
+          Part4: 2027661547
         name: SeesTarget
         BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
         DefaultSettings:
-          rid: 2975720683592483312
-    - rid: 2975720683592483309
+          rid: 2975720775853801720
+    - rid: 2975720775853801717
       type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         InstanceId:
-          Part1: 4122773011
-          Part2: 1171545560
-          Part3: 1251588282
-          Part4: 2469700593
+          Part1: 36733246
+          Part2: 1148087037
+          Part3: 3039812000
+          Part4: 1028777632
         name: WithinSpringRange
         BeliefSO: {fileID: 11400000, guid: ce22136d5966b6543b3fe765c9f60d19, type: 2}
         DefaultSettings:
-          rid: 2975720683592483319
-    - rid: 2975720683592483310
+          rid: 2975720775853801727
+    - rid: 2975720775853801718
       type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         InstanceId:
-          Part1: 3704990395
-          Part2: 1248050762
-          Part3: 2881397888
-          Part4: 475795845
+          Part1: 2265833863
+          Part2: 1090633600
+          Part3: 3487687816
+          Part4: 931559652
         name: TargetStruck
         BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
         DefaultSettings:
-          rid: 2975720683592483315
-    - rid: 2975720683592483311
+          rid: 2975720775853801723
+    - rid: 2975720775853801719
       type: {class: GoapBeliefInstance, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         InstanceId:
-          Part1: 2570774904
-          Part2: 1250088556
-          Part3: 3742408323
-          Part4: 1563329216
+          Part1: 2630635459
+          Part2: 1134782434
+          Part3: 729165701
+          Part4: 1769676748
         name: HasTarget
         BeliefSO: {fileID: 11400000, guid: 21cd17e21d642214ea29e2c2077e0d4e, type: 2}
         DefaultSettings:
-          rid: 2975720683592483313
-    - rid: 2975720683592483312
+          rid: 2975720775853801721
+    - rid: 2975720775853801720
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 2549429896
-          Part2: 1230416317
-          Part3: 3917626254
-          Part4: 4275435501
+          Part1: 588936569
+          Part2: 1278480101
+          Part3: 3883942560
+          Part4: 266198805
         Invert: 0
-    - rid: 2975720683592483313
+    - rid: 2975720775853801721
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 3014115210
-          Part2: 1211597641
-          Part3: 2928442496
-          Part4: 4215535962
+          Part1: 980303159
+          Part2: 1217166502
+          Part3: 612571535
+          Part4: 1430146265
         Invert: 0
-    - rid: 2975720683592483314
+    - rid: 2975720775853801722
       type: {class: SimpleCompareSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 1426717196
-          Part2: 1276467894
-          Part3: 1002030225
-          Part4: 2902475907
+          Part1: 1757583449
+          Part2: 1319629483
+          Part3: 1247206074
+          Part4: 1320927083
         OtherKeyId:
           Part1: 0
           Part2: 0
@@ -512,51 +512,51 @@ MonoBehaviour:
           Part4: 0
         Comparison: 4
         UseConstantValue: 1
-        ConstantValue: 1.4
-    - rid: 2975720683592483315
+        ConstantValue: 1.25
+    - rid: 2975720775853801723
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 1778954276
-          Part2: 1261244703
-          Part3: 457646497
-          Part4: 2275386734
+          Part1: 2481728440
+          Part2: 1282987148
+          Part3: 4155060392
+          Part4: 3904247634
         Invert: 0
-    - rid: 2975720683592483316
+    - rid: 2975720775853801724
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 1861188171
-          Part2: 1163795421
-          Part3: 103406742
-          Part4: 971378920
+          Part1: 1871210539
+          Part2: 1241529756
+          Part3: 2588533137
+          Part4: 887936341
         Invert: 0
-    - rid: 2975720683592483317
+    - rid: 2975720775853801725
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 598599799
-          Part2: 1078317750
-          Part3: 4045620903
-          Part4: 3673792201
+          Part1: 2471866007
+          Part2: 1092399885
+          Part3: 1475991472
+          Part4: 468109531
         Invert: 0
-    - rid: 2975720683592483318
+    - rid: 2975720775853801726
       type: {class: BoolCheckSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 1682456780
-          Part2: 1248967333
-          Part3: 3657160321
-          Part4: 2322060935
+          Part1: 1839754738
+          Part2: 1257699065
+          Part3: 3773890464
+          Part4: 449388795
         Invert: 0
-    - rid: 2975720683592483319
+    - rid: 2975720775853801727
       type: {class: SimpleCompareSettings, ns: RGS.GOAP.Core, asm: RGS.GOAP.Core}
       data:
         TargetKeyId:
-          Part1: 1426717196
-          Part2: 1276467894
-          Part3: 1002030225
-          Part4: 2902475907
+          Part1: 1757583449
+          Part2: 1319629483
+          Part3: 1247206074
+          Part4: 1320927083
         OtherKeyId:
           Part1: 0
           Part2: 0
